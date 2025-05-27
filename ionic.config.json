@@ -1,0 +1,7 @@
+{
+  "name": "UniMap",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "angular"
+}
