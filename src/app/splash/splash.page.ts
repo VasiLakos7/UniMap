@@ -12,22 +12,23 @@ import { AlertController } from '@ionic/angular';
 export class SplashPage {
   constructor(private router: Router, private alertCtrl: AlertController) {}
 
-  async ionViewDidEnter() {
+  async getLocationAndGo() {
     try {
-      // Ζήτα άδεια
-      const perm = await Geolocation.requestPermissions();
-      if (perm.location === 'granted') {
-        // Πάρε τοποθεσία
-        const position = await Geolocation.getCurrentPosition();
-        console.log('Current position:', position.coords.latitude, position.coords.longitude);
+      const position = await Geolocation.getCurrentPosition();
+      const coords = position.coords;
 
-        // Αποθήκευσε την τοποθεσία ή στείλε στην αρχική
-        this.router.navigateByUrl('/home');
-      } else {
-        await this.showAlert('Άδεια Απαραίτητη', 'Χρειάζεται άδεια τοποθεσίας για να συνεχίσετε.');
-      }
+      console.log('📍 Position:', coords);
+
+      // Αν θες να περάσουμε τη θέση στο home:
+      this.router.navigate(['/home'], {
+        state: {
+          lat: coords.latitude,
+          lng: coords.longitude
+        }
+      });
+
     } catch (error) {
-      console.error('Geolocation error:', error);
+      console.error('❌ Geolocation error:', error);
       await this.showAlert('Σφάλμα', 'Δεν ήταν δυνατή η ανάκτηση τοποθεσίας.');
     }
   }
@@ -36,7 +37,7 @@ export class SplashPage {
     const alert = await this.alertCtrl.create({
       header,
       message,
-      buttons: ['ΟΚ']
+      buttons: ['OK']
     });
     await alert.present();
   }

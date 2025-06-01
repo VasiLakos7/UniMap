@@ -1,7 +1,12 @@
-<ion-content class="ion-padding splash-screen" fullscreen>
-  <div id="container">
-    <h1>Καλώς ήρθες στο UniMap 👋</h1>
-    <p>Ο έξυπνος τρόπος να βρεις το δρόμο σου στο ΔΙΠΑΕ!</p>
-    <ion-spinner name="crescent" color="light"></ion-spinner>
+<ion-content fullscreen class="splash-screen">
+  <div class="content-wrapper">
+    <div class="message-box">
+      <h1>Καλώς ήρθες στο UniMap 👋</h1>
+      <p>Ο έξυπνος τρόπος να βρεις το δρόμο σου στο ΔΙΠΑΕ!</p>
+    </div>
+
+    <ion-button expand="block" class="start-button" (click)="getLocationAndGo()">
+      ΦΥΓΑΜΕ! 🚀
+    </ion-button>
   </div>
 </ion-content>

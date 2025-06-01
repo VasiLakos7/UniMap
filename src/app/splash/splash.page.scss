@@ -1,30 +1,54 @@
 .splash-screen {
+  --background: linear-gradient(to bottom right, #0d47a1, #1976d2);
   display: flex;
-  justify-content: center;
   align-items: center;
-  text-align: center;
-  height: 100%;
-  background: linear-gradient(to bottom right, #1a237e, #283593);
-  color: white;
-  padding: 16px;
+  justify-content: center;
 }
 
-#container {
-  background-color: rgba(0, 0, 0, 0.5);
-  padding: 24px;
+.content-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  height: 100vh;
+  width: 100%;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.message-box {
+  background-color: rgba(255, 255, 255, 0.9); // καθαρότερο από γκρι
+  padding: 30px;
   border-radius: 20px;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
   width: 100%;
   max-width: 400px;
-  margin: 0 auto;
+  margin-bottom: 25px;
+  text-align: center;
+  color: #333;
 }
 
-h1 {
-  font-size: 22px;
+.message-box h1 {
+  font-size: 24px;
+  color: #0d47a1;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.message-box p {
+  font-size: 16px;
+  color: #444;
+  margin: 0;
+}
+
+.start-button {
+  --background: #ff9800;
+  --color: #fff;
+  --border-radius: 30px;
   font-weight: bold;
-  margin-bottom: 12px;
-}
-
-p {
-  font-size: 16px
+  font-size: 16px;
+  width: 100%;
+  max-width: 300px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
