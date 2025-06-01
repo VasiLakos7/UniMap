@@ -10,4 +10,6 @@ import { Geolocation } from '@capacitor/geolocation';
   } catch (error) {
     console.error('❌ Geolocation Error:', error);
   }
+
 })();
+

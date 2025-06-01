@@ -1,1 +1,39 @@
-<div id="map" style="height: 100vh;"></div>
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-title>UniMap</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+
+  <!-- Search bar -->
+  <div class="search-bar-container">
+    <ion-searchbar
+      placeholder="Προορισμός..."
+      [(ngModel)]="searchQuery"
+      (ionInput)="onSearchInput()"
+      showClearButton="focus">
+    </ion-searchbar>
+    <ion-icon name="search" class="search-icon"></ion-icon>
+  </div>
+
+  <!-- Search results -->
+  <ion-list *ngIf="filteredResults.length" class="results-list">
+    <ion-item *ngFor="let result of filteredResults" (click)="selectDestination(result)">
+      {{ result }}
+    </ion-item>
+  </ion-list>
+
+  <!-- Map -->
+  <div id="map"></div>
+
+  <!-- Navigation panel like Waze -->
+  <div class="destination-panel" *ngIf="currentDestination">
+    <div class="panel-header">
+      <h3>{{ currentDestination.name }}</h3>
+      <p>📍 Απόσταση: {{ distanceInMeters }} μέτρα</p>
+    </div>
+    <ion-button expand="block" color="success" (click)="startNavigation()">Ξεκίνα</ion-button>
+  </div>
+
+</ion-content>
