@@ -5,7 +5,6 @@
 </ion-header>
 
 <ion-content>
-
   <!-- Search bar -->
   <div class="search-bar-container">
     <ion-searchbar
@@ -24,16 +23,13 @@
     </ion-item>
   </ion-list>
 
-  <!-- Map -->
+  <!-- Map container -->
   <div id="map"></div>
 
-  <!-- Navigation panel like Waze -->
+  <!-- Navigation panel -->
   <div class="destination-panel" *ngIf="currentDestination">
-    <div class="panel-header">
-      <h3>{{ currentDestination.name }}</h3>
-      <p>📍 Απόσταση: {{ distanceInMeters }} μέτρα</p>
-    </div>
-    <ion-button expand="block" color="success" (click)="startNavigation()">Ξεκίνα</ion-button>
+    <h4>{{ currentDestination.name }}</h4>
+    <p>📍 Απόσταση: {{ distanceInMeters }} μέτρα</p>
+    <ion-button size="small" color="success" (click)="startNavigation()">Ξεκίνα</ion-button>
   </div>
-
 </ion-content>

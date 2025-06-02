@@ -10,27 +10,25 @@ import { FormsModule } from '@angular/forms';
   selector: 'app-home',
   templateUrl: './home.page.html',
   styleUrls: ['./home.page.scss'],
-  imports: [IonicModule, CommonModule, FormsModule],
+  imports: [IonicModule, CommonModule, FormsModule]
 })
 export class HomePage implements OnInit {
   map: any;
   userLat = 40.657230;
   userLng = 22.804656;
-
   searchQuery = '';
   filteredResults: string[] = [];
-  distanceInMeters: number | null = null;
+  currentDestination: { name: string, lat: number, lng: number } | null = null;
+  destinationMarker: any;
+  distanceInMeters: number = 0;
+  routeLayer: any;
 
-  destinationList: { name: string, lat: number, lng: number }[] = [
+  destinationList = [
     { name: 'Τμήμα Νοσηλευτικής', lat: 40.6575, lng: 22.8052 },
     { name: 'Τμήμα Μαιευτικής', lat: 40.6579, lng: 22.8041 },
     { name: 'Τμήμα Ηλεκτρονικών', lat: 40.6568, lng: 22.8035 },
-    { name: 'Κεντρική Πύλη', lat: 40.6564, lng: 22.8028 },
-    { name: 'Βιβλιοθήκη', lat: 40.6581, lng: 22.8049 },
+    { name: 'Κεντρική Πύλη', lat: 40.6564, lng: 22.8028 }
   ];
-
-  routeLayer: any;
-  currentDestination: { name: string; lat: number; lng: number } | null = null;
 
   constructor(private router: Router, private alertCtrl: AlertController) {}
 
@@ -47,10 +45,11 @@ export class HomePage implements OnInit {
   }
 
   loadMap() {
-    this.map = L.map('map').setView([this.userLat, this.userLng], 17);
+    this.map = L.map('map', { zoomControl: true }).setView([this.userLat, this.userLng], 18);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors',
+      maxZoom: 22
     }).addTo(this.map);
 
     const userIcon = L.icon({
@@ -64,79 +63,54 @@ export class HomePage implements OnInit {
       .addTo(this.map)
       .bindPopup('Η θέση σου 📍')
       .openPopup();
+
+    this.map.on('click', (e: L.LeafletMouseEvent) => {
+      this.setDestination('Επιλογή Χάρτη', e.latlng.lat, e.latlng.lng);
+    });
   }
 
   onSearchInput() {
-    const query = this.searchQuery.toLowerCase();
+    const normalize = (str: string) =>
+      str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+    const query = normalize(this.searchQuery);
     this.filteredResults = this.destinationList
-      .filter((dest) => dest.name.toLowerCase().includes(query))
-      .map((dest) => dest.name);
+      .filter(d => normalize(d.name).includes(query))
+      .map(d => d.name);
   }
 
-  selectDestination(destName: string) {
-    const dest = this.destinationList.find((d) => d.name === destName);
-    if (!dest) return;
-
-    this.currentDestination = dest;
-
-    // Υπολογισμός ευθείας απόστασης
-    this.distanceInMeters = this.calculateDistance(
-      this.userLat,
-      this.userLng,
-      dest.lat,
-      dest.lng
+  selectDestination(name: string) {
+    const dest = this.destinationList.find(d =>
+      d.name.toLowerCase() === name.toLowerCase()
     );
-
-    // Εμφάνιση μαρκαδόρου
-    const icon = L.icon({
-      iconUrl: 'assets/destination-pin.png',
-      iconSize: [30, 30],
-      iconAnchor: [15, 30],
-    });
-
-    L.marker([dest.lat, dest.lng], { icon })
-      .addTo(this.map)
-      .bindPopup(`Προορισμός: ${dest.name}`)
-      .openPopup();
-
-    const bounds = L.latLngBounds([
-      [this.userLat, this.userLng],
-      [dest.lat, dest.lng],
-    ]);
-    this.map.fitBounds(bounds, { padding: [50, 50] });
-
+    if (!dest) return;
+    this.setDestination(dest.name, dest.lat, dest.lng);
     this.filteredResults = [];
     this.searchQuery = dest.name;
   }
 
-  calculateDistance(
-    lat1: number,
-    lng1: number,
-    lat2: number,
-    lng2: number
-  ): number {
-    const R = 6371000; // σε μέτρα
-    const toRad = (deg: number) => deg * (Math.PI / 180);
+  setDestination(name: string, lat: number, lng: number) {
+    this.currentDestination = { name, lat, lng };
 
-    const dLat = toRad(lat2 - lat1);
-    const dLng = toRad(lng2 - lng1);
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos(toRad(lat1)) *
-        Math.cos(toRad(lat2)) *
-        Math.sin(dLng / 2) ** 2;
-
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return Math.round(R * c);
-  }
-
-  async startNavigation() {
-    const alert = await this.alertCtrl.create({
-      header: 'Έναρξη Πλοήγησης',
-      message: `Ξεκινά η πλοήγηση προς <strong>${this.currentDestination?.name}</strong>`,
-      buttons: ['ΟΚ'],
+    if (this.destinationMarker) this.map.removeLayer(this.destinationMarker);
+    const icon = L.icon({
+      iconUrl: 'assets/destination-pin.png',
+      iconSize: [35, 35],
+      iconAnchor: [17, 34],
     });
 
-    await alert.present();
+    this.destinationMarker = L.marker([lat, lng], { icon }).addTo(this.map)
+      .bindPopup(`Προορισμός: ${name}`)
+      .openPopup();
+
+    this.distanceInMeters = Math.round(this.map.distance(
+      [this.userLat, this.userLng],
+      [lat, lng]
+    ));
+  }
+
+  startNavigation() {
+    if (!this.currentDestination) return;
+    alert(`Ξεκινά η πλοήγηση προς ${this.currentDestination.name}`);
   }
 }
