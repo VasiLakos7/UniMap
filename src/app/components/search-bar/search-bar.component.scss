@@ -1,0 +1,37 @@
+.search-bar-container {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 500px;
+  z-index: 1000;
+  background: white;
+  border-radius: 8px;
+  padding: 0 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+ion-searchbar {
+  flex: 1;
+  --background: transparent;
+  --box-shadow: none;
+  --clear-button-color: black;
+  margin: 0;
+  --padding-start: 0;
+}
+
+.results-list {
+  position: absolute;
+  top: 66px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 500px;
+  z-index: 1000;
+  background: white;
+  border-radius: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}

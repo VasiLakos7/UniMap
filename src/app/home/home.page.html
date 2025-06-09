@@ -5,31 +5,14 @@
 </ion-header>
 
 <ion-content>
-  <!-- Search bar -->
-  <div class="search-bar-container">
-    <ion-searchbar
-      placeholder="Προορισμός..."
-      [(ngModel)]="searchQuery"
-      (ionInput)="onSearchInput()"
-      showClearButton="focus">
-    </ion-searchbar>
-    <ion-icon name="search" class="search-icon"></ion-icon>
-  </div>
+  <app-search-bar (destinationSelected)="onDestinationSelected($event)"></app-search-bar>
 
-  <!-- Search results -->
-  <ion-list *ngIf="filteredResults.length" class="results-list">
-    <ion-item *ngFor="let result of filteredResults" (click)="selectDestination(result)">
-      {{ result }}
-    </ion-item>
-  </ion-list>
-
-  <!-- Map container -->
   <div id="map"></div>
 
-  <!-- Navigation panel -->
-  <div class="destination-panel" *ngIf="currentDestination">
-    <h4>{{ currentDestination.name }}</h4>
-    <p>📍 Απόσταση: {{ distanceInMeters }} μέτρα</p>
-    <ion-button size="small" color="success" (click)="startNavigation()">Ξεκίνα</ion-button>
-  </div>
+  <app-destination-panel
+    *ngIf="currentDestination"
+    [name]="currentDestination.name"
+    [distance]="distanceInMeters"
+    (navigate)="startNavigation()">
+  </app-destination-panel>
 </ion-content>

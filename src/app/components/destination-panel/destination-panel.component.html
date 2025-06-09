@@ -1,0 +1,9 @@
+<div class="destination-panel">
+  <div class="panel-header">
+    <h3>{{ name }}</h3>
+    <p>📍 Απόσταση: {{ distance | number:'1.0-0' }} μέτρα</p>
+  </div>
+  <ion-button size="small" color="success" expand="block" (click)="navigate.emit()">
+    Ξεκίνα
+  </ion-button>
+</div>
