@@ -8,6 +8,8 @@ import { RoutingService } from '../services/routing.service';
 import { Destination } from '../models/destination.model';
 import { SearchBarComponent } from '../components/search-bar/search-bar.component';
 import { DestinationPanelComponent } from '../components/destination-panel/destination-panel.component';
+import { destinationList } from '../models/destination.model';
+
 
 @Component({
   standalone: true,
@@ -32,83 +34,9 @@ export class HomePage implements OnInit {
 
   currentDestination: Destination | null = null;
 
-  destinationList: Destination[] = [
-    {
-      name: 'Τμήμα Μαιευτικής',
-      lat: 40.6579, lng: 22.8041,
-      bounds: { north: 40.65812, south: 40.65760, east: 22.80500, west: 22.80420 }
-    },
-    {
-      name: 'Τμήμα Νοσηλευτικής',
-      lat: 40.6575, lng: 22.8052,
-      bounds: { north: 40.65790, south: 40.65730, east: 22.80420, west: 22.80340 }
-    },
-    {
-      name: 'Τμήμα Διατροφής και Διαιτολογίας',
-      lat: 40.6579, lng: 22.8035,
-      bounds: { north: 40.65810, south: 40.65770, east: 22.80380, west: 22.80320 }
-    },
-    {
-      name: 'Τμήμα Ζωικής Παραγωγής',
-      lat: 40.6582, lng: 22.8037,
-      bounds: { north: 40.65835, south: 40.65805, east: 22.80390, west: 22.80350 }
-    },
-    {
-      name: 'Τμήμα Επιστήμης και Τεχνολογίας Τροφίμων',
-      lat: 40.6567, lng: 22.7997,
-      bounds: { north: 40.65700, south: 40.65650, east: 22.80000, west: 22.79930 }
-    },
-    {
-      name: 'Τμήμα Μηχανικών Παραγωγής και Διοίκησης',
-      lat: 40.6583, lng: 22.8007,
-      bounds: { north: 40.65850, south: 40.65810, east: 22.80100, west: 22.80020 }
-    },
-    {
-      name: 'Παράρτημα Οχημάτων',
-      lat: 40.6563, lng: 22.7985,
-      bounds: { north: 40.65660, south: 40.65600, east: 22.79890, west: 22.79810 }
-    },
-    {
-      name: 'Κτήριο Ηλεκτρονικής',
-      lat: 40.6582, lng: 22.8073,
-      bounds: { north: 40.65845, south: 40.65800, east: 22.80760, west: 22.80700 }
-    },
-    {
-      name: 'ΣΔΟ',
-      lat: 40.65815, lng: 22.8025,
-      bounds: { north: 40.65825, south: 40.65805, east: 22.8027, west: 22.8023 }
-    },
-    {
-      name: 'Φοιτητικές Εστίες',
-      lat: 40.6580, lng: 22.8045,
-      bounds: { north: 40.65830, south: 40.65780, east: 22.80470, west: 22.80420 }
-    },
-    {
-      name: 'Βιβλιοθήκη',
-      lat: 40.6573, lng: 22.8012,
-      bounds: { north: 40.65745, south: 40.65715, east: 22.8015, west: 22.8009 }
-    },
-    {
-      name: 'Τμήμα Μηχανικών Πληροφορικής (Κτήριο Π)',
-      lat: 40.6578, lng: 22.8010,
-      bounds: { north: 40.65800, south: 40.65760, east: 22.80130, west: 22.80070 }
-    },
-    {
-      name: 'Κυλικείο',
-      lat: 40.6575, lng: 22.8016,
-      bounds: { north: 40.65765, south: 40.65740, east: 22.8018, west: 22.8014 }
-    },
-    {
-      name: 'Ιατρείο',
-      lat: 40.6569, lng: 22.8021,
-      bounds: { north: 40.65705, south: 40.65685, east: 22.8023, west: 22.8019 }
-    },
-    {
-      name: 'Διοίκηση',
-      lat: 40.6566, lng: 22.8031,
-      bounds: { north: 40.65675, south: 40.65650, east: 22.8033, west: 22.8029 }
-    }
-  ];
+  destinationList = destinationList;
+
+
 
   constructor(
     private router: Router,
@@ -147,29 +75,29 @@ export class HomePage implements OnInit {
       .bindPopup('Η θέση σου 📍')
       .openPopup();
 
+    // ✅ Ελεγχος click για bounds χωρίς να προσθέσουμε rectangle στο χάρτη
     this.map.on('click', (e: any) => {
       const latlng = e.latlng;
-      this.handleMapClick(latlng.lat, latlng.lng);
-    });
+      const clickedLat = latlng.lat;
+      const clickedLng = latlng.lng;
 
-    // ✅ Προσθήκη ορίων για τα τμήματα
-    this.destinationList.forEach(dest => {
-      if (dest.bounds) {
-        const b = dest.bounds;
-        const rectangle = L.rectangle([
-          [b.south, b.west],
-          [b.north, b.east]
-        ], {
-          color: 'orange',
-          weight: 2,
-          fillOpacity: 0.1
-        });
+      const found = this.destinationList.find((dest: Destination) =>
+ {
+  const b = dest.bounds;
+  if (!b) return false;
+  return (
+    clickedLat >= b.south &&
+    clickedLat <= b.north &&
+    clickedLng >= b.west &&
+    clickedLng <= b.east
+  );
+});
 
-        rectangle.addTo(this.map)
-          .bindPopup(dest.name)
-          .on('click', () => {
-            this.handleMapClick(dest.lat, dest.lng, dest.name);
-          });
+
+      if (found) {
+        this.handleMapClick(found.lat, found.lng, found.name);
+      } else {
+        this.handleMapClick(clickedLat, clickedLng);
       }
     });
   }
@@ -183,7 +111,7 @@ export class HomePage implements OnInit {
   }
 
   async selectDestination(name: string) {
-    const dest = this.destinationList.find(d => d.name === name);
+    const dest = this.destinationList.find((d: Destination) => d.name === name);
     if (!dest) return;
     this.handleMapClick(dest.lat, dest.lng, dest.name);
   }
