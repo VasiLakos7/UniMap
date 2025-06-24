@@ -5,18 +5,24 @@ import { AlertController, IonicModule } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RoutingService } from '../services/routing.service';
-import { Destination } from '../models/destination.model';
+import { Destination, destinationList } from '../models/destination.model';
 import { SearchBarComponent } from '../components/search-bar/search-bar.component';
 import { DestinationPanelComponent } from '../components/destination-panel/destination-panel.component';
-import { destinationList } from '../models/destination.model';
-
+import { DepartmentPopupComponent } from '../components/department-popup/department-popup.component';
 
 @Component({
   standalone: true,
   selector: 'app-home',
   templateUrl: './home.page.html',
   styleUrls: ['./home.page.scss'],
-  imports: [IonicModule, CommonModule, FormsModule, SearchBarComponent, DestinationPanelComponent],
+  imports: [
+    IonicModule,
+    CommonModule,
+    FormsModule,
+    SearchBarComponent,
+    DestinationPanelComponent,
+    DepartmentPopupComponent
+  ],
 })
 export class HomePage implements OnInit {
   map!: L.Map;
@@ -33,10 +39,9 @@ export class HomePage implements OnInit {
   distanceInMeters = 0;
 
   currentDestination: Destination | null = null;
+  showModal: boolean = false;
 
   destinationList = destinationList;
-
-
 
   constructor(
     private router: Router,
@@ -57,7 +62,7 @@ export class HomePage implements OnInit {
   }
 
   loadMap() {
-    this.map = L.map('map').setView([40.6572, 22.8046], 18);
+    this.map = L.map('map').setView([this.userLat, this.userLng], 18);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors'
@@ -75,24 +80,21 @@ export class HomePage implements OnInit {
       .bindPopup('Η θέση σου 📍')
       .openPopup();
 
-    // ✅ Ελεγχος click για bounds χωρίς να προσθέσουμε rectangle στο χάρτη
     this.map.on('click', (e: any) => {
       const latlng = e.latlng;
       const clickedLat = latlng.lat;
       const clickedLng = latlng.lng;
 
-      const found = this.destinationList.find((dest: Destination) =>
- {
-  const b = dest.bounds;
-  if (!b) return false;
-  return (
-    clickedLat >= b.south &&
-    clickedLat <= b.north &&
-    clickedLng >= b.west &&
-    clickedLng <= b.east
-  );
-});
-
+      const found = this.destinationList.find((dest: Destination) => {
+        const b = dest.bounds;
+        if (!b) return false;
+        return (
+          clickedLat >= b.south &&
+          clickedLat <= b.north &&
+          clickedLng >= b.west &&
+          clickedLng <= b.east
+        );
+      });
 
       if (found) {
         this.handleMapClick(found.lat, found.lng, found.name);
@@ -121,7 +123,8 @@ export class HomePage implements OnInit {
   }
 
   async handleMapClick(lat: number, lng: number, name: string = 'Επιλεγμένος προορισμός') {
-    this.currentDestination = { name, lat, lng };
+    const found = this.destinationList.find(d => d.name === name);
+    this.currentDestination = found ? found : { name, lat, lng };
 
     const from = L.latLng(this.userLat, this.userLng);
     const to = L.latLng(lat, lng);
@@ -162,6 +165,8 @@ export class HomePage implements OnInit {
       });
       await alert.present();
     }
+
+    this.showModal = true;
 
     await this.routingService.addRoute(this.map, startPoint, to);
   }

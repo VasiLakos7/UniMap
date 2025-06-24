@@ -9,10 +9,17 @@
 
   <div id="map"></div>
 
-  <app-destination-panel
+  <!-- <app-destination-panel
     *ngIf="currentDestination"
     [name]="currentDestination.name"
     [distance]="distanceInMeters"
     (navigate)="startNavigation()">
-  </app-destination-panel>
+  </app-destination-panel> -->
+  
+  <app-department-popup
+    *ngIf="showModal && currentDestination"
+    [destination]="currentDestination"
+    (navigate)="startNavigation()"
+    (close)="showModal = false">
+  </app-department-popup>
 </ion-content>

@@ -2,6 +2,9 @@ export interface Destination {
   name: string;
   lat: number;
   lng: number;
+  image?: string;
+  description?: string;
+  phone?: string;
   bounds?: {
     north: number;
     south: number;
@@ -10,12 +13,14 @@ export interface Destination {
   };
 }
 
-
 export const destinationList: Destination[] = [
   {
     name: 'Τμήμα Μαιευτικής',
     lat: 40.6574524,
     lng: 22.8058218,
+    image: 'assets/images/maieutiki.jpg',
+    description: 'Το Τμήμα Μαιευτικής προσφέρει υψηλού επιπέδου εκπαίδευση στη φροντίδα της γυναίκας και του νεογνού.',
+    phone: '2310123450',
     bounds: {
       north: 40.65773663031656,
       south: 40.65716822341605,
@@ -27,6 +32,9 @@ export const destinationList: Destination[] = [
     name: 'Τμήμα Νοσηλευτικής',
     lat: 40.657477353074515,
     lng: 22.804638050453958,
+    image: 'assets/images/dipae_logo.png',
+    description: 'Εκπαίδευση και πρακτική στη φροντίδα υγείας και τη νοσηλευτική επιστήμη.',
+    phone: '2310123451',
     bounds: {
       north: 40.657764313250745,
       south: 40.657190392898286,
@@ -38,6 +46,9 @@ export const destinationList: Destination[] = [
     name: 'Τμήμα Διατροφής και Διαιτολογίας',
     lat: 40.65812125923696,
     lng: 22.804535601874716,
+    image: 'assets/images/diaitologia.jpg',
+    description: 'Ασχολείται με τη διατροφή, την υγιεινή και την πρόληψη παθήσεων μέσω της δίαιτας.',
+    phone: '2310123452',
     bounds: {
       north: 40.65830909808419,
       south: 40.65793439627186,
@@ -49,6 +60,9 @@ export const destinationList: Destination[] = [
     name: 'Τμήμα Ζωικής Παραγωγής',
     lat: 40.6582175,
     lng: 22.8037,
+    image: 'assets/images/dipae_logo.png',
+    description: 'Σπουδές στη διαχείριση ζωικών πόρων, παραγωγής και φροντίδας ζώων.',
+    phone: '2310123453',
     bounds: {
       north: 40.658563211461626,
       south: 40.658381873851155,
@@ -60,8 +74,11 @@ export const destinationList: Destination[] = [
     name: 'Τμήμα Επιστήμης και Τεχνολογίας Τροφίμων',
     lat: 40.6567,
     lng: 22.7997,
+    image: 'assets/images/texnologia_trofimwn.jpg',
+    description: 'Μελέτη της παραγωγής και ελέγχου ποιότητας τροφίμων.',
+    phone: '2310123454',
     bounds: {
-     north: 40.65612899440734,
+      north: 40.65612899440734,
       south: 40.65582919548413,
       east: 22.802542588081376,
       west: 22.80214341437482
@@ -71,6 +88,9 @@ export const destinationList: Destination[] = [
     name: 'Τμήμα Μηχανικών Παραγωγής και Διοίκησης',
     lat: 40.65650595466751,
     lng: 22.80311965195076,
+    image: 'assets/images/dipae_logo.png',
+    description: 'Σπουδές στη διοίκηση έργων, παραγωγής και τεχνολογικών υποδομών.',
+    phone: '2310123455',
     bounds: {
       north: 40.65659137509818,
       south: 40.656420534236844,
@@ -82,6 +102,9 @@ export const destinationList: Destination[] = [
     name: 'Τμήμα Μηχανικών Παραγωγής και Διοίκησης (Παράρτημα Οχημάτων)',
     lat: 40.655930817748655,
     lng: 22.804107604255066,
+    image: 'assets/images/dipae_logo.png',
+    description: 'Εξειδίκευση στη μελέτη και διαχείριση μηχανοκίνητων οχημάτων και παραγωγικών διαδικασιών.',
+    phone: '2310123456',
     bounds: {
       north: 40.65557450714685,
       south: 40.65524745099111,
@@ -89,21 +112,41 @@ export const destinationList: Destination[] = [
       west: 22.802956211957078
     },
   },
-
   {
-     name: 'Τμήμα Μηχανικών Πληροφορικής (Κτήριο Η)',
-      lat: 40.65545, lng: 22.8061,
-      bounds: {
-        north: 40.655744513978334,
-        south: 40.655155846219564,
-        east: 22.806469245292412,
-        west: 22.8056366998561
+    name: 'Τμήμα Μηχανικών Πληροφορικής (Κτήριο Η)',
+    lat: 40.65545,
+    lng: 22.8061,
+    image: 'assets/images/ilektronikis.jpg',
+    description: 'Καινοτόμα έρευνα και εφαρμογές στον τομέα της πληροφορικής.',
+    phone: '2310123457',
+    bounds: {
+      north: 40.655744513978334,
+      south: 40.655155846219564,
+      east: 22.806469245292412,
+      west: 22.8056366998561
+    },
+  },
+  {
+    name: 'Τμήμα Μηχανικών Πληροφορικής (Κτήριο Π)',
+    lat: 40.655989227,
+    lng: 22.804107604,
+    image: 'assets/images/Ktirio_pliroforikis.jpg',
+    description: 'Προγραμματισμός, τεχνητή νοημοσύνη και σύγχρονες υπολογιστικές τεχνολογίες.',
+    phone: '2310123458',
+    bounds: {
+      north: 40.65607925374713,
+      south: 40.65589920105018,
+      east: 22.8044453540746,
+      west: 22.803769854435533
     },
   },
   {
     name: 'Σχολή Οικονομίας και Διοίκησης (ΣΔΟ)',
     lat: 40.65655207949972,
     lng: 22.803737963642393,
+    image: 'assets/images/sdo.jpg',
+    description: 'Οργάνωση επιχειρήσεων, λογιστική, μάρκετινγκ και χρηματοοικονομικά.',
+    phone: '2310123459',
     bounds: {
       north: 40.65664190484502,
       south: 40.65646225415442,
@@ -112,20 +155,12 @@ export const destinationList: Destination[] = [
     },
   },
   {
-    name: 'Φοιτητικές Εστίες',
-    lat: 40.65807484993894,
-    lng: 22.804535601874716,
-    bounds: {
-      north: 40.658319121448585,
-      south: 40.65783057842929,
-      east: 22.8050747286739,
-      west: 22.803996475075532,
-    },
-  },
-  {
     name: 'Βιβλιοθήκη',
     lat: 40.6573,
     lng: 22.8012,
+    image: 'assets/images/dipae_logo.png',
+    description: 'Κεντρική βιβλιοθήκη του ΔΙΠΑΕ με πρόσβαση σε βιβλία και ακαδημαϊκές πηγές.',
+    phone: '2310123460',
     bounds: {
       north: 40.65745,
       south: 40.65715,
@@ -134,20 +169,26 @@ export const destinationList: Destination[] = [
     },
   },
   {
-    name: 'Τμήμα Μηχανικών Πληροφορικής (Κτήριο Π)',
-  lat: 40.655989227, // μέσος όρος μεταξύ north/south
-  lng: 22.804107604, // μέσος όρος μεταξύ east/west
-  bounds: {
-    north: 40.65607925374713,
-    south: 40.65589920105018,
-    east: 22.8044453540746,
-    west: 22.803769854435533
-  },
+    name: 'Φοιτητικές Εστίες',
+    lat: 40.65807484993894,
+    lng: 22.804535601874716,
+    image: 'assets/images/dipae_logo.png',
+    description: 'Κατοικίες για φοιτητές εντός της πανεπιστημιούπολης.',
+    phone: '2310123461',
+    bounds: {
+      north: 40.658319121448585,
+      south: 40.65783057842929,
+      east: 22.8050747286739,
+      west: 22.803996475075532,
+    },
   },
   {
     name: 'Κυλικείο',
     lat: 40.6575,
     lng: 22.8016,
+    image: 'assets/images/dipae_logo.png',
+    description: 'Καφές, σνακ και γεύματα για τους φοιτητές και προσωπικό.',
+    phone: '2310123462',
     bounds: {
       north: 40.65765,
       south: 40.65740,
@@ -159,6 +200,9 @@ export const destinationList: Destination[] = [
     name: 'Ιατρείο',
     lat: 40.6569,
     lng: 22.8021,
+    image: 'assets/images/dipae_logo.png',
+    description: 'Παροχή πρώτων βοηθειών και ιατρικής φροντίδας.',
+    phone: '2310123463',
     bounds: {
       north: 40.65705,
       south: 40.65685,
@@ -170,12 +214,14 @@ export const destinationList: Destination[] = [
     name: 'Διοίκηση',
     lat: 40.6566,
     lng: 22.8031,
+    image: 'assets/images/dipae_logo.png',
+    description: 'Κέντρο διοίκησης του πανεπιστημίου.',
+    phone: '2310123464',
     bounds: {
       north: 40.65675,
       south: 40.65650,
       east: 22.8033,
       west: 22.8029,
     },
-  },
+  }
 ];
-

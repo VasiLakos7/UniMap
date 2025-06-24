@@ -1,0 +1,19 @@
+<div class="popup-container">
+  <img [src]="getImage()" alt="Φωτογραφία" class="popup-image" />
+
+  <div class="popup-content">
+    <h2>{{ destination.name }}</h2>
+
+    <div class="popup-buttons">
+      <ion-button color="success" (click)="navigate.emit()">ΞΕΚΙΝΑ</ion-button>
+      <ion-button fill="outline" color="danger" (click)="callNumber()">
+        <ion-icon name="call-outline"></ion-icon>
+      </ion-button>
+      <ion-button fill="outline" (click)="shareLocation()">
+        <ion-icon name="share-outline"></ion-icon>
+      </ion-button>
+    </div>
+  </div>
+
+  <ion-icon class="close-icon" name="close" (click)="close.emit()"></ion-icon>
+</div>
