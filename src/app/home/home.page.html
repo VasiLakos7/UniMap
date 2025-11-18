@@ -1,21 +1,17 @@
-<ion-header>
+<ion-header translucent="true">
   <ion-toolbar color="primary">
     <ion-title>UniMap</ion-title>
   </ion-toolbar>
 </ion-header>
 
+
 <ion-content>
   <app-search-bar (destinationSelected)="onDestinationSelected($event)"></app-search-bar>
 
   <div id="map"></div>
-
-  <!-- <app-destination-panel
-    *ngIf="currentDestination"
-    [name]="currentDestination.name"
-    [distance]="distanceInMeters"
-    (navigate)="startNavigation()">
-  </app-destination-panel> -->
   
+  <div class="lock-screen" *ngIf="showLockOverlay"></div>
+
   <app-department-popup
     *ngIf="showModal && currentDestination"
     [destination]="currentDestination"

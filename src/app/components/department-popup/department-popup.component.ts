@@ -15,6 +15,8 @@ export class DepartmentPopupComponent {
   @Output() navigate = new EventEmitter<void>();
   @Output() close = new EventEmitter<void>();
 
+  shareMessage: string | null = null; 
+
   getImage(): string {
     return this.destination.image && this.destination.image.trim() !== ''
       ? this.destination.image
@@ -34,10 +36,17 @@ export class DepartmentPopupComponent {
 
   shareLocation(): void {
     const text = `Δες πού βρίσκεται το ${this.destination.name} στην Πανεπιστημιούπολη του ΔΙΠΑΕ!`;
+    const shareUrl = `https://maps.google.com/?q=${this.destination.lat},${this.destination.lng}`;
+    
     if (navigator.share) {
-      navigator.share({ title: 'UniMap', text });
+      navigator.share({
+        title: 'UniMap - Κοινοποίηση Προορισμού', 
+        text: text,
+        url: shareUrl
+      }).catch(error => console.error('Error sharing:', error));
     } else {
-      alert(text);
+      console.warn('Web Share API not supported. Please copy the text manually:', text);
+      this.shareMessage = `Αντιγραφή κειμένου: ${text} - URL: ${shareUrl}`; 
     }
   }
 }

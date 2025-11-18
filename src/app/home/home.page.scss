@@ -1,15 +1,39 @@
 ion-content {
-  --background: #f4f4f4;
-  height: 100%;
+  --background: transparent;
+  padding: 0;
+  margin: 0;
 }
 
+/* Ο χάρτης γεμίζει *όλο* το χώρο του ion-content (κάτω από το header) */
 #map {
-  height: 100vh;
+  position: relative;   /* ΟΧΙ absolute */
   width: 100%;
+  height: 100%;         /* ΟΧΙ 100vh */
   z-index: 0;
 }
 
-/* 🔥 Απόκρυψη του sidebar του leaflet-routing-machine */
+/* Search bar floating χωρίς να επηρεάζει το layout (δεν προκαλεί scroll) */
+app-search-bar {
+  position: fixed;      /* σταθερό στο viewport */
+  top: 64px;            /* λίγο κάτω από το header */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 500px;
+  z-index: 900;
+}
+
+/* Overlay */
+.lock-screen {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(100,100,100,.4);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  z-index: 1000;
+}
+
+/* Κρύψε τα routing controls αν εμφανίζονται */
 .leaflet-routing-container,
 .leaflet-control-container .leaflet-routing-container,
 .leaflet-routing-container-hide,
@@ -22,3 +46,6 @@ ion-content {
   padding: 0 !important;
   margin: 0 !important;
 }
+
+/* Προαιρετικά: φύλαξε gestures */
+.leaflet-container { touch-action: pan-x pan-y; }

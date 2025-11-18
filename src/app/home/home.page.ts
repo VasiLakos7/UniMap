@@ -1,14 +1,16 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
-import * as L from 'leaflet';
+import * as L from 'leaflet'; 
 import { AlertController, IonicModule } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RoutingService } from '../services/routing.service';
 import { Destination, destinationList } from '../models/destination.model';
+import { MapService } from '../services/map.service'; 
 import { SearchBarComponent } from '../components/search-bar/search-bar.component';
-import { DestinationPanelComponent } from '../components/destination-panel/destination-panel.component';
 import { DepartmentPopupComponent } from '../components/department-popup/department-popup.component';
+import { Subscription } from 'rxjs'; 
+import { App } from '@capacitor/app'; 
+
 
 @Component({
   standalone: true,
@@ -20,33 +22,36 @@ import { DepartmentPopupComponent } from '../components/department-popup/departm
     CommonModule,
     FormsModule,
     SearchBarComponent,
-    DestinationPanelComponent,
-    DepartmentPopupComponent
+    DepartmentPopupComponent 
   ],
 })
-export class HomePage implements OnInit {
-  map!: L.Map;
-  destinationMarker: L.Marker | null = null;
-
+export class HomePage implements OnInit, OnDestroy {
+  // ΘΕΣΕΙΣ (διατηρούνται εδώ ως state)
   userLat = 40.657230;
   userLng = 22.804656;
-
-  centralGate = L.latLng(40.6564, 22.8028);
-  busStop = L.latLng(40.657791, 22.802047);
-
-  searchQuery = '';
-  filteredResults: string[] = [];
+  
+  // UI / State
   distanceInMeters = 0;
-
   currentDestination: Destination | null = null;
   showModal: boolean = false;
-
+  showLockOverlay: boolean = false; 
   destinationList = destinationList;
+
+  private mapSubscriptions: Subscription[] = [];
+  
+  // Σταθερές
+  private defaultStartPoint = L.latLng(this.userLat, this.userLng);
+  private readonly campusBounds = {
+    north: 40.66000, 
+    south: 40.65400, 
+    east: 22.80800,  
+    west: 22.79800,  
+  };
 
   constructor(
     private router: Router,
     private alertCtrl: AlertController,
-    private routingService: RoutingService
+    private mapService: MapService 
   ) {}
 
   ngOnInit() {
@@ -55,54 +60,94 @@ export class HomePage implements OnInit {
       this.userLat = nav.extras.state['lat'] ?? this.userLat;
       this.userLng = nav.extras.state['lng'] ?? this.userLng;
     }
+    this.subscribeToMapEvents();
+  }
+  
+  ngOnDestroy() {
+    this.mapSubscriptions.forEach(sub => sub.unsubscribe());
   }
 
   ionViewDidEnter() {
-    this.loadMap();
+    this.mapService.initializeMap(this.userLat, this.userLng, 'map');
   }
 
-  loadMap() {
-    this.map = L.map('map').setView([this.userLat, this.userLng], 18);
+  // =======================================================
+  // 1. ΕΛΕΓΧΟΣ ΟΡΙΩΝ / ΕΞΟΔΟΣ
+  // =======================================================
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
-    }).addTo(this.map);
+  /**
+   * 🛑 ΠΡΟΣΩΡΙΝΗ ΠΑΡΑΚΑΜΨΗ (TESTING MODE)
+   * Επιστρέφει πάντα true για να επιτρέψει τη χρήση του χάρτη σε desktop/emulator.
+   */
+  private isLocationWithinCampus(lat: number, lng: number): boolean {
+    return true; 
+  }
 
-    const userIcon = L.icon({
-      iconUrl: 'assets/arrow.png',
-      iconSize: [25, 25],
-      iconAnchor: [12, 12],
-      popupAnchor: [0, -10]
+  private handleOutsideCampus() {
+    this.showLockOverlay = true; 
+    this.mapService.removeRouting(); 
+
+    this.alertCtrl.getTop().then(existingAlert => {
+        if (existingAlert) {
+            return;
+        }
+
+        this.alertCtrl.create({
+            header: 'Εκτός Εμβέλειας',
+            message: 'Βρίσκεστε εκτός της καθορισμένης εμβέλειας της πανεπιστημιούπολης. Η εφαρμογή θα τερματιστεί.',
+            buttons: [
+                {
+                    text: 'Έξοδος',
+                    handler: async () => {
+                        const cap = (window as any).Capacitor;
+                        if (cap && cap.isNative) {
+                            await new Promise(resolve => setTimeout(resolve, 50)); 
+                            App.exitApp(); 
+                        } else {
+                            console.log('Έξοδος σε Web/Browser: Η καρτέλα θα προσπαθήσει να κλείσει.');
+                            window.close(); 
+                        }
+                        return undefined;
+                    }
+                }
+            ]
+        }).then(a => a.present());
     });
+  }
 
-    L.marker([this.userLat, this.userLng], { icon: userIcon })
-      .addTo(this.map)
-      .bindPopup('Η θέση σου 📍')
-      .openPopup();
 
-    this.map.on('click', (e: any) => {
-      const latlng = e.latlng;
-      const clickedLat = latlng.lat;
-      const clickedLng = latlng.lng;
-
-      const found = this.destinationList.find((dest: Destination) => {
-        const b = dest.bounds;
-        if (!b) return false;
-        return (
-          clickedLat >= b.south &&
-          clickedLat <= b.north &&
-          clickedLng >= b.west &&
-          clickedLng <= b.east
-        );
-      });
-
-      if (found) {
-        this.handleMapClick(found.lat, found.lng, found.name);
+  private subscribeToMapEvents() {
+    // 1. Ενημέρωση Θέσης GPS (Εντός/Εκτός Campus Check)
+    const locSub = this.mapService.locationFound.subscribe(pos => {
+      if (this.isLocationWithinCampus(pos.lat, pos.lng)) {
+          this.userLat = pos.lat;
+          this.userLng = pos.lng;
+          this.showLockOverlay = false; 
       } else {
-        this.handleMapClick(clickedLat, clickedLng);
+          this.handleOutsideCampus();
       }
     });
+
+    // 2. Χειρισμός Αποτυχίας GPS (ΠΡΟΣΩΡΙΝΑ ΑΝΕΝΕΡΓΟ)
+    const errSub = this.mapService.locationError.subscribe(() => {
+        // 🛑 ΠΡΟΣΩΡΙΝΗ ΡΥΘΜΙΣΗ: Αγνοούμε το σφάλμα GPS για να μη μπλοκάρει το testing
+        // this.handleOutsideCampus(); 
+    });
+
+    // 3. Χειρισμός Κλικ Χάρτη
+    const clickSub = this.mapService.mapClicked.subscribe(data => {
+      if (!this.showLockOverlay) { 
+        const name = data.name || 'Επιλεγμένος προορισμός';
+        this.handleMapClick(data.lat, data.lng, name);
+      }
+    });
+
+    this.mapSubscriptions.push(locSub, errSub, clickSub); 
   }
+
+  // =======================================================
+  // 2. ΛΟΓΙΚΗ ΕΠΙΛΟΓΗΣ ΠΡΟΟΡΙΣΜΟΥ (Pinning / Modal)
+  // =======================================================
 
   normalize(text: string): string {
     return text
@@ -110,12 +155,6 @@ export class HomePage implements OnInit {
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .replace(/ς/g, 'σ');
-  }
-
-  async selectDestination(name: string) {
-    const dest = this.destinationList.find((d: Destination) => d.name === name);
-    if (!dest) return;
-    this.handleMapClick(dest.lat, dest.lng, dest.name);
   }
 
   onDestinationSelected(destination: Destination) {
@@ -126,60 +165,51 @@ export class HomePage implements OnInit {
     const found = this.destinationList.find(d => d.name === name);
     this.currentDestination = found ? found : { name, lat, lng };
 
-    const from = L.latLng(this.userLat, this.userLng);
-    const to = L.latLng(lat, lng);
+    this.distanceInMeters = this.mapService.getDistance(
+      this.userLat, 
+      this.userLng, 
+      lat, 
+      lng
+    );
 
-    const distance = from.distanceTo(to);
-    this.distanceInMeters = distance;
-
-    const isFar = distance > 300;
-    const startPoint = isFar ? this.busStop : from;
-
-    this.routingService.removeRouting(this.map);
-    if (this.destinationMarker) {
-      this.map.removeLayer(this.destinationMarker);
-    }
-
-    const destIcon = L.icon({
-      iconUrl: 'assets/destination-pin.png',
-      iconSize: [30, 30],
-      iconAnchor: [15, 30]
-    });
-    this.destinationMarker = L.marker(to, { icon: destIcon }).addTo(this.map);
-
-    const startIcon = L.icon({
-      iconUrl: 'assets/arrow.png',
-      iconSize: [25, 25],
-      iconAnchor: [12, 12]
-    });
-    L.marker(startPoint, { icon: startIcon })
-      .addTo(this.map)
-      .bindPopup('Αφετηρία 🚏')
-      .openPopup();
-
-    if (isFar) {
-      const alert = await this.alertCtrl.create({
-        header: 'Εκτός εμβέλειας',
-        message: 'Είστε εκτός εμβέλειας πανεπιστημιούπολης. Η διαδρομή ξεκινά από τη στάση του ΟΑΣΘ.',
-        buttons: ['ΟΚ']
-      });
-      await alert.present();
-    }
+    this.mapService.pinDestination(lat, lng);
 
     this.showModal = true;
+  }
 
-    await this.routingService.addRoute(this.map, startPoint, to);
+  // =======================================================
+  // 3. ΛΟΓΙΚΗ ΕΥΡΕΣΗΣ ΑΦΕΤΗΡΙΑΣ & ΠΛΟΗΓΗΣΗΣ (Custom Routing)
+  // =======================================================
+
+  private async getStartPoint(): Promise<L.LatLng> {
+    const from = L.latLng(this.userLat, this.userLng);
+
+    const to = L.latLng(this.currentDestination!.lat, this.currentDestination!.lng);
+    this.distanceInMeters = from.distanceTo(to); 
+    
+    return from;
   }
 
   async startNavigation() {
-    if (!this.currentDestination) return;
+  if (!this.currentDestination) return;
 
-    const alert = await this.alertCtrl.create({
-      header: 'Πλοήγηση',
-      message: `Έναρξη πλοήγησης προς ${this.currentDestination.name}`,
-      buttons: ['OK']
-    });
+  const startPoint = await this.getStartPoint();
 
-    await alert.present();
-  }
+  const destinationName = this.currentDestination.name
+      .replace(/Τμήμα\s+/g, '')
+      .replace(/Σχολή\s+/g, '')
+      .toUpperCase();
+
+  // 🔥 ΔΕΙΤΕ ΤΙ ΟΝΟΜΑ ΠΗΓΑΙΝΕΙ ΣΤΟ GRAPH
+  console.warn("Destination NAME:", this.currentDestination.name);
+  console.warn("Normalized:", destinationName);
+
+  this.mapService.drawCustomRoute(startPoint, destinationName);
+
+  this.showModal = false;
+
+  this.userLat = this.currentDestination.lat;
+  this.userLng = this.currentDestination.lng;
+}
+
 }

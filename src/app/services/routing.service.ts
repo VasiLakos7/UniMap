@@ -1,33 +1,31 @@
 import { Injectable } from '@angular/core';
 import * as L from 'leaflet';
 
-@Injectable({
-  providedIn: 'root' // ✅ Επιτρέπει στο Angular να τον παρέχει παντού
-})
+@Injectable({ providedIn: 'root' })
 export class RoutingService {
   private polyline: L.Polyline | null = null;
 
   async addRoute(map: L.Map, from: L.LatLng, to: L.LatLng): Promise<void> {
-    const url = `https://router.project-osrm.org/route/v1/foot/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson&steps=true`;
+    const url = `https://router.project-osrm.org/route/v1/foot/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson&steps=false`;
+
+    // καθάρισμα τυχόν παλιάς polyline
+    this.removeRouting(map);
 
     try {
-      const response = await fetch(url);
-      const data = await response.json();
+      const res = await fetch(url);
+      const data = await res.json();
 
-      const coords = data.routes[0].geometry.coordinates;
-      const latlngs = coords.map((coord: number[]) => L.latLng(coord[1], coord[0]));
+      if (!data?.routes?.length) throw new Error('OSRM: No routes');
 
-      this.polyline = L.polyline(latlngs, {
-        color: 'blue',
-        weight: 5,
-        opacity: 0.7
-      }).addTo(map);
+      const coords: [number, number][] = data.routes[0].geometry.coordinates;
+      const latlngs = coords.map(([x, y]) => L.latLng(y, x));
 
-      // (προαιρετικά για turn-by-turn βήματα)
-      // const steps = data.routes[0].legs[0].steps;
-      // console.log(steps);
+      this.polyline = L.polyline(latlngs, { color: 'blue', weight: 5, opacity: 0.7 }).addTo(map);
+      map.fitBounds(this.polyline.getBounds(), { padding: [40, 40] });
     } catch (err) {
-      console.error('Routing error:', err);
+      console.warn('OSRM error, fallback σε ευθεία γραμμή:', err);
+      this.polyline = L.polyline([from, to], { weight: 4, dashArray: '10,10' }).addTo(map);
+      map.fitBounds(this.polyline.getBounds(), { padding: [40, 40] });
     }
   }
 
