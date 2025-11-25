@@ -11,7 +11,6 @@ import { DepartmentPopupComponent } from '../components/department-popup/departm
 import { Subscription } from 'rxjs'; 
 import { App } from '@capacitor/app'; 
 
-
 @Component({
   standalone: true,
   selector: 'app-home',
@@ -26,11 +25,20 @@ import { App } from '@capacitor/app';
   ],
 })
 export class HomePage implements OnInit, OnDestroy {
-  // ΘΕΣΕΙΣ (διατηρούνται εδώ ως state)
+
+  // -------------------------------------------------
+  // ⭐ ΝΕΑ STATE – Navigation + Simulation Controller
+  // -------------------------------------------------
+  routeReady = false;
+  navigationActive = false;
+  simulateMovement = true;    // 🔥 ενεργό simulation για testing στο σπίτι
+  simulationInterval: any = null;
+
+  // ΘΕΣΕΙΣ (state)
   userLat = 40.657230;
   userLng = 22.804656;
-  
-  // UI / State
+
+  // UI
   distanceInMeters = 0;
   currentDestination: Destination | null = null;
   showModal: boolean = false;
@@ -39,14 +47,7 @@ export class HomePage implements OnInit, OnDestroy {
 
   private mapSubscriptions: Subscription[] = [];
   
-  // Σταθερές
   private defaultStartPoint = L.latLng(this.userLat, this.userLng);
-  private readonly campusBounds = {
-    north: 40.66000, 
-    south: 40.65400, 
-    east: 22.80800,  
-    west: 22.79800,  
-  };
 
   constructor(
     private router: Router,
@@ -65,76 +66,77 @@ export class HomePage implements OnInit, OnDestroy {
   
   ngOnDestroy() {
     this.mapSubscriptions.forEach(sub => sub.unsubscribe());
+    if (this.simulationInterval) clearInterval(this.simulationInterval);
   }
 
   ionViewDidEnter() {
     this.mapService.initializeMap(this.userLat, this.userLng, 'map');
   }
 
-  // =======================================================
-  // 1. ΕΛΕΓΧΟΣ ΟΡΙΩΝ / ΕΞΟΔΟΣ
-  // =======================================================
+  // -------------------------------------------------
+  // SIMULATION CONTROLLER – κινεί τον χρήστη στη διαδρομή
+  // -------------------------------------------------
+  simulateUserWalk(points: L.LatLng[]) {
+  if (!points || points.length === 0) return;
 
-  /**
-   * 🛑 ΠΡΟΣΩΡΙΝΗ ΠΑΡΑΚΑΜΨΗ (TESTING MODE)
-   * Επιστρέφει πάντα true για να επιτρέψει τη χρήση του χάρτη σε desktop/emulator.
-   */
-  private isLocationWithinCampus(lat: number, lng: number): boolean {
-    return true; 
-  }
+  let index = 0;
 
-  private handleOutsideCampus() {
-    this.showLockOverlay = true; 
-    this.mapService.removeRouting(); 
+  if (this.simulationInterval) clearInterval(this.simulationInterval);
 
-    this.alertCtrl.getTop().then(existingAlert => {
-        if (existingAlert) {
-            return;
-        }
+  this.simulationInterval = setInterval(() => {
 
-        this.alertCtrl.create({
-            header: 'Εκτός Εμβέλειας',
-            message: 'Βρίσκεστε εκτός της καθορισμένης εμβέλειας της πανεπιστημιούπολης. Η εφαρμογή θα τερματιστεί.',
-            buttons: [
-                {
-                    text: 'Έξοδος',
-                    handler: async () => {
-                        const cap = (window as any).Capacitor;
-                        if (cap && cap.isNative) {
-                            await new Promise(resolve => setTimeout(resolve, 50)); 
-                            App.exitApp(); 
-                        } else {
-                            console.log('Έξοδος σε Web/Browser: Η καρτέλα θα προσπαθήσει να κλείσει.');
-                            window.close(); 
-                        }
-                        return undefined;
-                    }
-                }
-            ]
-        }).then(a => a.present());
+    if (!this.navigationActive) {
+      clearInterval(this.simulationInterval);
+      return;
+    }
+
+    if (index >= points.length) {
+
+      clearInterval(this.simulationInterval);
+
+      this.navigationActive = false;
+      this.routeReady = true;
+
+      // 🔥 Force popup to re-render
+      setTimeout(() => {
+        this.showModal = false;
+        setTimeout(() => {
+          this.showModal = true;
+        }, 30);
+      }, 30);
+
+      console.log("🎉 Έφτασες στον προορισμό!");
+      return;
+    }
+
+    const point = points[index];
+    this.userLat = point.lat;
+    this.userLng = point.lng;
+
+    this.mapService.updateUserPosition(point.lat, point.lng);
+
+    (this.mapService as any).map?.setView([point.lat, point.lng], 18, {
+      animate: true
     });
-  }
+
+    index++;
+  }, 600);
+}
 
 
+  // -------------------------------------------------
+  // ΣΥΝΔΕΣΗ ΜΕ EVENTS ΤΟΥ MAPSERVICE
+  // -------------------------------------------------
   private subscribeToMapEvents() {
-    // 1. Ενημέρωση Θέσης GPS (Εντός/Εκτός Campus Check)
+
     const locSub = this.mapService.locationFound.subscribe(pos => {
-      if (this.isLocationWithinCampus(pos.lat, pos.lng)) {
-          this.userLat = pos.lat;
-          this.userLng = pos.lng;
-          this.showLockOverlay = false; 
-      } else {
-          this.handleOutsideCampus();
-      }
+      this.userLat = pos.lat;
+      this.userLng = pos.lng;
+      this.showLockOverlay = false;
     });
 
-    // 2. Χειρισμός Αποτυχίας GPS (ΠΡΟΣΩΡΙΝΑ ΑΝΕΝΕΡΓΟ)
-    const errSub = this.mapService.locationError.subscribe(() => {
-        // 🛑 ΠΡΟΣΩΡΙΝΗ ΡΥΘΜΙΣΗ: Αγνοούμε το σφάλμα GPS για να μη μπλοκάρει το testing
-        // this.handleOutsideCampus(); 
-    });
+    const errSub = this.mapService.locationError.subscribe(() => {});
 
-    // 3. Χειρισμός Κλικ Χάρτη
     const clickSub = this.mapService.mapClicked.subscribe(data => {
       if (!this.showLockOverlay) { 
         const name = data.name || 'Επιλεγμένος προορισμός';
@@ -145,71 +147,63 @@ export class HomePage implements OnInit, OnDestroy {
     this.mapSubscriptions.push(locSub, errSub, clickSub); 
   }
 
-  // =======================================================
-  // 2. ΛΟΓΙΚΗ ΕΠΙΛΟΓΗΣ ΠΡΟΟΡΙΣΜΟΥ (Pinning / Modal)
-  // =======================================================
-
-  normalize(text: string): string {
-    return text
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/ς/g, 'σ');
-  }
-
+  // -------------------------------------------------
+  // LOGIC – Επιλογή προορισμού + AutoRouting
+  // -------------------------------------------------
   onDestinationSelected(destination: Destination) {
     this.handleMapClick(destination.lat, destination.lng, destination.name);
   }
 
   async handleMapClick(lat: number, lng: number, name: string = 'Επιλεγμένος προορισμός') {
+
     const found = this.destinationList.find(d => d.name === name);
     this.currentDestination = found ? found : { name, lat, lng };
 
-    this.distanceInMeters = this.mapService.getDistance(
-      this.userLat, 
-      this.userLng, 
-      lat, 
-      lng
-    );
-
     this.mapService.pinDestination(lat, lng);
 
-    this.showModal = true;
-  }
+    const start = L.latLng(this.userLat, this.userLng);
 
-  // =======================================================
-  // 3. ΛΟΓΙΚΗ ΕΥΡΕΣΗΣ ΑΦΕΤΗΡΙΑΣ & ΠΛΟΗΓΗΣΗΣ (Custom Routing)
-  // =======================================================
-
-  private async getStartPoint(): Promise<L.LatLng> {
-    const from = L.latLng(this.userLat, this.userLng);
-
-    const to = L.latLng(this.currentDestination!.lat, this.currentDestination!.lng);
-    this.distanceInMeters = from.distanceTo(to); 
-    
-    return from;
-  }
-
-  async startNavigation() {
-  if (!this.currentDestination) return;
-
-  const startPoint = await this.getStartPoint();
-
-  const destinationName = this.currentDestination.name
+    const normalizedName = this.currentDestination.name
       .replace(/Τμήμα\s+/g, '')
       .replace(/Σχολή\s+/g, '')
       .toUpperCase();
 
-  // 🔥 ΔΕΙΤΕ ΤΙ ΟΝΟΜΑ ΠΗΓΑΙΝΕΙ ΣΤΟ GRAPH
-  console.warn("Destination NAME:", this.currentDestination.name);
-  console.warn("Normalized:", destinationName);
+    this.mapService.drawCustomRoute(start, normalizedName);
 
-  this.mapService.drawCustomRoute(startPoint, destinationName);
+    this.routeReady = true;
+    this.navigationActive = false;
+    this.showModal = true;
+  }
 
-  this.showModal = false;
+  // -------------------------------------------------
+  // START NAVIGATION (Ξεκίνα)
+  // -------------------------------------------------
+  async startNavigation() {
 
-  this.userLat = this.currentDestination.lat;
-  this.userLng = this.currentDestination.lng;
-}
+    if (!this.currentDestination) return;
+
+    this.navigationActive = true;
+
+
+    if (this.simulateMovement) {
+      const route = this.mapService.getCurrentRoutePoints();
+      this.simulateUserWalk(route);
+    }
+
+    console.log("🚀 Navigation started!");
+  }
+
+  // -------------------------------------------------
+  // CANCEL NAVIGATION
+  // -------------------------------------------------
+  cancelNavigation() {
+    this.navigationActive = false;
+    this.routeReady = false;
+
+    if (this.simulationInterval) clearInterval(this.simulationInterval);
+
+    this.mapService.removeRouting();
+    console.log("❌ Navigation canceled.");
+  }
 
 }

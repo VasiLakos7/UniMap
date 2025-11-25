@@ -1,29 +1,46 @@
 <div class="popup-container">
+  <!-- Κουμπί κλεισίματος -->
   <ion-button fill="clear" color="medium" (click)="close.emit()" class="close-icon-btn">
     <ion-icon class="close-icon" name="close-circle-outline"></ion-icon>
   </ion-button>
 
+  <!-- Εικόνα -->
   <img [src]="getImage()" alt="Φωτογραφία" class="popup-image" />
 
   <div class="popup-content">
     <h2>{{ destination.name }}</h2>
 
     <div class="popup-buttons">
-      <ion-button color="success" (click)="navigate.emit()">
-        <ion-icon name="navigate-circle-outline" slot="start"></ion-icon>
-        ΞΕΚΙΝΑ
+
+      <!-- 🔵 ΕΝΑ ΚΑΙ ΜΟΝΑΔΙΚΟ ΚΟΥΜΠΙ ΠΟΥ ΑΛΛΑΖΕΙ -->
+      <ion-button
+        [color]="navigationActive ? 'danger' : 'primary'"
+        [disabled]="!routeReady"
+        (click)="navigationActive ? cancel.emit() : navigate.emit()">
+
+        <ion-icon
+          [name]="navigationActive ? 'close-circle-outline' : 'navigate-circle-outline'"
+          slot="start">
+        </ion-icon>
+
+        {{ navigationActive ? 'ΑΚΥΡΩΣΗ' : 'ΞΕΚΙΝΑ' }}
       </ion-button>
 
-      <ion-button fill="outline" color="danger" [disabled]="!getPhone()" (click)="callNumber()">
+      <!-- 📞 Κλήση -->
+      <ion-button fill="outline" color="danger"
+                  [disabled]="!getPhone()"
+                  (click)="callNumber()">
         <ion-icon name="call-outline"></ion-icon>
       </ion-button>
 
-      <ion-button fill="outline" color="primary" (click)="shareLocation()">
+      <!-- 📤 Κοινοποίηση -->
+      <ion-button fill="outline" color="primary"
+                  (click)="shareLocation()">
         <ion-icon name="share-outline"></ion-icon>
       </ion-button>
+
     </div>
 
-    <!-- fix: εμφάνιση μηνύματος κοινοποίησης -->
     <p *ngIf="shareMessage" class="share-info">{{ shareMessage }}</p>
   </div>
 </div>

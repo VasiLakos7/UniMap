@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { Destination } from '../../models/destination.model';
@@ -11,11 +11,18 @@ import { Destination } from '../../models/destination.model';
   styleUrls: ['./department-popup.component.scss']
 })
 export class DepartmentPopupComponent {
+
   @Input() destination!: Destination;
+
+  // 🔥 ΠΟΛΥ ΣΗΜΑΝΤΙΚΟ → ΧΩΡΙΣ ΑΥΤΑ ΔΕΝ ΕΜΦΑΝΙΖΕΤΑΙ ΤΟ ΚΟΥΜΠΙ ΑΚΥΡΩΣΗ
+  @Input() navigationActive: boolean = false;
+  @Input() routeReady: boolean = false;
+
   @Output() navigate = new EventEmitter<void>();
+  @Output() cancel = new EventEmitter<void>();
   @Output() close = new EventEmitter<void>();
 
-  shareMessage: string | null = null; 
+  shareMessage: string | null = null;
 
   getImage(): string {
     return this.destination.image && this.destination.image.trim() !== ''
@@ -45,8 +52,7 @@ export class DepartmentPopupComponent {
         url: shareUrl
       }).catch(error => console.error('Error sharing:', error));
     } else {
-      console.warn('Web Share API not supported. Please copy the text manually:', text);
-      this.shareMessage = `Αντιγραφή κειμένου: ${text} - URL: ${shareUrl}`; 
+      this.shareMessage = `${text} — ${shareUrl}`;
     }
   }
 }

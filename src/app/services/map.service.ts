@@ -20,6 +20,9 @@ export class MapService {
   private busStop = L.latLng(40.657791, 22.802047);
   private destinationList = destinationList;
 
+  // 🟦 Χρησιμοποιείται για Simulation Mode (route points)
+  public currentRoutePoints: L.LatLng[] = [];
+
   // ------------------------------------------------------
   // USER & DESTINATION ICONS
   // ------------------------------------------------------
@@ -30,7 +33,7 @@ export class MapService {
   });
 
   private destIcon = L.icon({
-    iconUrl: 'assets/destination-pin.png',
+    iconUrl: 'assets/ddestination-pin.png',
     iconSize: [30, 30],
     iconAnchor: [15, 30],
   });
@@ -41,35 +44,33 @@ export class MapService {
   ) {}
 
   // ------------------------------------------------------
-  // CAMPUS BOUNDARY (NO PIN OUTSIDE)
+  // CAMPUS BOUNDARY
   // ------------------------------------------------------
   private campusBoundary = L.polygon([
-    [40.659484, 22.801706],  // Top Left
-    [40.659338, 22.806507],  // Top Right
-    [40.654901, 22.806625],  // Bottom Right
-    [40.655500, 22.801840],  // Bottom Left
+    [40.659484, 22.801706],
+    [40.659338, 22.806507],
+    [40.654901, 22.806625],
+    [40.655500, 22.801840],
   ]);
 
   private isInsideCampus(lat: number, lng: number): boolean {
-  const polygon = this.campusBoundary.getLatLngs()[0] as L.LatLng[];
-  const x = lng;
-  const y = lat;
-  let inside = false;
+    const polygon = this.campusBoundary.getLatLngs()[0] as L.LatLng[];
+    const x = lng;
+    const y = lat;
+    let inside = false;
 
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i].lng, yi = polygon[i].lat;
-    const xj = polygon[j].lng, yj = polygon[j].lat;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const xi = polygon[i].lng, yi = polygon[i].lat;
+      const xj = polygon[j].lng, yj = polygon[j].lat;
 
-    const intersect =
-      ((yi > y) !== (yj > y)) &&
-      (x < ((xj - xi) * (y - yi)) / (yj - yi) + xi);
+      const intersect =
+        ((yi > y) !== (yj > y)) &&
+        (x < ((xj - xi) * (y - yi)) / (yj - yi) + xi);
 
-    if (intersect) inside = !inside;
+      if (intersect) inside = !inside;
+    }
+    return inside;
   }
-
-  return inside;
-}
-
 
   private async presentToast(message: string) {
     const toast = document.createElement('ion-toast');
@@ -157,20 +158,18 @@ export class MapService {
   }
 
   // ------------------------------------------------------
-  // MAP CLICK - WITH CAMPUS CHECK
+  // MAP CLICK
   // ------------------------------------------------------
   private setupMapClickEvent() {
     this.map.on('click', async (e: L.LeafletMouseEvent) => {
       const clickedLat = e.latlng.lat;
       const clickedLng = e.latlng.lng;
 
-      // ❌ OUTSIDE CAMPUS → show toast + stop
       if (!this.isInsideCampus(clickedLat, clickedLng)) {
         await this.presentToast("Αυτό το σημείο είναι εκτός campus. Παρακαλώ επίλεξε άλλο.");
         return;
       }
 
-      // ✔️ IN CAMPUS → check bounds from destinationList
       const found = this.destinationList.find((dest: Destination) => {
         const b = dest.bounds;
         if (!b) return false;
@@ -208,57 +207,51 @@ export class MapService {
   // ------------------------------------------------------
   // CUSTOM ROUTE (Dijkstra)
   // ------------------------------------------------------
- public async drawCustomRoute(startPoint: L.LatLng, destinationName: string) {
-  this.removeRouting();
+  public async drawCustomRoute(startPoint: L.LatLng, destinationName: string) {
+    this.removeRouting();
 
-  // 1. Πάρε τον προορισμό
-  const endNodeId = this.graphService.getNodeIdForName(destinationName);
-  if (!endNodeId) {
-    console.warn("Destination not found:", destinationName);
-    return;
+    const endNodeId = this.graphService.getNodeIdForName(destinationName);
+    if (!endNodeId) {
+      console.warn("Destination not found:", destinationName);
+      return;
+    }
+
+    const nearestStartId = this.graphService.findNearestNodeId(startPoint.lat, startPoint.lng);
+    const nearestStartPoint = nearestStartId
+      ? this.graphService.getDestinationCoords(nearestStartId)!
+      : null;
+
+    const busNodeId = 'BS_1';
+    const busPoint = this.graphService.getDestinationCoords(busNodeId)!;
+
+    let startNodeId: string = nearestStartId!;
+    const distanceToCampus = nearestStartPoint
+      ? startPoint.distanceTo(nearestStartPoint)
+      : Infinity;
+
+    if (distanceToCampus > 50 || !nearestStartId) {
+      startNodeId = busNodeId;
+      await this.presentToast("Βρίσκεσαι εκτός campus — ξεκινάω από τη στάση λεωφορείου.");
+    }
+
+    const path = this.graphService.calculatePath(startNodeId, endNodeId);
+    if (!path) {
+      console.warn("No path from:", startNodeId, "to:", endNodeId);
+      return;
+    }
+
+    this.currentPolyline = L.polyline(path, {
+      color: '#CC0000',
+      weight: 6,
+      opacity: 0.9
+    }).addTo(this.map);
+
+    this.map.fitBounds(this.currentPolyline.getBounds(), { padding: [50, 50] });
+
+    // 🟦 Αποθήκευση των σημείων της διαδρομής
+    this.currentRoutePoints = path.map(p => L.latLng(p.lat, p.lng));
+
   }
-
-  // 2. Βρες τον κοντινότερο κόμβο στο χρήστη
-  const nearestStartId = this.graphService.findNearestNodeId(startPoint.lat, startPoint.lng);
-  const nearestStartPoint = nearestStartId
-    ? this.graphService.getDestinationCoords(nearestStartId)!
-    : null;
-
-  // 3. BUS STOP κόμβος
-  const busNodeId = 'BS_1';
-  const busPoint = this.graphService.getDestinationCoords(busNodeId)!;
-
-  // 4. Αν ο χρήστης είναι μακριά -> χρησιμοποιούμε BS_1
-  let startNodeId: string = nearestStartId!;
-  const distanceToCampus = nearestStartPoint
-    ? startPoint.distanceTo(nearestStartPoint)
-    : Infinity;
-
-  if (distanceToCampus > 50 || !nearestStartId) {
-    startNodeId = busNodeId;
-    await this.presentToast("Βρίσκεσαι εκτός campus — ξεκινάω από τη στάση λεωφορείου.");
-  }
-
-  // 5. Βρες διαδρομή Dijkstra
-  const path = this.graphService.calculatePath(startNodeId, endNodeId);
-  if (!path) {
-    console.warn("No path from:", startNodeId, "to:", endNodeId);
-    return;
-  }
-
-  // 6. Ζωγράφισε την καινούργια διαδρομή
-  this.currentPolyline = L.polyline(path, {
-    color: '#CC0000',
-    weight: 6,
-    opacity: 0.9
-  }).addTo(this.map);
-
-  // 7. Zoom σωστά
-  this.map.fitBounds(this.currentPolyline.getBounds(), { padding: [50, 50] });
-}
-
-
-
 
   // ------------------------------------------------------
   // TOOLS
@@ -273,6 +266,18 @@ export class MapService {
     if (this.startMarker) this.map.removeLayer(this.startMarker);
 
     if (this.map) this.routingService.removeRouting(this.map);
+  }
+
+  // 🟦 Επιστρέφει τα σημεία της διαδρομής (για Simulation Mode)
+  public getCurrentRoutePoints(): L.LatLng[] {
+    return this.currentRoutePoints;
+  }
+
+  // 🟦 Ενημερώνει τον user marker (για Simulation Follow)
+  public updateUserPosition(lat: number, lng: number) {
+    if (this.userMarker) {
+      this.userMarker.setLatLng([lat, lng]);
+    }
   }
 
   public getDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {

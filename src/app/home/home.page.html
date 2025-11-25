@@ -1,4 +1,4 @@
-<ion-header translucent="true">
+<ion-header>
   <ion-toolbar color="primary">
     <ion-title>UniMap</ion-title>
   </ion-toolbar>
@@ -6,16 +6,27 @@
 
 
 <ion-content>
+
+  <!-- 🔍 Search bar -->
   <app-search-bar (destinationSelected)="onDestinationSelected($event)"></app-search-bar>
 
+  <!-- 🗺️ Map container -->
   <div id="map"></div>
-  
-  <div class="lock-screen" *ngIf="showLockOverlay"></div>
 
+  <!-- 🔒 Lock overlay (όπως το είχες) -->
+  <div *ngIf="showLockOverlay" class="lock-screen">
+    Εκτός εμβέλειας
+  </div>
+
+  <!-- 📌 Popup προορισμού -->
   <app-department-popup
     *ngIf="showModal && currentDestination"
     [destination]="currentDestination"
+    [routeReady]="routeReady"
+    [navigationActive]="navigationActive"
     (navigate)="startNavigation()"
+    (cancel)="cancelNavigation()"
     (close)="showModal = false">
   </app-department-popup>
+
 </ion-content>
