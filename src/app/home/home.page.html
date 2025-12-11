@@ -4,16 +4,18 @@
   </ion-toolbar>
 </ion-header>
 
-
 <ion-content>
 
   <!-- 🔍 Search bar -->
-  <app-search-bar (destinationSelected)="onDestinationSelected($event)"></app-search-bar>
+  <app-search-bar
+    (destinationSelected)="onDestinationSelected($event)"
+    (searchOpenChange)="onSearchOpenChange($event)">
+  </app-search-bar>
 
   <!-- 🗺️ Map container -->
   <div id="map"></div>
 
-  <!-- 🔒 Lock overlay (όπως το είχες) -->
+  <!-- 🔒 Lock overlay -->
   <div *ngIf="showLockOverlay" class="lock-screen">
     Εκτός εμβέλειας
   </div>
@@ -24,9 +26,11 @@
     [destination]="currentDestination"
     [routeReady]="routeReady"
     [navigationActive]="navigationActive"
+    [hasArrived]="hasArrived"
     (navigate)="startNavigation()"
     (cancel)="cancelNavigation()"
-    (close)="showModal = false">
+    (close)="onPopupClose()">
   </app-department-popup>
+
 
 </ion-content>

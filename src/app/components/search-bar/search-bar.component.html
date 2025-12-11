@@ -8,7 +8,9 @@
 </div>
 
 <ion-list *ngIf="filteredResults.length" class="results-list">
-  <ion-item *ngFor="let dest of filteredResults" (click)="selectDestination(dest)">
+  <ion-item
+    *ngFor="let dest of filteredResults"
+    (click)="selectDestination(dest)">
     {{ dest.name }}
   </ion-item>
 </ion-list>

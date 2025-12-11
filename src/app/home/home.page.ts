@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
 import * as L from 'leaflet';
-import { AlertController, IonicModule } from '@ionic/angular';
+import { IonicModule } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Destination, destinationList } from '../models/destination.model';
@@ -9,7 +9,6 @@ import { MapService } from '../services/map.service';
 import { SearchBarComponent } from '../components/search-bar/search-bar.component';
 import { DepartmentPopupComponent } from '../components/department-popup/department-popup.component';
 import { Subscription } from 'rxjs';
-import { App } from '@capacitor/app';
 
 @Component({
   standalone: true,
@@ -26,7 +25,6 @@ import { App } from '@capacitor/app';
 })
 export class HomePage implements OnInit, OnDestroy {
 
-  // STATE
   routeReady = false;
   navigationActive = false;
   simulateMovement = true;
@@ -41,22 +39,19 @@ export class HomePage implements OnInit, OnDestroy {
   showLockOverlay: boolean = false;
   destinationList = destinationList;
 
-  private mapSubscriptions: Subscription[] = [];
+  isSearchOpen = false;
 
-  private defaultStartPoint = L.latLng(this.userLat, this.userLng);
+  // 🔹 ΝΕΟ: είμαστε ήδη στον προορισμό;
+  hasArrived = false;
+
+  private mapSubscriptions: Subscription[] = [];
 
   constructor(
     private router: Router,
-    private alertCtrl: AlertController,
     private mapService: MapService
   ) {}
 
   ngOnInit() {
-    const nav = this.router.getCurrentNavigation();
-    if (nav?.extras?.state) {
-      this.userLat = nav.extras.state['lat'] ?? this.userLat;
-      this.userLng = nav.extras.state['lng'] ?? this.userLng;
-    }
     this.subscribeToMapEvents();
   }
 
@@ -70,7 +65,7 @@ export class HomePage implements OnInit, OnDestroy {
   }
 
   // -------------------------------------------------
-  // SIMULATION
+  // SIMULATION + γραμμή μπροστά / πίσω
   // -------------------------------------------------
   simulateUserWalk(points: L.LatLng[]) {
     if (!points || points.length === 0) return;
@@ -87,17 +82,13 @@ export class HomePage implements OnInit, OnDestroy {
       }
 
       if (index >= points.length) {
+        // Τελικό καρέ: όλη η διαδρομή έγινε “πίσω”
+        this.mapService.updateRouteProgress(points, []);
         clearInterval(this.simulationInterval);
 
         this.navigationActive = false;
         this.routeReady = true;
-
-        setTimeout(() => {
-          this.showModal = false;
-          setTimeout(() => {
-            this.showModal = true;
-          }, 30);
-        }, 30);
+        this.hasArrived = true; // ✅ φτάσαμε
 
         console.log('🎉 Έφτασες στον προορισμό!');
         return;
@@ -108,6 +99,10 @@ export class HomePage implements OnInit, OnDestroy {
       this.userLng = point.lng;
 
       this.mapService.updateUserPosition(point.lat, point.lng);
+
+      const passed = points.slice(0, index + 1);
+      const remaining = points.slice(index);
+      this.mapService.updateRouteProgress(passed, remaining);
 
       (this.mapService as any).map?.setView([point.lat, point.lng], 18, {
         animate: true
@@ -122,45 +117,59 @@ export class HomePage implements OnInit, OnDestroy {
   // -------------------------------------------------
   private subscribeToMapEvents() {
     const locSub = this.mapService.locationFound.subscribe(pos => {
-      // σε κανονική χρήση θα έκανες update εδώ.
+      this.userLat = pos.lat;
+      this.userLng = pos.lng;
       this.showLockOverlay = false;
     });
 
     const errSub = this.mapService.locationError.subscribe(() => {});
 
     const clickSub = this.mapService.mapClicked.subscribe(data => {
-      if (!this.showLockOverlay) {
-        const name = data.name || 'Επιλεγμένος προορισμός';
-        this.handleMapClick(data.lat, data.lng, name);
-      }
+      if (this.showLockOverlay) return;
+      if (this.isSearchOpen) return;
+
+      const name = data.name || 'Επιλεγμένος προορισμός';
+      this.handleMapClick(data.lat, data.lng, name);
     });
 
     this.mapSubscriptions.push(locSub, errSub, clickSub);
   }
 
   // -------------------------------------------------
-  // Επιλογή προορισμού
+  // Επιλογή προορισμού από search bar
   // -------------------------------------------------
   onDestinationSelected(destination: Destination) {
     this.handleMapClick(destination.lat, destination.lng, destination.name);
   }
 
-  async handleMapClick(lat: number, lng: number, name: string = 'Επιλεγμένος προορισμός') {
+  onSearchOpenChange(open: boolean) {
+    this.isSearchOpen = open;
+  }
+
+  // -------------------------------------------------
+  // Επιλογή προορισμού / click στον χάρτη
+  // -------------------------------------------------
+  async handleMapClick(
+    lat: number,
+    lng: number,
+    name: string = 'Επιλεγμένος προορισμός'
+  ) {
     const found = this.destinationList.find(d => d.name === name);
-    this.currentDestination = found ? found : { name, lat, lng };
 
-    // Pin στην είσοδο/κέντρο
-    const pinLat = this.currentDestination.entranceLat ?? this.currentDestination.lat;
-    const pinLng = this.currentDestination.entranceLng ?? this.currentDestination.lng;
-    this.mapService.pinDestination(pinLat, pinLng);
+    // κάθε φορά που διαλέγουμε νέο προορισμό, ΔΕΝ έχουμε φτάσει ακόμα
+    this.hasArrived = false;
 
-    // σταθερό σημείο εκκίνησης για testing
-    const start = L.latLng(40.656115, 22.803626);
-    this.userLat = start.lat;
-    this.userLng = start.lng;
+    if (found) {
+      this.currentDestination = found;
+      const pinLat = found.entranceLat ?? found.lat;
+      const pinLng = found.entranceLng ?? found.lng;
+      this.mapService.pinDestination(pinLat, pinLng, found.name);
+    } else {
+      this.currentDestination = { name, lat, lng };
+      this.mapService.pinDestination(lat, lng, this.currentDestination.name);
+    }
 
-    // 👉 Καλούμε τη νέα μέθοδο με όλο το Destination
-    await this.mapService.drawCustomRouteToDestination(start, this.currentDestination);
+    await this.mapService.drawCustomRouteToDestination(this.currentDestination!);
 
     this.routeReady = true;
     this.navigationActive = false;
@@ -171,7 +180,13 @@ export class HomePage implements OnInit, OnDestroy {
   // START NAVIGATION
   // -------------------------------------------------
   async startNavigation() {
-    if (!this.currentDestination) return;
+    if (!this.currentDestination || !this.routeReady) return;
+
+    this.hasArrived = false; // ξεκινάμε ξανά
+
+    const destLat = this.currentDestination.entranceLat ?? this.currentDestination.lat;
+    const destLng = this.currentDestination.entranceLng ?? this.currentDestination.lng;
+    this.mapService.pinDestination(destLat, destLng, this.currentDestination.name);
 
     this.navigationActive = true;
 
@@ -189,10 +204,25 @@ export class HomePage implements OnInit, OnDestroy {
   cancelNavigation() {
     this.navigationActive = false;
     this.routeReady = false;
+    this.hasArrived = false;
 
     if (this.simulationInterval) clearInterval(this.simulationInterval);
 
     this.mapService.removeRouting();
     console.log('❌ Navigation canceled.');
   }
+  onPopupClose() {
+  // 1. Κλείσε το popup
+  this.showModal = false;
+
+  // 2. Αν είχαμε φτάσει, καθάρισε και τη διαδρομή
+  if (this.hasArrived) {
+    this.mapService.removeRouting();
+    this.routeReady = false;
+    this.navigationActive = false;
+    this.hasArrived = false;
+  }
+}
+
+
 }

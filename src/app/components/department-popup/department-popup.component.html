@@ -12,8 +12,9 @@
 
     <div class="popup-buttons">
 
-      <!-- 🔵 ΕΝΑ ΚΑΙ ΜΟΝΑΔΙΚΟ ΚΟΥΜΠΙ ΠΟΥ ΑΛΛΑΖΕΙ -->
+      <!-- 🔵 ΞΕΚΙΝΑ / ΑΚΥΡΩΣΗ -> μόνο αν δεν έχουμε φτάσει -->
       <ion-button
+        *ngIf="!hasArrived"
         [color]="navigationActive ? 'danger' : 'primary'"
         [disabled]="!routeReady"
         (click)="navigationActive ? cancel.emit() : navigate.emit()">
@@ -24,6 +25,16 @@
         </ion-icon>
 
         {{ navigationActive ? 'ΑΚΥΡΩΣΗ' : 'ΞΕΚΙΝΑ' }}
+      </ion-button>
+
+      <!-- 🟢 Μήνυμα άφιξης -> μόνο όταν hasArrived = true -->
+      <ion-button
+        *ngIf="hasArrived"
+        color="success"
+        fill="solid"
+        (click)="close.emit()">
+        <ion-icon name="checkmark-circle-outline" slot="start"></ion-icon>
+        Έφτασες στον προορισμό σου
       </ion-button>
 
       <!-- 📞 Κλήση -->

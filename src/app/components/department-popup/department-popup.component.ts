@@ -1,58 +1,57 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { Destination } from '../../models/destination.model';
 
 @Component({
-  selector: 'app-department-popup',
   standalone: true,
-  imports: [CommonModule, IonicModule],
+  selector: 'app-department-popup',
   templateUrl: './department-popup.component.html',
-  styleUrls: ['./department-popup.component.scss']
+  styleUrls: ['./department-popup.component.scss'],
+  imports: [CommonModule, IonicModule],
 })
 export class DepartmentPopupComponent {
 
   @Input() destination!: Destination;
+  @Input() routeReady = false;
+  @Input() navigationActive = false;
 
-  // 🔥 ΠΟΛΥ ΣΗΜΑΝΤΙΚΟ → ΧΩΡΙΣ ΑΥΤΑ ΔΕΝ ΕΜΦΑΝΙΖΕΤΑΙ ΤΟ ΚΟΥΜΠΙ ΑΚΥΡΩΣΗ
-  @Input() navigationActive: boolean = false;
-  @Input() routeReady: boolean = false;
+  // 🔹 ΝΕΟ: αν έχει φτάσει στον προορισμό
+  @Input() hasArrived = false;
 
   @Output() navigate = new EventEmitter<void>();
   @Output() cancel = new EventEmitter<void>();
   @Output() close = new EventEmitter<void>();
 
-  shareMessage: string | null = null;
+  shareMessage = '';
 
   getImage(): string {
-    return this.destination.image && this.destination.image.trim() !== ''
-      ? this.destination.image
-      : 'assets/images/dipae_logo.png';
+    return this.destination?.image ?? 'assets/default-building.jpg';
   }
 
-  getPhone(): string {
-    return this.destination.phone ?? '';
+  getPhone(): string | null {
+    return this.destination?.phone ?? null;
   }
 
-  callNumber(): void {
+  callNumber() {
     const phone = this.getPhone();
-    if (phone) {
-      window.open(`tel:${phone}`, '_system');
-    }
+    if (!phone) return;
+    window.open(`tel:${phone}`, '_system');
   }
 
-  shareLocation(): void {
-    const text = `Δες πού βρίσκεται το ${this.destination.name} στην Πανεπιστημιούπολη του ΔΙΠΑΕ!`;
-    const shareUrl = `https://maps.google.com/?q=${this.destination.lat},${this.destination.lng}`;
-    
+  shareLocation() {
+    if (!this.destination) return;
+
+    const { lat, lng, name } = this.destination;
+    const text = `Συνάντηση στο ${name} (${lat}, ${lng})`;
+    const url = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=18/${lat}/${lng}`;
+
     if (navigator.share) {
-      navigator.share({
-        title: 'UniMap - Κοινοποίηση Προορισμού', 
-        text: text,
-        url: shareUrl
-      }).catch(error => console.error('Error sharing:', error));
+      navigator.share({ title: name, text, url }).catch(() => {});
     } else {
-      this.shareMessage = `${text} — ${shareUrl}`;
+      navigator.clipboard?.writeText(`${text}\n${url}`).catch(() => {});
+      this.shareMessage = 'Ο σύνδεσμος αντιγράφηκε στο πρόχειρο.';
+      setTimeout(() => (this.shareMessage = ''), 3000);
     }
   }
 }
