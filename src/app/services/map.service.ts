@@ -10,7 +10,12 @@ export class MapService {
   private userMarker!: L.Marker;
   private destinationMarker: L.Marker | null = null;
   private startMarker: L.Marker | null = null;
+
+  // Κύρια διαδρομή πάνω στο γράφημα
   private currentPolyline: L.Polyline | null = null;
+  // Διακεκομμένη από user → start node
+  private approachPolyline: L.Polyline | null = null;
+
   private baseLayer?: L.TileLayer;
 
   public locationFound = new EventEmitter<{ lat: number; lng: number }>();
@@ -20,11 +25,11 @@ export class MapService {
   private busStop = L.latLng(40.657791, 22.802047);
   private destinationList = destinationList;
 
-  // 🟦 Χρησιμοποιείται για Simulation Mode (route points)
+  // Για Simulation Mode
   public currentRoutePoints: L.LatLng[] = [];
 
   // ------------------------------------------------------
-  // USER & DESTINATION ICONS
+  // ICONS
   // ------------------------------------------------------
   private userIcon = L.icon({
     iconUrl: 'assets/arrow.png',
@@ -33,7 +38,7 @@ export class MapService {
   });
 
   private destIcon = L.icon({
-    iconUrl: 'assets/ddestination-pin.png',
+    iconUrl: 'assets/destination-pin.png',
     iconSize: [30, 30],
     iconAnchor: [15, 30],
   });
@@ -166,7 +171,7 @@ export class MapService {
       const clickedLng = e.latlng.lng;
 
       if (!this.isInsideCampus(clickedLat, clickedLng)) {
-        await this.presentToast("Αυτό το σημείο είναι εκτός campus. Παρακαλώ επίλεξε άλλο.");
+        await this.presentToast('Αυτό το σημείο είναι εκτός campus. Παρακαλώ επίλεξε άλλο.');
         return;
       }
 
@@ -190,7 +195,7 @@ export class MapService {
   }
 
   // ------------------------------------------------------
-  // PIN DESTINATION
+  // PIN DESTINATION (πινέζα στην είσοδο / κέντρο)
   // ------------------------------------------------------
   public pinDestination(lat: number, lng: number) {
     this.removeRouting();
@@ -205,52 +210,116 @@ export class MapService {
   }
 
   // ------------------------------------------------------
-  // CUSTOM ROUTE (Dijkstra)
+  // ROUTE προς συγκεκριμένο Destination
   // ------------------------------------------------------
-  public async drawCustomRoute(startPoint: L.LatLng, destinationName: string) {
+  public async drawCustomRouteToDestination(startPoint: L.LatLng, dest: Destination) {
     this.removeRouting();
 
-    const endNodeId = this.graphService.getNodeIdForName(destinationName);
+    // 1. Συντεταγμένες εισόδου τμήματος
+    const destLat = dest.entranceLat ?? dest.lat;
+    const destLng = dest.entranceLng ?? dest.lng;
+
+    // 2. Κόμβος ΠΡΟΟΡΙΣΜΟΥ: κοντινότερος στο entrance
+    const endNodeId = this.graphService.findNearestNodeId(destLat, destLng);
     if (!endNodeId) {
-      console.warn("Destination not found:", destinationName);
+      console.warn('No graph node found near destination entrance:', dest.name);
       return;
     }
 
-    const nearestStartId = this.graphService.findNearestNodeId(startPoint.lat, startPoint.lng);
-    const nearestStartPoint = nearestStartId
-      ? this.graphService.getDestinationCoords(nearestStartId)!
-      : null;
+    // 3.1 Πλησιέστερος κόμβος στον χρήστη
+    const nearestToUserId = this.graphService.findNearestNodeId(
+      startPoint.lat,
+      startPoint.lng
+    );
 
-    const busNodeId = 'BS_1';
-    const busPoint = this.graphService.getDestinationCoords(busNodeId)!;
+    let startNodeId: string | null = null;
 
-    let startNodeId: string = nearestStartId!;
-    const distanceToCampus = nearestStartPoint
-      ? startPoint.distanceTo(nearestStartPoint)
-      : Infinity;
+    if (nearestToUserId) {
+      const nearestCoords = this.graphService.getDestinationCoords(nearestToUserId)!;
+      const distUserToNearest = startPoint.distanceTo(nearestCoords);
 
-    if (distanceToCampus > 50 || !nearestStartId) {
-      startNodeId = busNodeId;
-      await this.presentToast("Βρίσκεσαι εκτός campus — ξεκινάω από τη στάση λεωφορείου.");
+      // Αν ο χρήστης είναι κοντά στο δίκτυο (< 40 m),
+      // ξεκινάμε ΠΑΝΤΑ από τον κοντινότερο κόμβο για να μην κάνει
+      // άσχημα "πάνω-κάτω".
+      if (distUserToNearest < 40) {
+        startNodeId = nearestToUserId;
+      }
     }
 
-    const path = this.graphService.calculatePath(startNodeId, endNodeId);
-    if (!path) {
-      console.warn("No path from:", startNodeId, "to:", endNodeId);
+    // 3.2 Αν δεν είμαστε κοντά σε κανέναν κόμβο,
+    // χρησιμοποιούμε τον "έξυπνο" βέλτιστο start node
+    if (!startNodeId) {
+      startNodeId = this.graphService.findBestStartNodeForDestination(
+        startPoint.lat,
+        startPoint.lng,
+        endNodeId
+      );
+    }
+
+    // 3.3 Τελικό fallback
+    if (!startNodeId && nearestToUserId) {
+      startNodeId = nearestToUserId;
+    }
+
+    if (!startNodeId) {
+      console.warn('No graph node found near user start point');
       return;
     }
 
-    this.currentPolyline = L.polyline(path, {
+    // 4. Υπολογίζουμε διαδρομή πάνω στο γράφημα: startNodeId → endNodeId
+    const pathNodes = this.graphService.calculatePath(startNodeId, endNodeId);
+    if (!pathNodes || pathNodes.length < 1) {
+      console.warn('No path between nodes:', startNodeId, '→', endNodeId);
+      return;
+    }
+
+    const startNodeCoords = this.graphService.getDestinationCoords(startNodeId)!;
+
+    const mainRoutePoints: L.LatLng[] = [...pathNodes];
+
+    // 5. Σημεία για simulation: user → startNode → ... → endNode
+    this.currentRoutePoints = [startPoint, startNodeCoords, ...mainRoutePoints];
+
+    // 6. Διακεκομμένη γραμμή user → startNode
+    if (this.approachPolyline) {
+      this.map.removeLayer(this.approachPolyline);
+      this.approachPolyline = null;
+    }
+
+    if (startPoint.distanceTo(startNodeCoords) > 1) {
+      this.approachPolyline = L.polyline([startPoint, startNodeCoords], {
+        color: '#CC0000',
+        weight: 3,
+        opacity: 0.7,
+        dashArray: '4 8',
+      }).addTo(this.map);
+    }
+
+    // 7. Κύρια κόκκινη διαδρομή πάνω στο γράφημα
+    if (this.currentPolyline) {
+      this.map.removeLayer(this.currentPolyline);
+      this.currentPolyline = null;
+    }
+
+    this.currentPolyline = L.polyline(mainRoutePoints, {
       color: '#CC0000',
       weight: 6,
-      opacity: 0.9
+      opacity: 0.9,
     }).addTo(this.map);
 
-    this.map.fitBounds(this.currentPolyline.getBounds(), { padding: [50, 50] });
+    const allPoints = [startPoint, startNodeCoords, ...mainRoutePoints];
+    const bounds = L.latLngBounds(allPoints);
+    this.map.fitBounds(bounds, { padding: [50, 50] });
+  }
 
-    // 🟦 Αποθήκευση των σημείων της διαδρομής
-    this.currentRoutePoints = path.map(p => L.latLng(p.lat, p.lng));
-
+  // Προαιρετικό wrapper αν κάπου αλλού καλείς με name string
+  public async drawCustomRoute(startPoint: L.LatLng, destinationName: string) {
+    const dest = this.destinationList.find(d => d.name === destinationName);
+    if (!dest) {
+      console.warn('Destination not found in destinationList:', destinationName);
+      return;
+    }
+    return this.drawCustomRouteToDestination(startPoint, dest);
   }
 
   // ------------------------------------------------------
@@ -262,18 +331,21 @@ export class MapService {
       this.currentPolyline = null;
     }
 
+    if (this.approachPolyline) {
+      this.map.removeLayer(this.approachPolyline);
+      this.approachPolyline = null;
+    }
+
     if (this.destinationMarker) this.map.removeLayer(this.destinationMarker);
     if (this.startMarker) this.map.removeLayer(this.startMarker);
 
     if (this.map) this.routingService.removeRouting(this.map);
   }
 
-  // 🟦 Επιστρέφει τα σημεία της διαδρομής (για Simulation Mode)
   public getCurrentRoutePoints(): L.LatLng[] {
     return this.currentRoutePoints;
   }
 
-  // 🟦 Ενημερώνει τον user marker (για Simulation Follow)
   public updateUserPosition(lat: number, lng: number) {
     if (this.userMarker) {
       this.userMarker.setLatLng([lat, lng]);
@@ -281,7 +353,7 @@ export class MapService {
   }
 
   public getDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
-    return L.latLng(lat1, lng1).distanceTo(L.latLng(lat2, lng2));
+    return L.latLng(lat1, lat1).distanceTo(L.latLng(lat2, lng2));
   }
 
   public getBusStopLocation(): L.LatLng {
