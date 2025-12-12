@@ -8,9 +8,11 @@
 
   <div slot="fixed" class="search-host">
     <app-search-bar
+      [locked]="selectionLocked"
       (destinationSelected)="onDestinationSelected($event)"
       (searchOpenChange)="onSearchOpenChange($event)">
     </app-search-bar>
+
   </div>
 
   <div id="map"></div>

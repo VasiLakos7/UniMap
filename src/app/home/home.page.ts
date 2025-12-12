@@ -27,6 +27,7 @@ export class HomePage implements OnInit, OnDestroy {
 
   routeReady = false;
   navigationActive = false;
+
   simulateMovement = true;
   simulationInterval: any = null;
 
@@ -41,8 +42,10 @@ export class HomePage implements OnInit, OnDestroy {
 
   isSearchOpen = false;
 
-  // 🔹 ΝΕΟ: είμαστε ήδη στον προορισμό;
   hasArrived = false;
+
+  // ✅ LOCK: όταν υπάρχει ενεργή/υπολογισμένη διαδρομή
+  selectionLocked = false;
 
   private mapSubscriptions: Subscription[] = [];
 
@@ -64,13 +67,36 @@ export class HomePage implements OnInit, OnDestroy {
     this.mapService.initializeMap(this.userLat, this.userLng, 'map');
   }
 
+  private async presentToast(message: string) {
+    const toast = document.createElement('ion-toast');
+    toast.message = message;
+    toast.duration = 1800;
+    toast.position = 'top';
+    document.body.appendChild(toast);
+    await toast.present();
+  }
+
+  // ✅ bearing για να γυρίζει το βελάκι στο simulation
+  private bearing(a: L.LatLng, b: L.LatLng) {
+    const toRad = (x: number) => x * Math.PI / 180;
+    const toDeg = (x: number) => x * 180 / Math.PI;
+
+    const lat1 = toRad(a.lat), lat2 = toRad(b.lat);
+    const dLng = toRad(b.lng - a.lng);
+
+    const y = Math.sin(dLng) * Math.cos(lat2);
+    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+    return (toDeg(Math.atan2(y, x)) + 360) % 360;
+  }
+
   // -------------------------------------------------
-  // SIMULATION + γραμμή μπροστά / πίσω
+  // SIMULATION + follow zoom σε όλη τη διαδρομή
   // -------------------------------------------------
   simulateUserWalk(points: L.LatLng[]) {
     if (!points || points.length === 0) return;
 
     let index = 0;
+    let prevPoint: L.LatLng | null = null;
 
     if (this.simulationInterval) clearInterval(this.simulationInterval);
 
@@ -82,31 +108,38 @@ export class HomePage implements OnInit, OnDestroy {
       }
 
       if (index >= points.length) {
-        // Τελικό καρέ: όλη η διαδρομή έγινε “πίσω”
         this.mapService.updateRouteProgress(points, []);
         clearInterval(this.simulationInterval);
 
         this.navigationActive = false;
         this.routeReady = true;
-        this.hasArrived = true; // ✅ φτάσαμε
+        this.hasArrived = true;
+
+        // ✅ σταματά το follow όταν φτάσει
+        this.mapService.setFollowUser(false);
 
         console.log('🎉 Έφτασες στον προορισμό!');
         return;
       }
 
       const point = points[index];
+
+      // ✅ περιστροφή βέλους προς την κατεύθυνση κίνησης
+      if (prevPoint) {
+        const heading = this.bearing(prevPoint, point);
+        this.mapService.setUserHeading(heading);
+      }
+      prevPoint = point;
+
       this.userLat = point.lat;
       this.userLng = point.lng;
 
+      // ✅ αυτό τώρα θα μετακινεί και τον χάρτη (follow mode)
       this.mapService.updateUserPosition(point.lat, point.lng);
 
       const passed = points.slice(0, index + 1);
       const remaining = points.slice(index);
       this.mapService.updateRouteProgress(passed, remaining);
-
-      (this.mapService as any).map?.setView([point.lat, point.lng], 18, {
-        animate: true
-      });
 
       index++;
     }, 600);
@@ -124,9 +157,14 @@ export class HomePage implements OnInit, OnDestroy {
 
     const errSub = this.mapService.locationError.subscribe(() => {});
 
-    const clickSub = this.mapService.mapClicked.subscribe(data => {
+    const clickSub = this.mapService.mapClicked.subscribe(async data => {
       if (this.showLockOverlay) return;
       if (this.isSearchOpen) return;
+
+      if (this.selectionLocked) {
+        await this.presentToast('Πάτα Χ για να ακυρώσεις τη διαδρομή και να επιλέξεις νέο προορισμό.');
+        return;
+      }
 
       const name = data.name || 'Επιλεγμένος προορισμός';
       this.handleMapClick(data.lat, data.lng, name);
@@ -138,7 +176,11 @@ export class HomePage implements OnInit, OnDestroy {
   // -------------------------------------------------
   // Επιλογή προορισμού από search bar
   // -------------------------------------------------
-  onDestinationSelected(destination: Destination) {
+  async onDestinationSelected(destination: Destination) {
+    if (this.selectionLocked) {
+      await this.presentToast('Πάτα Χ για να ακυρώσεις τη διαδρομή και να επιλέξεις νέο προορισμό.');
+      return;
+    }
     this.handleMapClick(destination.lat, destination.lng, destination.name);
   }
 
@@ -154,9 +196,12 @@ export class HomePage implements OnInit, OnDestroy {
     lng: number,
     name: string = 'Επιλεγμένος προορισμός'
   ) {
-    const found = this.destinationList.find(d => d.name === name);
+    if (this.selectionLocked) {
+      await this.presentToast('Πάτα Χ για να ακυρώσεις τη διαδρομή και να επιλέξεις νέο προορισμό.');
+      return;
+    }
 
-    // κάθε φορά που διαλέγουμε νέο προορισμό, ΔΕΝ έχουμε φτάσει ακόμα
+    const found = this.destinationList.find(d => d.name === name);
     this.hasArrived = false;
 
     if (found) {
@@ -174,6 +219,8 @@ export class HomePage implements OnInit, OnDestroy {
     this.routeReady = true;
     this.navigationActive = false;
     this.showModal = true;
+
+    this.selectionLocked = true;
   }
 
   // -------------------------------------------------
@@ -182,11 +229,15 @@ export class HomePage implements OnInit, OnDestroy {
   async startNavigation() {
     if (!this.currentDestination || !this.routeReady) return;
 
-    this.hasArrived = false; // ξεκινάμε ξανά
+    this.hasArrived = false;
 
     const destLat = this.currentDestination.entranceLat ?? this.currentDestination.lat;
     const destLng = this.currentDestination.entranceLng ?? this.currentDestination.lng;
     this.mapService.pinDestination(destLat, destLng, this.currentDestination.name);
+
+    // ✅ follow για όλη τη διάρκεια (zoom 19 για να μην γκριζάρει)
+    this.mapService.setFollowUser(true, 19);
+    this.mapService.focusOn(this.userLat, this.userLng, 19);
 
     this.navigationActive = true;
 
@@ -199,30 +250,41 @@ export class HomePage implements OnInit, OnDestroy {
   }
 
   // -------------------------------------------------
-  // CANCEL NAVIGATION
+  // CANCEL NAVIGATION (σταματάει κίνηση, ΔΕΝ ξεκλειδώνει)
   // -------------------------------------------------
   cancelNavigation() {
     this.navigationActive = false;
-    this.routeReady = false;
     this.hasArrived = false;
 
     if (this.simulationInterval) clearInterval(this.simulationInterval);
 
-    this.mapService.removeRouting();
-    console.log('❌ Navigation canceled.');
+    // ✅ σταματά follow (η διαδρομή μένει, αλλά δεν σε “τραβάει”)
+    this.mapService.setFollowUser(false);
+
+    console.log('⏸ Navigation paused/canceled (route kept).');
   }
+
+  // -------------------------------------------------
+  // X CLOSE: ΠΛΗΡΗΣ ΑΚΥΡΩΣΗ + UNLOCK
+  // -------------------------------------------------
   onPopupClose() {
-  // 1. Κλείσε το popup
-  this.showModal = false;
+    this.showModal = false;
 
-  // 2. Αν είχαμε φτάσει, καθάρισε και τη διαδρομή
-  if (this.hasArrived) {
-    this.mapService.removeRouting();
-    this.routeReady = false;
     this.navigationActive = false;
+    if (this.simulationInterval) clearInterval(this.simulationInterval);
+
+    // ✅ stop follow
+    this.mapService.setFollowUser(false);
+
+    // ✅ πλήρης ακύρωση διαδρομής + pins
+    this.mapService.removeRouting();
+
+    this.routeReady = false;
     this.hasArrived = false;
+    this.currentDestination = null;
+
+    this.selectionLocked = false;
+
+    console.log('❌ Route cleared (X pressed).');
   }
-}
-
-
 }

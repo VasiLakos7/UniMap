@@ -2,6 +2,7 @@ import {
   Component,
   EventEmitter,
   Output,
+  Input,
   ElementRef,
   HostListener,
 } from '@angular/core';
@@ -19,23 +20,25 @@ import { Destination, destinationList } from '../../models/destination.model';
 })
 export class SearchBarComponent {
   @Output() destinationSelected = new EventEmitter<Destination>();
-
-  // ενημερώνει τον γονέα (HomePage) αν το popup είναι ανοιχτό ή κλειστό
   @Output() searchOpenChange = new EventEmitter<boolean>();
+
+  // ✅ όταν είναι locked, δεν επιτρέπουμε αναζήτηση/επιλογή
+  @Input() locked = false;
 
   searchQuery = '';
   filteredResults: Destination[] = [];
-
-  // κεντρική λίστα προορισμών από το model
   destinationList: Destination[] = destinationList;
 
   constructor(private elRef: ElementRef) {}
 
-  // κάθε φορά που γράφει ο χρήστης
   onSearchInput() {
+    if (this.locked) {
+      this.clearSearch();
+      return;
+    }
+
     const q = this.normalize(this.searchQuery);
 
-    // αν είναι κενό input → κλείσε τη λίστα
     if (!q.trim()) {
       this.filteredResults = [];
       this.searchOpenChange.emit(false);
@@ -46,11 +49,9 @@ export class SearchBarComponent {
       this.normalize(dest.name).includes(q)
     );
 
-    // αν έχουμε αποτελέσματα → popup ανοιχτό
     this.searchOpenChange.emit(this.filteredResults.length > 0);
   }
 
-  // απλοποιημένη αναζήτηση για ελληνικά
   normalize(text: string): string {
     return text
       .toLowerCase()
@@ -59,23 +60,21 @@ export class SearchBarComponent {
       .replace(/ς/g, 'σ');
   }
 
-  // καθαρισμός input + λίστας
   clearSearch() {
     this.searchQuery = '';
     this.filteredResults = [];
     this.searchOpenChange.emit(false);
   }
 
-  // όταν ο χρήστης επιλέξει προορισμό
   selectDestination(destination: Destination) {
+    if (this.locked) return;
+
     this.destinationSelected.emit(destination);
     this.clearSearch();
   }
 
-  // ΚΛΕΙΣΙΜΟ όταν γίνει click οπουδήποτε έξω από το component
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent) {
-    // αν το click ΔΕΝ είναι μέσα στο στοιχείο του component
     if (!this.elRef.nativeElement.contains(event.target)) {
       this.clearSearch();
     }

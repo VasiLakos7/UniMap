@@ -1,10 +1,12 @@
 <div class="search-float">
   <ion-searchbar
+    [disabled]="locked"
     placeholder="Προορισμός..."
     [(ngModel)]="searchQuery"
     (ionInput)="onSearchInput()"
     showClearButton="focus">
   </ion-searchbar>
+
 
   <div *ngIf="filteredResults.length" class="divider"></div>
 

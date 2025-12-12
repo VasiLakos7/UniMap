@@ -34,12 +34,25 @@ export class MapService {
   private readonly fixedStartPoint = L.latLng(40.656115, 22.803626);
 
   // ------------------------------------------------------
+  // FOLLOW MODE (να ακολουθεί τον χρήστη σε όλη τη διαδρομή)
+  // ------------------------------------------------------
+  private followUser = false;
+  private followZoom: number | null = null;
+
+  public setFollowUser(enabled: boolean, zoom?: number) {
+    this.followUser = enabled;
+    this.followZoom = typeof zoom === 'number' ? zoom : null;
+  }
+
+  // ------------------------------------------------------
   // ICONS
   // ------------------------------------------------------
-  private userIcon = L.icon({
-    iconUrl: 'assets/arrow.png',
-    iconSize: [25, 25],
-    iconAnchor: [12, 12],
+  // ✅ divIcon ώστε να περιστρέφουμε ΜΟΝΟ την εικόνα (όχι όλο το marker)
+  private userIcon = L.divIcon({
+    className: 'user-marker',
+    html: `<img class="user-arrow" src="assets/arrow.png" />`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
   });
 
   // Κόκκινο pin προορισμού
@@ -108,12 +121,32 @@ export class MapService {
     this.map = L.map(elementId, {
       zoomControl: false,
       keyboard: true,
+      maxZoom: 19, // ✅ για να μην πάει σε grey tiles
     }).setView([lat, lng], 18);
 
     this.setBaseLayer('maptiler-osm', 'fFUNZQgQLPQX2iZWUJ8w');
 
     this.setupUserLocation(lat, lng);
     this.setupMapClickEvent();
+  }
+
+  // ✅ Zoom/center helper
+  public focusOn(lat: number, lng: number, zoom: number = 19) {
+    if (!this.map) return;
+    this.map.flyTo([lat, lng], zoom, { animate: true, duration: 0.7 });
+  }
+
+  // ✅ Περιστροφή βελακιού χρήστη (deg 0-360)
+  public setUserHeading(deg: number) {
+    if (!this.userMarker) return;
+    const el = this.userMarker.getElement();
+    if (!el) return;
+
+    const img = el.querySelector('img.user-arrow') as HTMLImageElement | null;
+    if (!img) return;
+
+    img.style.transformOrigin = '50% 50%';
+    img.style.transform = `rotate(${deg}deg)`;
   }
 
   // ------------------------------------------------------
@@ -140,11 +173,23 @@ export class MapService {
       },
       'maptiler-outdoor': {
         url: `https://api.maptiler.com/maps/outdoor-v2/{z}/{x}/{y}.png?key=${apiKey ?? ''}`,
-        opt: { attribution: '© OpenStreetMap | © MapTiler', tileSize: 512, zoomOffset: -1 },
+        opt: {
+          attribution: '© OpenStreetMap | © MapTiler',
+          tileSize: 512,
+          zoomOffset: -1,
+          maxZoom: 19,
+          maxNativeZoom: 19,
+        },
       },
       'maptiler-osm': {
         url: `https://api.maptiler.com/maps/openstreetmap/{z}/{x}/{y}.png?key=${apiKey ?? ''}`,
-        opt: { attribution: '© OpenStreetMap | © MapTiler', tileSize: 512, zoomOffset: -1 },
+        opt: {
+          attribution: '© OpenStreetMap | © MapTiler',
+          tileSize: 512,
+          zoomOffset: -1,
+          maxZoom: 19,
+          maxNativeZoom: 19,
+        },
       },
     };
 
@@ -171,7 +216,10 @@ export class MapService {
       this.userMarker.setLatLng([nlat, nlng]);
       this.locationFound.emit({ lat: nlat, lng: nlng });
 
-      this.map.setView([nlat, nlng], 18);
+      // αν δεν είμαστε σε follow mode, κράτα ένα ελαφρύ view update
+      if (!this.followUser) {
+        this.map.setView([nlat, nlng], 18);
+      }
     });
 
     this.map.on('locationerror', () => {
@@ -225,7 +273,6 @@ export class MapService {
 
     if (label) {
       this.destinationMarker.unbindTooltip();
-
       this.destinationMarker.bindTooltip(label, {
         direction: 'top',
         offset: L.point(12, -45),
@@ -233,7 +280,7 @@ export class MapService {
       });
     }
 
-    this.map.setView(to, 19);
+    this.map.setView(to, Math.min(19, this.map.getZoom() || 19));
   }
 
   // ------------------------------------------------------
@@ -362,7 +409,6 @@ export class MapService {
         this.currentPolyline.setLatLngs(remainingPoints);
       }
     } else {
-      // δεν έχει μείνει διαδρομή μπροστά
       if (this.currentPolyline) {
         this.map.removeLayer(this.currentPolyline);
         this.currentPolyline = null;
@@ -410,14 +456,21 @@ export class MapService {
     return this.currentRoutePoints;
   }
 
+  // ✅ εδώ πλέον ακολουθεί ΚΑΙ το map όταν followUser = true
   public updateUserPosition(lat: number, lng: number) {
     if (this.userMarker) {
       this.userMarker.setLatLng([lat, lng]);
     }
+
+    if (this.map && this.followUser) {
+      const z = this.followZoom ?? this.map.getZoom();
+      this.map.panTo([lat, lng], { animate: true, duration: 0.5 });
+      if (this.map.getZoom() !== z) this.map.setZoom(z);
+    }
   }
 
   public getDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
-    return L.latLng(lat1, lat1).distanceTo(L.latLng(lat2, lng2));
+    return L.latLng(lat1, lng1).distanceTo(L.latLng(lat2, lng2));
   }
 
   public getBusStopLocation(): L.LatLng {

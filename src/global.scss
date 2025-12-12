@@ -122,3 +122,9 @@ ion-content {
   --um-radius: 18px;
   --um-shadow: 0 12px 30px rgba(0,0,0,0.18);
 }
+.user-marker .user-arrow{
+  width: 28px;
+  height: 28px;
+  transform-origin: 50% 50%;
+  display: block;
+}
