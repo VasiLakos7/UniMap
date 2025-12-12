@@ -1,37 +1,35 @@
-.search-bar-container {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 90%;
-  max-width: 500px;
-  z-index: 1000;
-  background: white;
-  border-radius: 8px;
-  padding: 0 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+.search-float {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(0, 0, 0, 0.06);
 }
+
+
 
 ion-searchbar {
-  flex: 1;
   --background: transparent;
   --box-shadow: none;
-  --clear-button-color: black;
   margin: 0;
-  --padding-start: 0;
+  padding: 6px 8px;
 }
 
-.results-list {
-  position: absolute;
-  top: 66px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 90%;
-  max-width: 500px;
-  z-index: 1000;
-  background: white;
-  border-radius: 6px;
-  max-height: 200px;
+.divider {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.results {
+  max-height: 180px; /* 3 items */
   overflow-y: auto;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  -webkit-overflow-scrolling: touch;
+}
+
+.results ion-item {
+  --background: transparent;
+  --min-height: 44px;
 }

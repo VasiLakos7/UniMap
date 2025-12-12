@@ -1,16 +1,22 @@
-<div class="search-bar-container">
+<div class="search-float">
   <ion-searchbar
     placeholder="Προορισμός..."
     [(ngModel)]="searchQuery"
     (ionInput)="onSearchInput()"
     showClearButton="focus">
   </ion-searchbar>
-</div>
 
-<ion-list *ngIf="filteredResults.length" class="results-list">
-  <ion-item
-    *ngFor="let dest of filteredResults"
-    (click)="selectDestination(dest)">
-    {{ dest.name }}
-  </ion-item>
+  <div *ngIf="filteredResults.length" class="divider"></div>
+
+  <ion-list *ngIf="filteredResults.length" class="results">
+    <ion-item
+      button
+      lines="none"
+      *ngFor="let dest of filteredResults"
+      (click)="selectDestination(dest)">
+      {{ dest.name }}
+    </ion-item>
 </ion-list>
+
+
+</div>

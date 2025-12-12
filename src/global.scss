@@ -107,3 +107,18 @@
   --ion-color-light-shade: #d7d8da;
   --ion-color-light-tint: #f5f6f9;
 }
+/* Leaflet */
+@import "leaflet/dist/leaflet.css";
+
+/* Full height everywhere */
+html, body, ion-app, ion-content, #map {
+  height: 100%;
+}
+
+ion-content {
+  --background: transparent;
+}
+:root {
+  --um-radius: 18px;
+  --um-shadow: 0 12px 30px rgba(0,0,0,0.18);
+}
