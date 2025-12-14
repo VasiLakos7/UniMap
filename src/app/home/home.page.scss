@@ -17,11 +17,11 @@ ion-content {
 
 
 .search-host {
-  padding-top: 10px;
+  padding-top: calc(env(safe-area-inset-top) + 10px);
   display: flex;
   justify-content: center;
   width: 100%;
-  z-index: 2000;
+  z-index: 1;
 
   pointer-events: none;
 }
@@ -37,4 +37,77 @@ ion-content {
   right: 0;
   bottom: 0;
   z-index: 1500;
+}
+.nav-box{
+  width: min(520px, calc(100% - 24px));
+  border-radius: 18px;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.18);
+  border: 1px solid rgba(0,0,0,0.06);
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+/* πάνω μπάρα χρώματος */
+.nav-top{
+  padding: 10px 14px;
+  color: #fff;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+}
+
+/* περιεχόμενο */
+.nav-body{
+  background: rgba(255,255,255,0.95);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nav-icon{
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 900;
+  flex: 0 0 auto;
+}
+
+.nav-text{
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+.nav-sub{
+  font-size: 12px;
+  opacity: .65;
+  margin-top: 2px;
+}
+
+/* themes */
+.nav-green  .nav-top{ background: #1f9d55; }   /* πράσινο */
+.nav-orange .nav-top{ background: #f59e0b; }   /* πορτοκαλί */
+.nav-blue   .nav-top{ background: #1e3a8a; }   /* σκούρο μπλε */
+
+.nav-green  .nav-icon{ background: #1f9d55; }
+.nav-orange .nav-icon{ background: #f59e0b; }
+.nav-blue   .nav-icon{ background: #1e3a8a; }
+
+.nav-body{
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.nav-box{
+  transform: translateZ(0); /* πιο smooth σε mobile */
+}
+
+.nav-text{
+  letter-spacing: -0.2px;
 }

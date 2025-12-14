@@ -375,7 +375,20 @@ export class MapService {
 
     const allPoints = [startPoint, startNodeCoords, ...mainRoutePoints];
     const bounds = L.latLngBounds(allPoints);
-    this.map.fitBounds(bounds, { padding: [50, 50] });
+
+    
+    const topPad = 140;     
+    const bottomPad = 260;  
+    const sidePad = 30;
+
+    this.map.fitBounds(bounds, {
+      paddingTopLeft: [sidePad, topPad],
+      paddingBottomRight: [sidePad, bottomPad],
+      maxZoom: 18,          // να κάνει “ξεζουμ” 
+      animate: true,
+      duration: 0.7,
+    });
+
   }
 
   // ------------------------------------------------------
