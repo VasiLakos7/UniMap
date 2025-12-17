@@ -241,3 +241,35 @@
 @media (prefers-reduced-motion: reduce) {
   .logoWrap, .bottomLine::before, .dot, .cursor { animation: none !important; }
 }
+.status{
+  margin-top: 8px;
+  width: 100%;
+  display: grid;
+  gap: 10px;
+  padding: 12px 12px;
+  border-radius: 16px;
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.16);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 18px 50px rgba(0,0,0,.22);
+}
+
+.status ion-icon{
+  font-size: 18px;
+  opacity: .9;
+  justify-self: center;
+}
+
+.statusText{
+  font-size: 12.5px;
+  line-height: 1.25;
+  color: rgba(255,255,255,.88);
+  text-align: center;
+}
+
+.statusActions{
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+

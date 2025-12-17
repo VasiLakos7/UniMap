@@ -16,7 +16,6 @@
         <span class="srOnly">{{ fullText }}</span>
       </div>
 
-      
       <ion-button expand="block" class="cta" (click)="getLocationAndGo()" [disabled]="loading">
         <span class="startSlot" aria-hidden="true">
           <ion-spinner *ngIf="loading" name="crescent"></ion-spinner>
@@ -25,13 +24,41 @@
 
         <span class="ctaText">{{ loading ? 'Εντοπίζω…' : 'Ξεκίνα' }}</span>
 
-        
         <span class="endSlot" aria-hidden="true"></span>
       </ion-button>
 
       <div class="note">
         <ion-icon name="shield-checkmark-outline"></ion-icon>
         <span>Χρειάζεται τοποθεσία για πλοήγηση.</span>
+      </div>
+
+      <!-- ✅ Μήνυμα / actions όταν κάτι πάει στραβά -->
+      <div class="status" *ngIf="statusMode !== 'none'">
+        <ion-icon
+          [name]="statusMode === 'permission' ? 'lock-closed-outline' : (statusMode === 'gps' ? 'navigate-outline' : 'warning-outline')">
+        </ion-icon>
+
+        <div class="statusText">{{ statusMessage }}</div>
+
+        <div class="statusActions">
+          <ion-button
+            *ngIf="statusMode === 'permission'"
+            size="small"
+            fill="solid"
+            shape="round"
+            (click)="openAppSettings()">
+            Ρυθμίσεις
+          </ion-button>
+
+          <ion-button
+            *ngIf="statusMode === 'gps'"
+            size="small"
+            fill="solid"
+            shape="round"
+            (click)="openLocationSettings()">
+            Άνοιγμα Τοποθεσίας
+          </ion-button>
+        </div>
       </div>
 
     </div>

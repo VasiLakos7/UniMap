@@ -1,7 +1,10 @@
 import { Component, AfterViewInit, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
+import { Capacitor } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
 import { AlertController, Platform } from '@ionic/angular';
+
+import { NativeSettings, AndroidSettings, IOSSettings } from 'capacitor-native-settings';
 
 @Component({
   selector: 'app-splash',
@@ -12,13 +15,15 @@ import { AlertController, Platform } from '@ionic/angular';
 export class SplashPage implements AfterViewInit, OnDestroy {
   loading = false;
 
-  // Typewriter (slow + human-like)
   typedText = '';
   fullText = 'Καλώς ήρθες στο campus του ΔΙΠΑΕ.';
   typingDone = false;
-
   private typingTimeout: any;
   private i = 0;
+
+  // ✅ bottom status UI
+  statusMessage = '';
+  statusMode: 'none' | 'permission' | 'gps' | 'error' = 'none';
 
   constructor(
     private router: Router,
@@ -47,77 +52,143 @@ export class SplashPage implements AfterViewInit, OnDestroy {
 
     if (this.typingTimeout) clearTimeout(this.typingTimeout);
 
-    const base = 95;  
-    const jitter = 70; 
+    const base = 95;
+    const jitter = 70;
 
     const tick = () => {
       this.typedText += this.fullText.charAt(this.i);
       this.i++;
 
       if (this.i >= this.fullText.length) {
-        this.typingDone = true; // ✅ κρύβουμε cursor στο τέλος
+        this.typingDone = true;
         this.typingTimeout = null;
         return;
       }
 
-      const lastChar = this.fullText.charAt(this.i - 1);
-      const extraPause =
-        lastChar === ' ' ? 110 :
-        lastChar === '.' || lastChar === ',' ? 260 :
-        0;
+      const last = this.fullText.charAt(this.i - 1);
+      const extra = last === ' ' ? 110 : (last === '.' || last === ',') ? 260 : 0;
 
-      const delay = base + Math.floor(Math.random() * jitter) + extraPause;
-      this.typingTimeout = setTimeout(tick, delay);
+      this.typingTimeout = setTimeout(tick, base + Math.floor(Math.random() * jitter) + extra);
     };
 
     this.typingTimeout = setTimeout(tick, 350);
   }
 
-  private async ensureLocationPermission(): Promise<boolean> {
-    if (this.platform.is('capacitor') || this.platform.is('android') || this.platform.is('ios')) {
-      const status = await Geolocation.checkPermissions();
-      if (status.location === 'granted') return true;
+  private isAndroidNative(): boolean {
+    return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
+  }
 
-      const req = await Geolocation.requestPermissions();
-      return req.location === 'granted';
-    }
-    return true;
+  private isIOSNative(): boolean {
+    return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
+  }
+
+  // ✅ ανοίγει App settings (άδειες UniMap)
+  async openAppSettings() {
+    try {
+      if (this.isAndroidNative()) {
+        await NativeSettings.openAndroid({ option: AndroidSettings.ApplicationDetails });
+        return;
+      }
+      if (this.isIOSNative()) {
+        await NativeSettings.openIOS({ option: IOSSettings.App });
+        return;
+      }
+    } catch {}
+  }
+
+  // ✅ ανοίγει Location settings (GPS toggle)
+  async openLocationSettings() {
+    try {
+      if (this.isAndroidNative()) {
+        await NativeSettings.openAndroid({ option: AndroidSettings.Location });
+        return;
+      }
+      if (this.isIOSNative()) {
+        await NativeSettings.openIOS({ option: IOSSettings.LocationServices });
+        return;
+      }
+    } catch {}
+  }
+
+  private setStatus(mode: 'permission' | 'gps' | 'error', message: string) {
+    this.statusMode = mode;
+    this.statusMessage = message;
+  }
+
+  private clearStatus() {
+    this.statusMode = 'none';
+    this.statusMessage = '';
+  }
+
+  private async showGenericAlert(header: string, message: string) {
+    const alert = await this.alertCtrl.create({ header, message, buttons: ['ΟΚ'] });
+    await alert.present();
   }
 
   async getLocationAndGo() {
+    if (this.loading) return;
     this.loading = true;
-
-    let lat = 40.657230; // fallback ΔΙΠΑΕ
-    let lng = 22.804656;
+    this.clearStatus();
 
     try {
-      const ok = await this.ensureLocationPermission();
-      if (!ok) throw new Error('Permission denied');
+      await this.platform.ready();
 
-      const position = await Geolocation.getCurrentPosition({
+      // ✅ Ζητάμε permission (θα βγάλει system popup την 1η φορά)
+      const st: any = await Geolocation.checkPermissions();
+      let granted =
+        st?.location === 'granted' ||
+        st?.coarseLocation === 'granted';
+
+      if (!granted) {
+        const req: any = await Geolocation.requestPermissions();
+        granted =
+          req?.location === 'granted' ||
+          req?.coarseLocation === 'granted';
+      }
+
+      if (!granted) {
+        this.setStatus(
+          'permission',
+          'Δεν δόθηκε άδεια τοποθεσίας. Πάτα “Ρυθμίσεις” και άνοιξε Τοποθεσία για το UniMap.'
+        );
+        return;
+      }
+
+      // ✅ Παίρνουμε θέση — εδώ “σκάει” όταν είναι κλειστό το GPS/Location services
+      const pos = await Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
-        timeout: 15000,
+        timeout: 20000,
         maximumAge: 0
       });
 
-      lat = position.coords.latitude;
-      lng = position.coords.longitude;
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
 
-      console.log('✅ GPS coords:', lat, lng, 'accuracy:', position.coords.accuracy);
-    } catch (err: any) {
-      console.warn('⚠️ Χρήση fallback τοποθεσίας.', err?.message || err);
+      this.router.navigate(['/home'], { state: { lat, lng } });
+    } catch (e: any) {
+      const msg = String(e?.message ?? e ?? '').toLowerCase();
 
-      const alert = await this.alertCtrl.create({
-        header: 'Δεν βρέθηκε τοποθεσία',
-        message:
-          'Άνοιξε το Location (GPS) και δώσε άδεια "Ακριβής τοποθεσία". Θα χρησιμοποιηθεί προσωρινά προεπιλεγμένη θέση.',
-        buttons: ['OK']
-      });
-      await alert.present();
+      // GPS / Location services off
+      if (
+        msg.includes('location') &&
+        (msg.includes('disabled') || msg.includes('off') || msg.includes('turned off'))
+      ) {
+        this.setStatus(
+          'gps',
+          'Η Τοποθεσία (GPS) είναι κλειστή. Πάτα “Άνοιγμα Τοποθεσίας” και ενεργοποίησέ την.'
+        );
+        return;
+      }
+
+      this.setStatus(
+        'error',
+        'Δεν μπόρεσα να πάρω τοποθεσία. Έλεγξε άδειες/τοποθεσία και δοκίμασε ξανά.'
+      );
+
+      // (προαιρετικό) και alert:
+      // await this.showGenericAlert('Σφάλμα τοποθεσίας', 'Δεν μπόρεσα να πάρω τοποθεσία. Δοκίμασε ξανά.');
     } finally {
       this.loading = false;
     }
-
-    this.router.navigate(['/home'], { state: { lat, lng } });
   }
 }

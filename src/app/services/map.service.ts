@@ -1,5 +1,7 @@
 import { Injectable, EventEmitter } from '@angular/core';
 import * as L from 'leaflet';
+import { Geolocation } from '@capacitor/geolocation';
+
 import { Destination, destinationList } from '../models/destination.model';
 import { CampusGraphService } from './campus-graph.service';
 import { RoutingService } from './routing.service';
@@ -11,11 +13,8 @@ export class MapService {
   private destinationMarker: L.Marker | null = null;
   private startMarker: L.Marker | null = null;
 
-  // Κύρια διαδρομή μπροστά (έντονη)
   private currentPolyline: L.Polyline | null = null;
-  // Διαδρομή που έχεις ήδη περάσει (αχνή)
   private passedPolyline: L.Polyline | null = null;
-  // Διακεκομμένη από start → πρώτο node
   private approachPolyline: L.Polyline | null = null;
 
   private baseLayer?: L.TileLayer;
@@ -27,37 +26,31 @@ export class MapService {
   private busStop = L.latLng(40.657791, 22.802047);
   private destinationList = destinationList;
 
-  // Για Simulation Mode (σημεία διαδρομής)
   public currentRoutePoints: L.LatLng[] = [];
 
-  // 🔵 ΣΤΑΘΕΡΟ σημείο εκκίνησης για όλες τις διαδρομές
   private readonly fixedStartPoint = L.latLng(40.656115, 22.803626);
 
-  // ------------------------------------------------------
-  // FOLLOW MODE (να ακολουθεί τον χρήστη σε όλη τη διαδρομή)
-  // ------------------------------------------------------
   private followUser = false;
   private followZoom: number | null = null;
+
+
+  private watchId: string | null = null;
 
   public setFollowUser(enabled: boolean, zoom?: number) {
     this.followUser = enabled;
     this.followZoom = typeof zoom === 'number' ? zoom : null;
   }
 
-  // ------------------------------------------------------
-  // ICONS
-  // ------------------------------------------------------
-  // ✅ divIcon ώστε να περιστρέφουμε ΜΟΝΟ την εικόνα (όχι όλο το marker)
+  
   private userIcon = L.divIcon({
     className: 'user-marker',
-    html: `<img class="user-arrow" src="assets/arrow.png" />`,
+    html: `<img class="user-arrow" src="assets/images/pins/arrow.png" />`,
     iconSize: [28, 28],
     iconAnchor: [14, 14],
   });
 
-  // Κόκκινο pin προορισμού
   private destIcon = L.icon({
-    iconUrl: 'assets/icon/end-pin.png',
+    iconUrl: 'assets/images/pins/end-pin.png',
     iconSize: [45, 45],
     iconAnchor: [22, 45],
   });
@@ -67,9 +60,6 @@ export class MapService {
     private routingService: RoutingService,
   ) {}
 
-  // ------------------------------------------------------
-  // CAMPUS BOUNDARY
-  // ------------------------------------------------------
   private campusBoundary = L.polygon([
     [40.659484, 22.801706],
     [40.659338, 22.806507],
@@ -110,6 +100,23 @@ export class MapService {
   }
 
   // ------------------------------------------------------
+  // ✅ LOCATION PERMISSION (για Splash)
+  // ------------------------------------------------------
+  public async requestLocationPermission(): Promise<boolean> {
+    const p = await Geolocation.checkPermissions();
+    if (p.location === 'granted') return true;
+
+    // ✅ ΕΔΩ βγαίνει το system popup την 1η φορά
+    const req = await Geolocation.requestPermissions();
+    return req.location === 'granted';
+  }
+
+  private async ensureLocationPermission(): Promise<boolean> {
+    // ίδιο με το παραπάνω, αλλά το κρατάμε για safety μέσα στο watch
+    return this.requestLocationPermission();
+  }
+
+  // ------------------------------------------------------
   // INITIALIZE MAP
   // ------------------------------------------------------
   initializeMap(lat: number, lng: number, elementId: string) {
@@ -121,13 +128,84 @@ export class MapService {
     this.map = L.map(elementId, {
       zoomControl: false,
       keyboard: true,
-      maxZoom: 19, // ✅ για να μην πάει σε grey tiles
+      maxZoom: 19,
     }).setView([lat, lng], 18);
 
     this.setBaseLayer('maptiler-osm', 'fFUNZQgQLPQX2iZWUJ8w');
 
-    this.setupUserLocation(lat, lng);
+    // ✅ ΜΟΝΟ marker αρχικά (χωρίς Leaflet locate)
+    this.setupUserMarkerOnly(lat, lng);
+
     this.setupMapClickEvent();
+  }
+
+  // ✅ marker μόνο
+  private setupUserMarkerOnly(lat: number, lng: number) {
+    if (!this.map) return;
+
+    if (this.userMarker) {
+      this.userMarker.setLatLng([lat, lng]);
+      return;
+    }
+
+    this.userMarker = L.marker([lat, lng], { icon: this.userIcon })
+      .addTo(this.map)
+      .bindPopup('Η θέση σου 📍');
+  }
+
+  // ------------------------------------------------------
+  // ✅ Live GPS (να το καλείς από Home)
+  // ------------------------------------------------------
+  public async startGpsWatch() {
+    if (this.watchId) return; // ήδη τρέχει
+
+    const ok = await this.ensureLocationPermission();
+    if (!ok) {
+      this.locationError.emit();
+      return;
+    }
+
+    // (προαιρετικό) “ζεσταίνει” το GPS για πιο γρήγορο πρώτο fix
+    try {
+      await Geolocation.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: 20000,
+        maximumAge: 0,
+      });
+    } catch {}
+
+    try {
+      this.watchId = await Geolocation.watchPosition(
+        {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 20000
+        },
+        (pos, err) => {
+          if (err || !pos) {
+            this.locationError.emit();
+            return;
+          }
+
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+
+          this.updateUserPosition(lat, lng);
+          this.locationFound.emit({ lat, lng });
+        }
+      );
+    } catch {
+      this.locationError.emit();
+    }
+  }
+
+  public async stopGpsWatch() {
+    if (!this.watchId) return;
+    try {
+      await Geolocation.clearWatch({ id: this.watchId });
+    } finally {
+      this.watchId = null;
+    }
   }
 
   // ✅ Zoom/center helper
@@ -156,6 +234,8 @@ export class MapService {
     style: 'osm' | 'positron' | 'dark' | 'maptiler-outdoor' | 'maptiler-osm',
     apiKey?: string
   ) {
+    if (!this.map) return;
+
     if (this.baseLayer) this.map.removeLayer(this.baseLayer);
 
     const layers: Record<string, { url: string; opt: L.TileLayerOptions }> = {
@@ -197,40 +277,11 @@ export class MapService {
   }
 
   // ------------------------------------------------------
-  // USER LOCATION (GPS για εμφάνιση)
-  // ------------------------------------------------------
-  private setupUserLocation(lat: number, lng: number) {
-    this.userMarker = L.marker([lat, lng], { icon: this.userIcon })
-      .addTo(this.map)
-      .bindPopup('Η θέση σου 📍');
-
-    this.map.locate({
-      setView: false,
-      maxZoom: 18,
-      watch: false,
-    });
-
-    this.map.on('locationfound', (e: L.LocationEvent) => {
-      const { lat: nlat, lng: nlng } = e.latlng;
-
-      this.userMarker.setLatLng([nlat, nlng]);
-      this.locationFound.emit({ lat: nlat, lng: nlng });
-
-      // αν δεν είμαστε σε follow mode, κράτα ένα ελαφρύ view update
-      if (!this.followUser) {
-        this.map.setView([nlat, nlng], 18);
-      }
-    });
-
-    this.map.on('locationerror', () => {
-      this.locationError.emit();
-    });
-  }
-
-  // ------------------------------------------------------
   // MAP CLICK
   // ------------------------------------------------------
   private setupMapClickEvent() {
+    if (!this.map) return;
+
     this.map.on('click', async (e: L.LeafletMouseEvent) => {
       const clickedLat = e.latlng.lat;
       const clickedLng = e.latlng.lng;
@@ -263,6 +314,8 @@ export class MapService {
   // PIN DESTINATION
   // ------------------------------------------------------
   public pinDestination(lat: number, lng: number, label?: string) {
+    if (!this.map) return;
+
     const to = L.latLng(lat, lng);
 
     if (!this.destinationMarker) {
@@ -287,42 +340,23 @@ export class MapService {
   // ROUTE προς Destination – από fixedStartPoint
   // ------------------------------------------------------
   public async drawCustomRouteToDestination(dest: Destination) {
+    if (!this.map) return;
+
     const startPoint = this.fixedStartPoint;
 
-    // καθάρισε παλιές γραμμές (όχι το pin)
-    if (this.currentPolyline) {
-      this.map.removeLayer(this.currentPolyline);
-      this.currentPolyline = null;
-    }
-    if (this.passedPolyline) {
-      this.map.removeLayer(this.passedPolyline);
-      this.passedPolyline = null;
-    }
-    if (this.approachPolyline) {
-      this.map.removeLayer(this.approachPolyline);
-      this.approachPolyline = null;
-    }
-    if (this.startMarker) {
-      this.map.removeLayer(this.startMarker);
-      this.startMarker = null;
-    }
-    if (this.map) {
-      this.routingService.removeRouting(this.map);
-    }
+    if (this.currentPolyline) { this.map.removeLayer(this.currentPolyline); this.currentPolyline = null; }
+    if (this.passedPolyline) { this.map.removeLayer(this.passedPolyline); this.passedPolyline = null; }
+    if (this.approachPolyline) { this.map.removeLayer(this.approachPolyline); this.approachPolyline = null; }
+    if (this.startMarker) { this.map.removeLayer(this.startMarker); this.startMarker = null; }
+    this.routingService.removeRouting(this.map);
 
     const destLat = dest.entranceLat ?? dest.lat;
     const destLng = dest.entranceLng ?? dest.lng;
 
     const endNodeId = this.graphService.findNearestNodeId(destLat, destLng);
-    if (!endNodeId) {
-      console.warn('No graph node found near destination entrance:', dest.name);
-      return;
-    }
+    if (!endNodeId) return;
 
-    const nearestToStartId = this.graphService.findNearestNodeId(
-      startPoint.lat,
-      startPoint.lng
-    );
+    const nearestToStartId = this.graphService.findNearestNodeId(startPoint.lat, startPoint.lng);
     let startNodeId: string | null = nearestToStartId;
 
     if (!startNodeId) {
@@ -332,25 +366,16 @@ export class MapService {
         endNodeId
       );
     }
-
-    if (!startNodeId) {
-      console.warn('No graph node found near fixed start point');
-      return;
-    }
+    if (!startNodeId) return;
 
     const pathNodes = this.graphService.calculatePath(startNodeId, endNodeId);
-    if (!pathNodes || pathNodes.length < 1) {
-      console.warn('No path between nodes:', startNodeId, '→', endNodeId);
-      return;
-    }
+    if (!pathNodes || pathNodes.length < 1) return;
 
     const startNodeCoords = this.graphService.getDestinationCoords(startNodeId)!;
     const mainRoutePoints: L.LatLng[] = [...pathNodes];
 
-    // Σημεία για simulation
     this.currentRoutePoints = [startPoint, startNodeCoords, ...mainRoutePoints];
 
-    // Διακεκομμένη από fixed start → πρώτο node
     if (startPoint.distanceTo(startNodeCoords) > 1) {
       this.approachPolyline = L.polyline([startPoint, startNodeCoords], {
         color: '#666666',
@@ -360,64 +385,37 @@ export class MapService {
       }).addTo(this.map);
     }
 
-    // Κύρια μπλε γραμμή (μπροστά)
     this.currentPolyline = L.polyline(mainRoutePoints, {
       color: '#007bff',
       weight: 6,
       opacity: 0.9,
     }).addTo(this.map);
 
-    // αρχικά δεν έχεις περάσει από πουθενά
-    if (this.passedPolyline) {
-      this.map.removeLayer(this.passedPolyline);
-      this.passedPolyline = null;
-    }
-
-    const allPoints = [startPoint, startNodeCoords, ...mainRoutePoints];
-    const bounds = L.latLngBounds(allPoints);
-
-    
-    const topPad = 140;     
-    const bottomPad = 260;  
-    const sidePad = 30;
+    const bounds = L.latLngBounds([startPoint, startNodeCoords, ...mainRoutePoints]);
 
     this.map.fitBounds(bounds, {
-      paddingTopLeft: [sidePad, topPad],
-      paddingBottomRight: [sidePad, bottomPad],
-      maxZoom: 18,          // να κάνει “ξεζουμ” 
+      paddingTopLeft: [30, 140],
+      paddingBottomRight: [30, 260],
+      maxZoom: 18,
       animate: true,
       duration: 0.7,
     });
-
   }
 
-  // ------------------------------------------------------
-  // ΕΝΗΜΕΡΩΣΗ διαδρομής: πίσω (αχνό) & μπροστά (έντονο)
-  // ------------------------------------------------------
   public updateRouteProgress(passedPoints: L.LatLng[], remainingPoints: L.LatLng[]) {
     if (!this.map) return;
 
-    // γραμμή ΠΙΣΩ (αχνή)
     if (passedPoints && passedPoints.length >= 2) {
       if (!this.passedPolyline) {
-        this.passedPolyline = L.polyline(passedPoints, {
-          color: '#777777',
-          weight: 4,
-          opacity: 0.4,
-        }).addTo(this.map);
+        this.passedPolyline = L.polyline(passedPoints, { color: '#777777', weight: 4, opacity: 0.4 }).addTo(this.map);
       } else {
         this.passedPolyline.setLatLngs(passedPoints);
       }
     }
 
-    // γραμμή ΜΠΡΟΣΤΑ (έντονη)
     if (remainingPoints && remainingPoints.length >= 2) {
       if (!this.currentPolyline) {
-        this.currentPolyline = L.polyline(remainingPoints, {
-          color: '#007bff',
-          weight: 6,
-          opacity: 0.9,
-        }).addTo(this.map);
+        this.currentPolyline = L.polyline(remainingPoints, { color: '#007bff', weight: 6, opacity: 0.9 }).addTo(this.map);
       } else {
         this.currentPolyline.setLatLngs(remainingPoints);
       }
@@ -429,38 +427,17 @@ export class MapService {
     }
   }
 
-  // ------------------------------------------------------
-  // TOOLS
-  // ------------------------------------------------------
   public removeRouting() {
-    if (this.currentPolyline) {
-      this.map.removeLayer(this.currentPolyline);
-      this.currentPolyline = null;
-    }
+    if (!this.map) return;
 
-    if (this.passedPolyline) {
-      this.map.removeLayer(this.passedPolyline);
-      this.passedPolyline = null;
-    }
+    if (this.currentPolyline) { this.map.removeLayer(this.currentPolyline); this.currentPolyline = null; }
+    if (this.passedPolyline) { this.map.removeLayer(this.passedPolyline); this.passedPolyline = null; }
+    if (this.approachPolyline) { this.map.removeLayer(this.approachPolyline); this.approachPolyline = null; }
 
-    if (this.approachPolyline) {
-      this.map.removeLayer(this.approachPolyline);
-      this.approachPolyline = null;
-    }
+    if (this.destinationMarker) { this.map.removeLayer(this.destinationMarker); this.destinationMarker = null; }
+    if (this.startMarker) { this.map.removeLayer(this.startMarker); this.startMarker = null; }
 
-    if (this.destinationMarker) {
-      this.map.removeLayer(this.destinationMarker);
-      this.destinationMarker = null;
-    }
-
-    if (this.startMarker) {
-      this.map.removeLayer(this.startMarker);
-      this.startMarker = null;
-    }
-
-    if (this.map) {
-      this.routingService.removeRouting(this.map);
-    }
+    this.routingService.removeRouting(this.map);
 
     this.currentRoutePoints = [];
   }
@@ -469,7 +446,6 @@ export class MapService {
     return this.currentRoutePoints;
   }
 
-  // ✅ εδώ πλέον ακολουθεί ΚΑΙ το map όταν followUser = true
   public updateUserPosition(lat: number, lng: number) {
     if (this.userMarker) {
       this.userMarker.setLatLng([lat, lng]);

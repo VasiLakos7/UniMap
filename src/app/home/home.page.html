@@ -41,6 +41,16 @@
     <div class="lock-card">Εκτός εμβέλειας</div>
   </div>
 
+    <!-- ♿ Accessibility button -->
+    <ion-fab slot="fixed" vertical="bottom" horizontal="start" class="amea-fab">
+    <ion-fab-button (click)="onAmeaClick()" aria-label="Προσβασιμότητα" class="amea-btn">
+      <span class="amea-mask"></span>
+    </ion-fab-button>
+  </ion-fab>
+
+
+
+
   <!-- 📌 Popup -->
   <app-department-popup
     *ngIf="showModal && currentDestination"

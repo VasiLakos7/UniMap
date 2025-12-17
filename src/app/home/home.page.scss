@@ -111,3 +111,24 @@ ion-content {
 .nav-text{
   letter-spacing: -0.2px;
 }
+.amea-fab{
+  margin-left: 12px;
+  margin-bottom: calc(env(safe-area-inset-bottom) + 12px);
+  z-index: 1400;
+}
+
+.amea-btn{
+  width: 44px;
+  height: 44px;
+  --background: #1e40af; 
+}
+
+.amea-mask{
+  width: 22px;
+  height: 22px;
+  display: block;
+  background: #fff; 
+
+  -webkit-mask: url('/assets/images/others/wheelchair.png') no-repeat center / contain;
+  mask: url('/assets/images/others/wheelchair.png') no-repeat center / contain;
+}

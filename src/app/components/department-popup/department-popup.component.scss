@@ -55,9 +55,8 @@
 }
 
 .popup-content {
-  /* 🌟 ΚΕΝΤΡΑΡΙΣΜΑ 2: Κεντράρει το κείμενο μέσα στο content block */
   text-align: center; 
-  /* ΑΦΑΙΡΟΥΜΕ width: 100% για να μην καταλαμβάνει άσκοπο χώρο */
+
   padding: 0 10px; 
 }
 
@@ -82,8 +81,6 @@
   gap: 10px;
   margin-top: 10px;
   flex-wrap: nowrap; 
-  
-  /* 🌟 ΚΕΝΤΡΑΡΙΣΜΑ 3: Αυτό κεντράρει το block των κουμπιών στο κέντρο */
   width: 100%;
   max-width: 400px;
   margin-left: auto;
@@ -111,7 +108,6 @@
     color: var(--ion-color-medium);
 }
 
-/* Keyframes για το animation εμφάνισης */
 @keyframes slideUp {
   from {
     transform: translateY(100%);

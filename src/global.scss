@@ -128,3 +128,7 @@ ion-content {
   transform-origin: 50% 50%;
   display: block;
 }
+ion-header, ion-toolbar {
+  padding-top: var(--ion-safe-area-top);
+}
+
