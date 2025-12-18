@@ -1,38 +1,32 @@
-/*
- * Department Popup Styles (department-popup.component.scss)
- * Εγγύηση κεντραρίσματος τίτλου, εικόνας και κουμπιών.
- */
-
 :host {
-    display: block;
-    width: 100%;
-}
-
-.popup-container {
-  /* Mobile First: Fixed position στο κάτω μέρος */
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: #fff;
-  border-top-left-radius: 20px;
-  border-top-right-radius: 20px;
-  padding: 20px 16px 30px; 
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
-  animation: slideUp 0.3s ease;
-  z-index: 999;
-  
-  /* 🌟 ΚΕΝΤΡΑΡΙΣΜΑ 1: Κεντράρει τα blocks (εικόνα, content) */
-  display: flex;
-  flex-direction: column;
-  align-items: center; 
+  display: block;
   width: 100%;
 }
 
-/* Κουμπί Κλεισίματος (ion-button) */
+.popup-container {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+
+  background: #fff;
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+
+  padding: 18px 16px calc(24px + env(safe-area-inset-bottom));
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+
+  animation: slideUp 0.3s ease;
+  z-index: 999;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 .close-icon-btn {
   position: absolute;
-  top: 10px; 
+  top: 10px;
   right: 10px;
   z-index: 10;
   --padding-start: 10px;
@@ -40,39 +34,44 @@
 }
 
 .close-icon {
-    font-size: 24px;
-    color: var(--ion-color-medium);
+  font-size: 24px;
+  color: var(--ion-color-medium);
 }
 
 .popup-image {
   display: block;
-  margin: 0 auto;
-  max-width: 60%; 
-  max-height: 80px; 
+  max-width: 60%;
+  max-height: 80px;
   object-fit: contain;
   border-radius: 10px;
-  margin-bottom: 12px;
+  margin: 6px 0 12px;
 }
 
 .popup-content {
-  text-align: center; 
-
-  padding: 0 10px; 
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+  padding: 0 10px;
 }
 
 .popup-content h2 {
-  font-size: 1.2rem;
-  font-weight: 700; 
+  font-size: 1.15rem;
+  font-weight: 700;
   color: var(--ion-color-dark);
-  margin: 0 0 15px 0;
-  padding: 0;
+  margin: 0 0 10px 0;
 }
 
-.description-text {
-    color: var(--ion-color-medium-shade, #737373);
-    font-size: 0.85rem;
-    margin-bottom: 15px;
-    padding: 0 10px;
+.distance {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px 0;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--ion-color-dark);
+  font-size: 0.9rem;
+  font-weight: 600;
 }
 
 .popup-buttons {
@@ -80,39 +79,40 @@
   justify-content: center;
   gap: 10px;
   margin-top: 10px;
-  flex-wrap: nowrap; 
   width: 100%;
-  max-width: 400px;
-  margin-left: auto;
-  margin-right: auto;
+  flex-wrap: nowrap;
+  align-items: center;
 }
 
 .popup-buttons ion-button {
-  --border-radius: 8px; 
-  height: 44px; 
+  --border-radius: 10px;
+  height: 44px;
 }
 
-.popup-buttons ion-button[color="success"] {
-  flex-grow: 3; 
-  font-weight: bold;
+.popup-buttons ion-button:not([fill="outline"]) {
+  flex: 1 1 auto;
+  min-width: 170px;
+  font-weight: 700;
 }
 
 .popup-buttons ion-button[fill="outline"] {
-  flex-grow: 1; 
-  min-width: 44px; 
+  flex: 0 0 46px;
+  min-width: 46px;
+  --padding-start: 0;
+  --padding-end: 0;
 }
 
-.share-info {
-    margin-top: 10px;
-    font-size: 0.8rem;
-    color: var(--ion-color-medium);
+@media (max-width: 360px) {
+  .popup-buttons {
+    flex-wrap: wrap;
+  }
+
+  .popup-buttons ion-button:not([fill="outline"]) {
+    min-width: 100%;
+  }
 }
 
 @keyframes slideUp {
-  from {
-    transform: translateY(100%);
-  }
-  to {
-    transform: translateY(0);
-  }
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
 }

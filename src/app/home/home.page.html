@@ -7,20 +7,19 @@
 <ion-content [fullscreen]="true">
 
   <div slot="fixed" class="search-host">
-
-    <!-- Search όταν ΔΕΝ έχουμε nav -->
     <ng-container *ngIf="!navEnabled; else navBox">
       <app-search-bar
+        [locked]="selectionLocked"
+        [placeholderText]="selectionLocked ? '🔒 Διαδρομή ενεργή — πάτα Χ' : 'Προορισμός...'"
         (destinationSelected)="onDestinationSelected($event)"
-        (searchOpenChange)="onSearchOpenChange($event)">
+        (searchOpenChange)="onSearchOpenChange($event)"
+        (lockedAttempt)="onSearchLockedAttempt()">
       </app-search-bar>
     </ng-container>
 
-    <!-- Nav box όταν navEnabled = true -->
     <ng-template #navBox>
       <div class="nav-box" [ngClass]="navTheme">
         <div class="nav-top">ΠΛΟΗΓΗΣΗ</div>
-
         <div class="nav-body">
           <div class="nav-icon">{{ navIcon }}</div>
           <div>
@@ -30,28 +29,20 @@
         </div>
       </div>
     </ng-template>
-
   </div>
 
-  <!-- 🗺️ Map -->
   <div id="map"></div>
 
-  <!-- 🔒 Lock overlay -->
   <div *ngIf="showLockOverlay" class="lock-screen">
     <div class="lock-card">Εκτός εμβέλειας</div>
   </div>
 
-    <!-- ♿ Accessibility button -->
-    <ion-fab slot="fixed" vertical="bottom" horizontal="start" class="amea-fab">
+  <ion-fab slot="fixed" vertical="bottom" horizontal="start" class="amea-fab">
     <ion-fab-button (click)="onAmeaClick()" aria-label="Προσβασιμότητα" class="amea-btn">
       <span class="amea-mask"></span>
     </ion-fab-button>
   </ion-fab>
 
-
-
-
-  <!-- 📌 Popup -->
   <app-department-popup
     *ngIf="showModal && currentDestination"
     class="popup-overlay"
@@ -59,6 +50,7 @@
     [routeReady]="routeReady"
     [navigationActive]="navigationActive"
     [hasArrived]="hasArrived"
+    [distanceMeters]="selectedDistanceMeters"
     (navigate)="startNavigation()"
     (cancel)="cancelNavigation()"
     (close)="onPopupClose()">

@@ -11,19 +11,18 @@ import { Destination } from '../../models/destination.model';
   imports: [CommonModule, IonicModule],
 })
 export class DepartmentPopupComponent {
-
   @Input() destination!: Destination;
+
   @Input() routeReady = false;
   @Input() navigationActive = false;
-
-  // 🔹 ΝΕΟ: αν έχει φτάσει στον προορισμό
   @Input() hasArrived = false;
+
+  // ✅ για να δείχνεις “Απόσταση: Χ μ” πριν το ΞΕΚΙΝΑ
+  @Input() distanceMeters: number | null = null;
 
   @Output() navigate = new EventEmitter<void>();
   @Output() cancel = new EventEmitter<void>();
   @Output() close = new EventEmitter<void>();
-
-  shareMessage = '';
 
   getImage(): string {
     return this.destination?.image ?? 'assets/default-building.jpg';
@@ -42,16 +41,19 @@ export class DepartmentPopupComponent {
   shareLocation() {
     if (!this.destination) return;
 
-    const { lat, lng, name } = this.destination;
+    const lat = this.destination.entranceLat ?? this.destination.lat;
+    const lng = this.destination.entranceLng ?? this.destination.lng;
+    const name = this.destination.name;
+
     const text = `Συνάντηση στο ${name} (${lat}, ${lng})`;
     const url = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=18/${lat}/${lng}`;
 
     if (navigator.share) {
       navigator.share({ title: name, text, url }).catch(() => {});
-    } else {
-      navigator.clipboard?.writeText(`${text}\n${url}`).catch(() => {});
-      this.shareMessage = 'Ο σύνδεσμος αντιγράφηκε στο πρόχειρο.';
-      setTimeout(() => (this.shareMessage = ''), 3000);
+      return;
     }
+
+    // ✅ πιο “clean”: απλά copy, χωρίς message UI
+    navigator.clipboard?.writeText(`${text}\n${url}`).catch(() => {});
   }
 }

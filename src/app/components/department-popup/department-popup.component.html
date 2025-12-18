@@ -1,18 +1,18 @@
 <div class="popup-container">
-  <!-- Κουμπί κλεισίματος -->
   <ion-button fill="clear" color="medium" (click)="close.emit()" class="close-icon-btn">
     <ion-icon class="close-icon" name="close-circle-outline"></ion-icon>
   </ion-button>
 
-  <!-- Εικόνα -->
   <img [src]="getImage()" alt="Φωτογραφία" class="popup-image" />
 
   <div class="popup-content">
     <h2>{{ destination.name }}</h2>
 
-    <div class="popup-buttons">
+    <div class="distance" *ngIf="distanceMeters !== null && !navigationActive && !hasArrived">
+      {{ distanceMeters }} m
+    </div>
 
-      <!-- 🔵 ΞΕΚΙΝΑ / ΑΚΥΡΩΣΗ -> μόνο αν δεν έχουμε φτάσει -->
+    <div class="popup-buttons">
       <ion-button
         *ngIf="!hasArrived"
         [color]="navigationActive ? 'danger' : 'primary'"
@@ -27,31 +27,26 @@
         {{ navigationActive ? 'ΑΚΥΡΩΣΗ' : 'ΞΕΚΙΝΑ' }}
       </ion-button>
 
-      <!-- 🟢 Μήνυμα άφιξης -> μόνο όταν hasArrived = true -->
       <ion-button
         *ngIf="hasArrived"
         color="success"
         fill="solid"
         (click)="close.emit()">
         <ion-icon name="checkmark-circle-outline" slot="start"></ion-icon>
-        Έφτασες στον προορισμό σου
+        Έφτασες
       </ion-button>
 
-      <!-- 📞 Κλήση -->
-      <ion-button fill="outline" color="danger"
-                  [disabled]="!getPhone()"
-                  (click)="callNumber()">
+      <ion-button
+        *ngIf="getPhone()"
+        fill="outline"
+        color="danger"
+        (click)="callNumber()">
         <ion-icon name="call-outline"></ion-icon>
       </ion-button>
 
-      <!-- 📤 Κοινοποίηση -->
-      <ion-button fill="outline" color="primary"
-                  (click)="shareLocation()">
+      <ion-button fill="outline" color="primary" (click)="shareLocation()">
         <ion-icon name="share-outline"></ion-icon>
       </ion-button>
-
     </div>
-
-    <p *ngIf="shareMessage" class="share-info">{{ shareMessage }}</p>
   </div>
 </div>

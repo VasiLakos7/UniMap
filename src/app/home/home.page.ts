@@ -24,7 +24,6 @@ import { DepartmentPopupComponent } from '../components/department-popup/departm
   ],
 })
 export class HomePage implements OnInit, OnDestroy {
-
   private mapService = inject(MapService);
 
   routeReady = false;
@@ -34,7 +33,6 @@ export class HomePage implements OnInit, OnDestroy {
   simulationInterval: any = null;
   simulationStepMs = 1200;
 
-  // default fallback (αν δεν έρθει state)
   userLat = 40.656115;
   userLng = 22.803626;
 
@@ -54,6 +52,12 @@ export class HomePage implements OnInit, OnDestroy {
   navIcon = '📍';
   navSub: string | null = null;
 
+  routeTotalMeters = 0;
+  routeRemainingMeters = 0;
+  routeProgress = 0;
+
+  selectedDistanceMeters: number | null = null;
+
   private maneuvers: { i: number; type: 'left' | 'right' }[] = [];
   private mapSubscriptions: Subscription[] = [];
 
@@ -69,17 +73,15 @@ export class HomePage implements OnInit, OnDestroy {
 
   ionViewDidEnter() {
     const st: any = history.state;
-    if (st?.lat && st?.lng) { this.userLat = st.lat; this.userLng = st.lng; }
+    if (st?.lat && st?.lng) {
+      this.userLat = st.lat;
+      this.userLng = st.lng;
+    }
 
     this.mapService.initializeMap(this.userLat, this.userLng, 'map');
-    this.mapService.startGpsWatch(); 
-
+    this.mapService.startGpsWatch();
   }
 
-
-  // -------------------------------------------
-  // UI helpers
-  // -------------------------------------------
   private async presentToast(message: string) {
     const toast = document.createElement('ion-toast');
     toast.message = message;
@@ -98,6 +100,11 @@ export class HomePage implements OnInit, OnDestroy {
 
     await new Promise(res => setTimeout(res, durationMs));
     await loading.dismiss();
+  }
+
+  private formatMeters(meters: number): string {
+    const m = Math.max(0, Math.ceil(meters));
+    return `${m} m`;
   }
 
   private bearing(a: L.LatLng, b: L.LatLng) {
@@ -151,7 +158,6 @@ export class HomePage implements OnInit, OnDestroy {
       this.navInstruction = 'Προορισμός...';
       this.navIcon = '📍';
       this.navTheme = 'nav-blue';
-      this.navSub = null;
       return;
     }
 
@@ -159,7 +165,6 @@ export class HomePage implements OnInit, OnDestroy {
       this.navInstruction = 'Προορισμός...';
       this.navIcon = '📍';
       this.navTheme = 'nav-blue';
-      this.navSub = null;
       return;
     }
 
@@ -178,7 +183,6 @@ export class HomePage implements OnInit, OnDestroy {
       this.navInstruction = 'Ο προορισμός βρίσκεται μπροστά σας';
       this.navIcon = '📍';
       this.navTheme = 'nav-green';
-      this.navSub = null;
       return;
     }
 
@@ -192,12 +196,10 @@ export class HomePage implements OnInit, OnDestroy {
       this.navInstruction = 'Συνέχισε ευθεία';
       this.navIcon = '⬆️';
       this.navTheme = 'nav-blue';
-      this.navSub = null;
       return;
     }
 
     const distToTurn = currentPoint.distanceTo(points[next.i]);
-    this.navSub = null;
 
     if (distToTurn <= TURN_NOW) {
       this.navInstruction = next.type === 'left' ? 'Στρίψε αριστερά' : 'Στρίψε δεξιά';
@@ -223,6 +225,22 @@ export class HomePage implements OnInit, OnDestroy {
     this.navInstruction = 'Πήγαινε ευθεία';
     this.navIcon = '⬆️';
     this.navTheme = 'nav-blue';
+  }
+
+  private getTestStartPoint(): L.LatLng {
+    const baseLat = 40.656115;
+    const baseLng = 22.803626;
+
+    for (let k = 0; k < 15; k++) {
+      const lat = baseLat + (Math.random() - 0.5) * 0.0012;
+      const lng = baseLng + (Math.random() - 0.5) * 0.0012;
+
+      if (this.mapService.isPointInsideCampus(lat, lng)) {
+        return L.latLng(lat, lng);
+      }
+    }
+
+    return L.latLng(baseLat, baseLng);
   }
 
   simulateUserWalk(points: L.LatLng[]) {
@@ -294,7 +312,19 @@ export class HomePage implements OnInit, OnDestroy {
       this.handleMapClick(data.lat, data.lng, name);
     });
 
-    this.mapSubscriptions.push(locSub, errSub, clickSub);
+    const progSub = this.mapService.routeProgress.subscribe(p => {
+      this.routeTotalMeters = Math.max(0, Math.ceil(p.totalMeters));
+      this.routeRemainingMeters = Math.max(0, Math.ceil(p.remainingMeters));
+      this.routeProgress = p.progress;
+
+      if (this.navEnabled && this.navigationActive) {
+        this.navSub = this.formatMeters(p.remainingMeters);
+      } else if (this.routeReady && !this.navigationActive) {
+        this.navSub = this.formatMeters(p.totalMeters);
+      }
+    });
+
+    this.mapSubscriptions.push(locSub, errSub, clickSub, progSub);
   }
 
   async onDestinationSelected(destination: Destination) {
@@ -316,6 +346,7 @@ export class HomePage implements OnInit, OnDestroy {
     }
 
     const found = this.destinationList.find(d => d.name === name);
+
     this.hasArrived = false;
 
     this.navEnabled = false;
@@ -323,6 +354,13 @@ export class HomePage implements OnInit, OnDestroy {
     this.navIcon = '📍';
     this.navTheme = 'nav-blue';
     this.navSub = null;
+
+    this.routeReady = false;
+    this.navigationActive = false;
+    this.routeTotalMeters = 0;
+    this.routeRemainingMeters = 0;
+    this.routeProgress = 0;
+    this.selectedDistanceMeters = null;
 
     if (found) {
       this.currentDestination = found;
@@ -334,10 +372,24 @@ export class HomePage implements OnInit, OnDestroy {
       this.mapService.pinDestination(lat, lng, this.currentDestination.name);
     }
 
-    await this.mapService.drawCustomRouteToDestination(this.currentDestination!);
+    const start = this.simulateMovement
+      ? this.getTestStartPoint()
+      : L.latLng(this.userLat, this.userLng);
+
+    await this.mapService.drawCustomRouteToDestination(this.currentDestination, start);
 
     const routePts = this.mapService.getCurrentRoutePoints();
     this.maneuvers = this.buildManeuvers(routePts);
+
+    const totalMetersRaw = this.mapService.getCurrentRouteDistanceMeters();
+    const totalMeters = Math.max(0, Math.ceil(totalMetersRaw));
+
+    this.routeTotalMeters = totalMeters;
+    this.routeRemainingMeters = totalMeters;
+    this.routeProgress = 0;
+
+    this.selectedDistanceMeters = totalMeters;
+    this.navSub = this.formatMeters(totalMeters);
 
     this.routeReady = true;
     this.navigationActive = false;
@@ -357,6 +409,8 @@ export class HomePage implements OnInit, OnDestroy {
     this.mapService.pinDestination(destLat, destLng, this.currentDestination.name);
 
     this.mapService.setFollowUser(true, 19);
+    
+    
     this.mapService.focusOn(this.userLat, this.userLng, 19);
 
     this.navEnabled = true;
@@ -364,6 +418,8 @@ export class HomePage implements OnInit, OnDestroy {
 
     const route = this.mapService.getCurrentRoutePoints();
     this.updateNavInstruction(L.latLng(this.userLat, this.userLng), route);
+
+    this.navSub = this.formatMeters(this.routeRemainingMeters || this.routeTotalMeters);
 
     if (this.simulateMovement) {
       this.simulateUserWalk(route);
@@ -405,10 +461,19 @@ export class HomePage implements OnInit, OnDestroy {
     this.navTheme = 'nav-blue';
     this.navSub = null;
 
+    this.routeTotalMeters = 0;
+    this.routeRemainingMeters = 0;
+    this.routeProgress = 0;
+
+    this.selectedDistanceMeters = null;
     this.maneuvers = [];
   }
 
-  onAmeaClick() {
-  console.log('AMEA clicked');
-}
+  async onAmeaClick() {
+    await this.presentToast('Προσβασιμότητα: σύντομα');
+  }
+
+  async onSearchLockedAttempt() {
+    await this.presentToast('Πάτα Χ για να ακυρώσεις τη διαδρομή και να επιλέξεις νέο προορισμό.');
+  }
 }

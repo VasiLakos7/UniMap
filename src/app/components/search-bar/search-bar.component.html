@@ -1,16 +1,33 @@
-<div class="search-float">
+<div class="search-float" [class.locked]="showLockBadge">
   <ion-searchbar
     [disabled]="locked"
-    placeholder="Προορισμός..."
+    [placeholder]="placeholderText"
     [(ngModel)]="searchQuery"
     (ionInput)="onSearchInput()"
+    (ionFocus)="onSearchFocus()"
     showClearButton="focus">
   </ion-searchbar>
 
+  <!-- ✅ ΜΙΚΡΟ PILL (δεν πιάνει ύψος / δεν μοιάζει με λίστα) -->
+  <div *ngIf="showLockBadge" class="lock-pill" (click)="$event.stopPropagation()">
+    <span class="lock-pill-text">{{ lockBadgeText }}</span>
+    <ion-button
+      fill="clear"
+      size="small"
+      color="medium"
+      class="lock-pill-btn"
+      (click)="onCancelClick($event)">
+      Ακύρωση
+    </ion-button>
+  </div>
 
-  <div *ngIf="filteredResults.length" class="divider"></div>
+  <div
+    *ngIf="panelOpen && (filteredResults.length || (!searchQuery.trim() && recentResults.length))"
+    class="divider">
+  </div>
 
-  <ion-list *ngIf="filteredResults.length" class="results">
+  <!-- RESULTS -->
+  <ion-list *ngIf="panelOpen && searchQuery.trim() && filteredResults.length" class="results">
     <ion-item
       button
       lines="none"
@@ -18,7 +35,26 @@
       (click)="selectDestination(dest)">
       {{ dest.name }}
     </ion-item>
-</ion-list>
+  </ion-list>
 
+  <!-- RECENTS -->
+  <!-- RECENTS -->
+  <ion-list *ngIf="panelOpen && !searchQuery.trim() && recentResults.length" class="results recents">
+      <ion-item lines="none" class="recent-header">
+        <ion-label>Πρόσφατες αναζητήσεις</ion-label>
+        <ion-button fill="clear" size="small" color="medium" slot="end" (click)="clearRecents()">
+          Διαγραφή όλων
+        </ion-button>
+      </ion-item>
+
+      <ion-item
+        button
+        lines="none"
+        class="recent-item"
+        *ngFor="let dest of recentResults"
+        (click)="selectDestination(dest)">
+        {{ dest.name }}
+      </ion-item>
+  </ion-list>
 
 </div>
