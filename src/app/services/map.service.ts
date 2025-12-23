@@ -18,6 +18,8 @@ export class MapService {
   private approachPolyline: L.Polyline | null = null;
 
   private baseLayer?: L.TileLayer;
+  private debugLayer: L.LayerGroup | null = null;
+  public debugGraph = true; 
 
   public locationFound = new EventEmitter<{ lat: number; lng: number }>();
   public mapClicked = new EventEmitter<{ lat: number; lng: number; name: string | null }>();
@@ -130,6 +132,10 @@ export class MapService {
 
     this.setupUserMarker(lat, lng);
     this.setupMapClickEvent();
+    if (!this.debugLayer) {
+      this.debugLayer = L.layerGroup().addTo(this.map);
+    }
+
   }
 
   private setupUserMarker(lat: number, lng: number) {
@@ -395,6 +401,23 @@ export class MapService {
       totalMeters,
       progress: 0
     });
+    if (this.debugGraph) {
+  const nodeIds = this.graphService.calculatePathNodeIds(startNodeId, endNodeId); // ή όπως λέγονται σε σένα
+  if (nodeIds) {
+    console.log('[ROUTE NODE IDS]', nodeIds.join(' -> '));
+
+    // markers πάνω στο χάρτη
+    nodeIds.forEach((id, idx) => {
+      const ll = this.graphService.getNodeLatLng(id);
+      if (!ll) return;
+
+      const m = L.circleMarker(ll, { radius: 5, weight: 2, opacity: 0.9, fillOpacity: 0.4 });
+      m.bindTooltip(`${idx}: ${id}`, { permanent: false, direction: 'top' });
+      this.debugLayer?.addLayer(m);
+    });
+  }
+}
+
   }
 
   public updateRouteProgress(passedPoints: L.LatLng[], remainingPoints: L.LatLng[]) {

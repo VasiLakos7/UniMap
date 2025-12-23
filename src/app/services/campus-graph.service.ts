@@ -1,260 +1,395 @@
 import { Injectable } from '@angular/core';
 import { find_path } from 'dijkstrajs';
 import * as L from 'leaflet';
-// import { Destination } from '../models/destination.model';
 
 // ----------------------------------------------------
-// 1) NODE COORDS — Κόμβοι διαδρομής γύρω από το campus
+// 1) OSM GRAPH (auto-generated) — base network
 // ----------------------------------------------------
-const nodeCoords = {
-  // 🔹 ΑΡΙΣΤΕΡΗ ΜΠΡΟΣΤΙΝΗ ΠΛΕΥΡΑ (από πάνω προς κάτω)
-  L_EDGE_1: L.latLng(40.65804134873658, 22.802114061872675),
-  L_EDGE_2: L.latLng(40.65761534861251, 22.80210928271519),
-  L_EDGE_3: L.latLng(40.65738512613233, 22.802123620173496),
-  L_EDGE_4: L.latLng(40.657038884541016, 22.802097334831537),
-  L_EDGE_5: L.latLng(40.65614764156474, 22.80210862617149),
-  L_EDGE_6: L.latLng(40.65575063452395, 22.802106236596035),
+const OSM_NODE_COORDS: Record<string, L.LatLng> = {
+  N0001: L.latLng(40.658525, 22.799298),
+  N0002: L.latLng(40.658459, 22.799296),
+  N0003: L.latLng(40.658354, 22.799355),
+  N0004: L.latLng(40.658187, 22.799542),
+  N0005: L.latLng(40.657899, 22.79992),
+  N0006: L.latLng(40.657445, 22.800354),
+  N0007: L.latLng(40.656817, 22.800956),
+  N0008: L.latLng(40.656757, 22.801019),
+  N0009: L.latLng(40.656715, 22.801081),
+  N0010: L.latLng(40.657342, 22.805804),
+  N0011: L.latLng(40.657168, 22.805803),
+  N0012: L.latLng(40.656951, 22.804577),
+  N0013: L.latLng(40.656879, 22.804575),
+  N0014: L.latLng(40.656723, 22.804572),
+  N0015: L.latLng(40.656553, 22.804567),
+  N0016: L.latLng(40.656389, 22.804563),
+  N0017: L.latLng(40.656257, 22.80456),
+  N0018: L.latLng(40.657116, 22.803215),
+  N0019: L.latLng(40.657113, 22.803203),
+  N0020: L.latLng(40.65709, 22.803172),
+  N0021: L.latLng(40.657081, 22.803169),
+  N0022: L.latLng(40.656886, 22.803168),
+  N0023: L.latLng(40.656695, 22.803168),
+  N0024: L.latLng(40.656686, 22.803172),
+  N0025: L.latLng(40.656664, 22.803201),
+  N0026: L.latLng(40.656661, 22.803213),
+  N0027: L.latLng(40.656661, 22.80347),
+  N0028: L.latLng(40.656665, 22.803484),
+  N0029: L.latLng(40.656685, 22.803508),
+  N0030: L.latLng(40.656695, 22.803513),
+  N0031: L.latLng(40.657077, 22.803524),
+  N0032: L.latLng(40.65709, 22.80351),
+  N0033: L.latLng(40.657114, 22.803477),
+  N0034: L.latLng(40.657116, 22.803466),
+  N0035: L.latLng(40.657116, 22.8033),
+  N0036: L.latLng(40.657213, 22.803699),
+  N0037: L.latLng(40.657216, 22.803551),
+  N0038: L.latLng(40.657221, 22.803305),
+  N0039: L.latLng(40.656718, 22.805035),
+  N0040: L.latLng(40.656878, 22.805037),
+  N0041: L.latLng(40.657873, 22.803176),
+  N0042: L.latLng(40.657871, 22.803309),
+  N0043: L.latLng(40.657869, 22.803432),
+  N0044: L.latLng(40.657866, 22.803666),
+  N0045: L.latLng(40.657854, 22.804547),
+  N0046: L.latLng(40.656382, 22.80503),
+  N0047: L.latLng(40.657751, 22.803663),
+  N0048: L.latLng(40.657657, 22.803669),
+  N0049: L.latLng(40.65752, 22.803696),
+  N0050: L.latLng(40.657367, 22.803716),
+  N0051: L.latLng(40.657266, 22.803712),
+  N0052: L.latLng(40.658683, 22.803325),
+  N0053: L.latLng(40.658249, 22.803323),
+  N0054: L.latLng(40.657655, 22.803313),
+  N0055: L.latLng(40.656677, 22.803502),
+  N0056: L.latLng(40.656645, 22.803562),
+  N0057: L.latLng(40.656634, 22.803593),
+  N0058: L.latLng(40.656574, 22.803619),
+  N0059: L.latLng(40.65584, 22.803614),
+  N0060: L.latLng(40.655735, 22.803614),
+  N0061: L.latLng(40.657144, 22.803551),
+  N0062: L.latLng(40.657045, 22.803526),
+  N0063: L.latLng(40.657048, 22.803693),
+  N0064: L.latLng(40.657161, 22.806069),
+  N0065: L.latLng(40.657173, 22.805625),
+  N0066: L.latLng(40.65718, 22.805375),
+  N0067: L.latLng(40.657191, 22.804995),
+  N0068: L.latLng(40.655745, 22.801974),
+  N0069: L.latLng(40.655728, 22.804402),
+  N0070: L.latLng(40.658084, 22.801779),
+  N0071: L.latLng(40.658079, 22.802211),
+  N0072: L.latLng(40.658083, 22.802228),
+  N0073: L.latLng(40.658089, 22.802242),
+  N0074: L.latLng(40.658097, 22.802256),
+  N0075: L.latLng(40.658107, 22.802267),
+  N0076: L.latLng(40.658118, 22.802275),
+  N0077: L.latLng(40.65813, 22.802281),
+  N0078: L.latLng(40.658143, 22.802284),
+  N0079: L.latLng(40.65869, 22.802269),
+  N0080: L.latLng(40.655666, 22.802067),
+  N0081: L.latLng(40.65562, 22.802114),
+  N0082: L.latLng(40.655231, 22.802544),
+  N0083: L.latLng(40.655212, 22.802575),
+  N0084: L.latLng(40.655191, 22.802609),
+  N0085: L.latLng(40.655168, 22.802664),
+  N0086: L.latLng(40.655155, 22.802723),
+  N0087: L.latLng(40.655122, 22.803504),
+  N0088: L.latLng(40.655105, 22.803893),
+  N0089: L.latLng(40.655095, 22.804261),
+  N0090: L.latLng(40.655079, 22.804582),
+  N0091: L.latLng(40.655068, 22.804765),
+  N0092: L.latLng(40.655055, 22.804928),
+  N0093: L.latLng(40.655042, 22.805125),
+  N0094: L.latLng(40.655032, 22.805378),
+  N0095: L.latLng(40.656224, 22.805365),
+  N0096: L.latLng(40.655709, 22.805354),
+  N0097: L.latLng(40.658666, 22.80189),
+  N0098: L.latLng(40.658666, 22.801864),
+  N0099: L.latLng(40.658665, 22.801842),
+  N0100: L.latLng(40.65866, 22.801822),
+  N0101: L.latLng(40.65865, 22.801804),
+  N0102: L.latLng(40.658637, 22.801796),
+  N0103: L.latLng(40.658623, 22.801789),
+  N0104: L.latLng(40.658604, 22.801784),
+  N0105: L.latLng(40.65858, 22.801782),
+  N0106: L.latLng(40.658228, 22.801776),
+  N0107: L.latLng(40.65867, 22.805386),
+  N0108: L.latLng(40.658675, 22.804534),
+  N0109: L.latLng(40.658686, 22.8029),
 
-  // 🔹 ΚΑΤΩ ΠΛΕΥΡΑ – από κάτω αριστερά προς τα δεξιά
-  BOT_1: L.latLng(40.65574338323259, 22.80255786656949),
+  // αυτά είναι off-campus (θα φιλτραριστούν από bbox)
+  N0110: L.latLng(40.652598, 22.801264),
+  N0111: L.latLng(40.652683, 22.801196),
+  N0112: L.latLng(40.652723, 22.801173),
+  N0113: L.latLng(40.652767, 22.801157),
+  N0114: L.latLng(40.652811, 22.801156),
+  N0115: L.latLng(40.653321, 22.801236),
+  N0116: L.latLng(40.653679, 22.8012),
+  N0117: L.latLng(40.653772, 22.801205),
+  N0118: L.latLng(40.654047, 22.801199),
+  N0119: L.latLng(40.654074, 22.8012),
+  N0120: L.latLng(40.654102, 22.801191),
+  N0121: L.latLng(40.654162, 22.801142),
+  N0122: L.latLng(40.654173, 22.801114),
+  N0123: L.latLng(40.654175, 22.801077),
 
-  MPD_JUNC: L.latLng(40.65575676754222, 22.803262729547537),
-  BOT_2: L.latLng(40.65576151146118, 22.803582994906154),
+  N0124: L.latLng(40.658034, 22.804551),
+  N0125: L.latLng(40.657998, 22.804551),
+  N0126: L.latLng(40.656307, 22.805366),
+  N0127: L.latLng(40.657071, 22.805373),
+  N0128: L.latLng(40.657373, 22.805375),
+  N0129: L.latLng(40.655789, 22.804621),
+  N0130: L.latLng(40.655831, 22.804851),
+  N0131: L.latLng(40.655887, 22.80503),
+  N0132: L.latLng(40.655988, 22.805175),
+  N0133: L.latLng(40.657045, 22.801683),
+  N0134: L.latLng(40.657041, 22.801811),
+  N0135: L.latLng(40.656007, 22.801802),
+  N0136: L.latLng(40.655937, 22.801812),
+  N0137: L.latLng(40.655887, 22.801834),
+  N0138: L.latLng(40.655845, 22.801868),
+  N0139: L.latLng(40.655786, 22.801922),
+  N0140: L.latLng(40.656239, 22.804574),
+  N0141: L.latLng(40.656223, 22.804593),
+  N0142: L.latLng(40.656211, 22.804616),
+  N0143: L.latLng(40.656202, 22.804641),
+  N0144: L.latLng(40.656198, 22.804669),
+  N0145: L.latLng(40.656204, 22.805027),
+};
 
-  // Νέα σημεία ευθεία από BOT_2 προς ΣΔΟ / κεντρικό διάδρομο
-  B2_UP_1: L.latLng(40.65624421706049, 22.80356267336902),
-  LOG_FRONT: L.latLng(40.65645125552037, 22.803571695208625),
-  MID_HC_1: L.latLng(40.65665144913412, 22.803562673376618),
-
-  // Διακλάδωση από MID_HC_1 προς τα "μέσα" (κάθετο κλαδί)
-  MID_HC_DOWN: L.latLng(40.65665144913412, 22.803122858695925),
-
-  // Πρώτο δεξί σημείο – αρχή κλαδιού προς βιβλιοθ/φυσικοθερ.
-  MID_HC_RIGHT_1: L.latLng(40.65708947748495, 22.80347471044048),
-
-  LIB_SEG_1: L.latLng(40.657105776483185, 22.803528343928487),
-  LIB_JUNC_MAIN: L.latLng(40.657108828658465, 22.80363697339144),
-  LIB_JUNC_3WAY: L.latLng(40.657215654705446, 22.803647702227128),
-  LIB_FRONT: L.latLng(40.65720355937115, 22.803524571319407),
-
-  PHYSIO_JUNC: L.latLng(40.65719366268964, 22.804095134427097),
-  PHYSIO_TO_R3_MID: L.latLng(40.65717410232367, 22.804389685173),
-
-  LIB_UP: L.latLng(40.65743363877041, 22.803668172548967),
-
-  // ➕ ΣΥΝΕΧΕΙΑ ΠΡΟΣ ΔΙΑΤΡΟΦΗ & ΔΙΑΙΤΟΛΟΓΙΑ
-  LIB_UP_2: L.latLng(40.65764453195437, 22.80362157836841),
-  LIB_UP_JUNC_DD: L.latLng(40.657830136595905, 22.803617785152298),
-  DIET_DIET_ENT: L.latLng(40.658006430808285, 22.803597743580113),
-  LIB_UP_LEFT_1: L.latLng(40.657853946562334, 22.803254261006277),
-  TOP_JOIN_DD: L.latLng(40.65866455855133, 22.803267019810647),
-
-  MID_HC_RIGHT_2: L.latLng(40.65710170691591, 22.80314210583795),
-
-  // 🔹 ΔΙΧΑΛΑ ΣΤΗΝ ΚΑΤΩ ΠΛΕΥΡΑ
-  BOT_3: L.latLng(40.65574157040703, 22.804476696553447),
-  BOT_4: L.latLng(40.65571619087804, 22.80467981055955),
-  BOT_5: L.latLng(40.65569624981274, 22.80530587961364),
-
-  BR_INF_P_1: L.latLng(40.65575788581344, 22.804051351928912),
-
-  // Καμπύλη
-  ARC_1: L.latLng(40.65577238839656, 22.80468936888138),
-  ARC_2: L.latLng(40.65586846791024, 22.805002403408427),
-  ARC_3: L.latLng(40.656017118960676, 22.80518640080219),
-  ARC_4: L.latLng(40.65611682374794, 22.805262867251543),
-
-  H_AFTER_1: L.latLng(40.65613857749992, 22.805334554547812),
-  MERGE_DYCH: L.latLng(40.65624734615334, 22.805327385818188),
-
-  // 🔹 ΔΕΞΙΑ ΠΛΕΥΡΑ – ραχοκοκαλιά
-  R_EDGE_1: L.latLng(40.65666066542897, 22.80532977539946),
-  R_EDGE_2: L.latLng(40.657084858863996, 22.805336944130598),
-  R_EDGE_3: L.latLng(40.65716280864757, 22.80532977540097),
-
-  // Νέος κόμβος έξω από Νοσηλευτική (κάθετος δρόμος)
-  NURSING_OUTER: L.latLng(40.65716933419156, 22.804947877121148),
-
-  // 🔹 ΚΛΑΔΙ Μαιευτικής από τη διασταύρωση
-  R_MAIEUTIKI_FRONT: L.latLng(40.65709100256497, 22.80591089248597),
-
-  // Κόμβος μπροστά από Νοσηλευτική (πάνω στον δρόμο)
-  R_NURSING_JUNC: L.latLng(40.65744741521869, 22.805341723285114),
-
-  R_EDGE_4: L.latLng(40.65809094788959, 22.805351281592937),
-  R_EDGE_5: L.latLng(40.65866377738532, 22.805348892016344),
-
-  // 🔹 ΠΑΝΩ ΠΛΕΥΡΑ – από δεξιά προς αριστερά
-  TOP_1: L.latLng(40.65867646659213, 22.804691758452172),
-  TOP_2: L.latLng(40.65866921561809, 22.803977275066007),
-  TOP_3: L.latLng(40.65868190482195, 22.803269960403846),
-  TOP_4: L.latLng(40.65868009207302, 22.802242442468554),
-
-  TOP_BRANCH_1: L.latLng(40.658101824451464, 22.802256779927806),
-
-  // 🔹 ΕΣΩΤΕΡΙΚΗ ΚΑΘΕΤΗ
-  MID_1: L.latLng(40.65808834042946, 22.802559503549656),
-  MID_2: L.latLng(40.65762537872428, 22.80256194907016),
-  MID_3: L.latLng(40.657401164207016, 22.802560888881565),
-  MID_4: L.latLng(40.657114721823525, 22.802561765805827),
-  MID_5: L.latLng(40.657054695611656, 22.80255640138097),
-  MID_6: L.latLng(40.65699424909833, 22.802557776440118),
-
-  MID_6_PRE: L.latLng(40.656649300925224, 22.802552435332586),
-  MID_7: L.latLng(40.656544034692004, 22.80254722800602),
-  MID_8: L.latLng(40.656145882762026, 22.802546816106975),
-
-  // 🔹 ΕΙΣΟΔΟΙ ΤΜΗΜΑΤΩΝ (κόμβοι που πάνε μέχρι την πόρτα)
-  MAIEUTIKI_ENT: L.latLng(40.657129383535285, 22.805900015164596),
-  NURSING_ENT: L.latLng(40.657403177714485, 22.804956696585524),
-  PHYSIO_ENT: L.latLng(40.65741108499712, 22.80423227005972),
-} as const;
-
-export type NodeId = keyof typeof nodeCoords;
-
-// ----------------------------------------------------
-// 2) UNDIRECTED EDGES — Συνδέσεις κόμβων
-// ----------------------------------------------------
-const UNDIRECTED_EDGES: Array<[NodeId, NodeId]> = [
-  // ΑΡΙΣΤΕΡΗ ΠΡΟΣΟΨΗ
-  ['L_EDGE_1', 'L_EDGE_2'],
-  ['L_EDGE_2', 'L_EDGE_3'],
-  ['L_EDGE_3', 'L_EDGE_4'],
-  ['L_EDGE_4', 'L_EDGE_5'],
-  ['L_EDGE_5', 'L_EDGE_6'],
-
-  ['L_EDGE_6', 'BOT_1'],
-
-  // ΚΑΤΩ ΠΛΕΥΡΑ
-  ['BOT_1', 'MPD_JUNC'],
-  ['MPD_JUNC', 'BOT_2'],
-
-  // BOT_2 → ΣΔΟ / κεντρικός διάδρομος
-  ['BOT_2', 'B2_UP_1'],
-  ['B2_UP_1', 'LOG_FRONT'],
-  ['LOG_FRONT', 'MID_HC_1'],
-
-  // BOT_3 συνδέεται με BOT_2 στον κάτω δρόμο
-  ['BOT_3', 'BOT_2'],
-
-  // Κλαδί προς κτήριο Π
-  ['BOT_2', 'BR_INF_P_1'],
-
-  // Κλαδί MID_HC_1 → βιβλιοθήκη / φυσικοθεραπεία / πάνω
-  ['MID_HC_1', 'MID_HC_RIGHT_1'],
-  ['MID_HC_RIGHT_1', 'LIB_SEG_1'],
-  ['LIB_SEG_1', 'LIB_JUNC_MAIN'],
-  ['LIB_JUNC_MAIN', 'LIB_JUNC_3WAY'],
-
-  ['LIB_JUNC_3WAY', 'LIB_FRONT'],
-  ['LIB_JUNC_3WAY', 'PHYSIO_JUNC'],
-  ['LIB_JUNC_3WAY', 'LIB_UP'],
-
-  // Φυσικοθεραπεία: κλαδί μέχρι είσοδο + σύνδεση προς δεξιά ραχοκοκαλιά
-  ['PHYSIO_JUNC', 'PHYSIO_ENT'],
-  ['PHYSIO_JUNC', 'PHYSIO_TO_R3_MID'],
-  ['PHYSIO_TO_R3_MID', 'NURSING_OUTER'],
-  ['NURSING_OUTER', 'R_EDGE_3'],
-
-  // Συνέχεια προς Διατροφή & Διαιτολογία
-  ['LIB_UP', 'LIB_UP_2'],
-  ['LIB_UP_2', 'LIB_UP_JUNC_DD'],
-  ['LIB_UP_JUNC_DD', 'DIET_DIET_ENT'],
-  ['LIB_UP_JUNC_DD', 'LIB_UP_LEFT_1'],
-  ['LIB_UP_LEFT_1', 'TOP_JOIN_DD'],
-  ['TOP_JOIN_DD', 'TOP_3'],
-
-  ['MID_HC_RIGHT_1', 'MID_HC_RIGHT_2'],
-  ['MID_HC_RIGHT_2', 'MID_HC_DOWN'],
-
-  // ΔΙΧΑΛΑ ΚΑΤΩ
-  ['BOT_3', 'BOT_4'],
-  ['BOT_3', 'BOT_5'],
-
-  // Καμπύλη προς MERGE_DYCH
-  ['BOT_4', 'ARC_1'],
-  ['ARC_1', 'ARC_2'],
-  ['ARC_2', 'ARC_3'],
-  ['ARC_3', 'ARC_4'],
-
-  ['BOT_5', 'H_AFTER_1'],
-  ['H_AFTER_1', 'MERGE_DYCH'],
-  ['ARC_4', 'MERGE_DYCH'],
-
-  // ΔΕΞΙΑ ΡΑΧΟΚΟΚΑΛΙΑ
-  ['MERGE_DYCH', 'R_EDGE_1'],
-  ['R_EDGE_1', 'R_EDGE_2'],
-  ['R_EDGE_2', 'R_EDGE_3'],
-  ['R_EDGE_3', 'R_NURSING_JUNC'],
-  ['R_NURSING_JUNC', 'R_EDGE_4'],
-  ['R_EDGE_4', 'R_EDGE_5'],
-
-  // Κλαδί προς Μαιευτική
-  ['R_EDGE_2', 'R_MAIEUTIKI_FRONT'],
-  ['R_MAIEUTIKI_FRONT', 'MAIEUTIKI_ENT'],
-
-  // Κλαδί προς είσοδο Νοσηλευτικής
-  ['NURSING_OUTER', 'NURSING_ENT'],
-
-  ['R_EDGE_5', 'TOP_1'],
-
-  // ΠΑΝΩ ΠΛΕΥΡΑ
-  ['TOP_1', 'TOP_2'],
-  ['TOP_2', 'TOP_3'],
-  ['TOP_3', 'TOP_4'],
-
-  // Κλαδί προς τα αριστερά
-  ['TOP_4', 'TOP_BRANCH_1'],
-  ['TOP_BRANCH_1', 'L_EDGE_1'],
-
-  // ΕΣΩΤΕΡΙΚΗ ΚΑΘΕΤΗ
-  ['TOP_BRANCH_1', 'MID_1'],
-  ['MID_1', 'MID_2'],
-  ['MID_2', 'MID_3'],
-  ['MID_3', 'MID_4'],
-  ['MID_4', 'MID_5'],
-  ['MID_5', 'MID_6'],
-
-  ['MID_6', 'MID_6_PRE'],
-  ['MID_6_PRE', 'MID_7'],
-  ['MID_7', 'MID_8'],
-  ['MID_8', 'BOT_1'],
-
-  // ΣΥΝΔΕΣΕΙΣ ΕΣΩΤΕΡΙΚΗΣ ΜΕ ΠΡΟΣΟΨΗ
-  ['MID_2', 'L_EDGE_2'],
-  ['MID_3', 'L_EDGE_3'],
-  ['MID_5', 'L_EDGE_4'],
-  ['MID_8', 'L_EDGE_5'],
+const OSM_EDGES: Array<[string, string]> = [
+  ['N0001', 'N0002'],
+  ['N0002', 'N0003'],
+  ['N0003', 'N0004'],
+  ['N0004', 'N0005'],
+  ['N0005', 'N0006'],
+  ['N0006', 'N0007'],
+  ['N0007', 'N0008'],
+  ['N0008', 'N0009'],
+  ['N0010', 'N0011'],
+  ['N0012', 'N0013'],
+  ['N0013', 'N0014'],
+  ['N0014', 'N0015'],
+  ['N0015', 'N0016'],
+  ['N0016', 'N0017'],
+  ['N0018', 'N0019'],
+  ['N0020', 'N0021'],
+  ['N0021', 'N0022'],
+  ['N0022', 'N0023'],
+  ['N0023', 'N0024'],
+  ['N0025', 'N0026'],
+  ['N0026', 'N0027'],
+  ['N0027', 'N0028'],
+  ['N0029', 'N0030'],
+  ['N0030', 'N0031'],
+  ['N0031', 'N0032'],
+  ['N0033', 'N0034'],
+  ['N0034', 'N0035'],
+  ['N0035', 'N0018'],
+  ['N0036', 'N0037'],
+  ['N0037', 'N0038'],
+  ['N0014', 'N0039'],
+  ['N0013', 'N0040'],
+  ['N0041', 'N0042'],
+  ['N0042', 'N0043'],
+  ['N0043', 'N0044'],
+  ['N0044', 'N0045'],
+  ['N0016', 'N0046'],
+  ['N0044', 'N0047'],
+  ['N0047', 'N0048'],
+  ['N0048', 'N0049'],
+  ['N0049', 'N0050'],
+  ['N0050', 'N0051'],
+  ['N0051', 'N0036'],
+  ['N0052', 'N0053'],
+  ['N0053', 'N0042'],
+  ['N0042', 'N0054'],
+  ['N0054', 'N0038'],
+  ['N0038', 'N0035'],
+  ['N0055', 'N0056'],
+  ['N0056', 'N0057'],
+  ['N0057', 'N0058'],
+  ['N0058', 'N0059'],
+  ['N0059', 'N0060'],
+  ['N0037', 'N0061'],
+  ['N0061', 'N0031'],
+  ['N0031', 'N0062'],
+  ['N0062', 'N0063'],
+  ['N0063', 'N0036'],
+  ['N0064', 'N0011'],
+  ['N0011', 'N0065'],
+  ['N0065', 'N0066'],
+  ['N0066', 'N0067'],
+  ['N0067', 'N0036'],
+  ['N0068', 'N0060'], // <-- θα σπάσει με chain
+  ['N0060', 'N0069'], // <-- θα σπάσει με chain
+  ['N0070', 'N0071'],
+  ['N0071', 'N0072'],
+  ['N0072', 'N0073'],
+  ['N0073', 'N0074'],
+  ['N0074', 'N0075'],
+  ['N0075', 'N0076'],
+  ['N0076', 'N0077'],
+  ['N0077', 'N0078'],
+  ['N0078', 'N0079'],
+  ['N0068', 'N0080'],
+  ['N0080', 'N0081'],
+  ['N0081', 'N0082'],
+  ['N0082', 'N0083'],
+  ['N0083', 'N0084'],
+  ['N0084', 'N0085'],
+  ['N0085', 'N0086'],
+  ['N0086', 'N0087'],
+  ['N0087', 'N0088'],
+  ['N0088', 'N0089'],
+  ['N0089', 'N0090'],
+  ['N0090', 'N0091'],
+  ['N0091', 'N0092'],
+  ['N0092', 'N0093'],
+  ['N0093', 'N0094'],
+  ['N0095', 'N0096'],
+  ['N0096', 'N0094'],
+  ['N0079', 'N0097'],
+  ['N0097', 'N0098'],
+  ['N0098', 'N0099'],
+  ['N0099', 'N0100'],
+  ['N0100', 'N0101'],
+  ['N0101', 'N0102'],
+  ['N0102', 'N0103'],
+  ['N0103', 'N0104'],
+  ['N0104', 'N0105'],
+  ['N0105', 'N0106'],
+  ['N0106', 'N0070'],
+  ['N0107', 'N0108'],
+  ['N0108', 'N0052'], // <-- θα σπάσει με chain
+  ['N0052', 'N0109'],
+  ['N0109', 'N0079'],
+  ['N0110', 'N0111'],
+  ['N0111', 'N0112'],
+  ['N0112', 'N0113'],
+  ['N0113', 'N0114'],
+  ['N0114', 'N0115'],
+  ['N0115', 'N0116'],
+  ['N0116', 'N0117'],
+  ['N0117', 'N0118'],
+  ['N0118', 'N0119'],
+  ['N0119', 'N0120'],
+  ['N0120', 'N0121'],
+  ['N0121', 'N0122'],
+  ['N0122', 'N0123'],
+  ['N0069', 'N0096'],
+  ['N0124', 'N0125'],
+  ['N0095', 'N0126'],
+  ['N0126', 'N0127'],
+  ['N0127', 'N0066'],
+  ['N0066', 'N0128'],
+  ['N0128', 'N0107'],
+  ['N0069', 'N0129'],
+  ['N0129', 'N0130'],
+  ['N0130', 'N0131'],
+  ['N0131', 'N0132'],
+  ['N0132', 'N0095'],
+  ['N0133', 'N0134'],
+  ['N0134', 'N0135'],
+  ['N0135', 'N0136'],
+  ['N0136', 'N0137'],
+  ['N0137', 'N0138'],
+  ['N0138', 'N0139'],
+  ['N0139', 'N0068'],
+  ['N0017', 'N0140'],
+  ['N0140', 'N0141'],
+  ['N0141', 'N0142'],
+  ['N0142', 'N0143'],
+  ['N0143', 'N0144'],
+  ['N0144', 'N0145'],
 ];
 
 // ----------------------------------------------------
-// 3) Graph weights
+// 2) POIs / Entrances (semantic nodes)
 // ----------------------------------------------------
-function distMeters(a: L.LatLng, b: L.LatLng): number {
-  return a.distanceTo(b);
-}
+const POI_NODE_COORDS: Record<string, L.LatLng> = {
+  MAIEUTIKI_ENT: L.latLng(40.657129383535285, 22.805900015164596),
+  NURSING_ENT: L.latLng(40.657403177714485, 22.804956696585524),
+  PHYSIO_ENT: L.latLng(40.65741108499712, 22.80423227005972),
+  DIET_DIET_ENT: L.latLng(40.658006430808285, 22.803597743580113),
 
-function buildAdjacency(edges: Array<[NodeId, NodeId]>) {
-  const g: Record<string, Record<string, number>> = {};
-
-  const add = (u: NodeId, v: NodeId) => {
-    const w = Math.max(1, Math.round(distMeters(nodeCoords[u], nodeCoords[v])));
-    if (!g[u]) g[u] = {};
-    g[u][v] = w;
-  };
-
-  for (const [u, v] of edges) {
-    add(u, v);
-    add(v, u);
-  }
-
-  return g;
-}
-
-const campusGraphData = buildAdjacency(UNDIRECTED_EDGES);
+  TROFIMON_ENT: L.latLng(40.65585974854294, 22.802158248369402),
+  MPD_OXIMATA_ENT: L.latLng(40.65554652009317, 22.803217274195887),
+  INF_H_ENT: L.latLng(40.6556801165255, 22.8057602909593),
+  INF_P_ENT: L.latLng(40.65587753014149, 22.804064757176615),
+  SDO_ENT: L.latLng(40.65687857987505, 22.803628321838005),
+  LIB_ENT: L.latLng(40.65720355937115, 22.803524571319407),
+  ENV_ENT: L.latLng(40.656539730755995, 22.802607758414982),
+  LOG_ENT: L.latLng(40.65646309503383, 22.803648884664465),
+};
 
 // ----------------------------------------------------
-// 4) Normalizer & alias
+// 2.5) MANUAL ROAD NODES + EDGES
+// ----------------------------------------------------
+const MANUAL_NODE_COORDS: Record<string, L.LatLng> = {
+  // μετά το N0026
+  M_CENT_PRE_1: L.latLng(40.656662, 22.803098),
+  M_CENTRAL: L.latLng(40.65666, 22.802577),
+
+  // “πάνω διάδρομος” (κουμπώνει στο N0075)
+  M_TOP1_TO_75_1: L.latLng(40.658065, 22.802323), // ανάμεσα M_TOP_1 και N0075
+  M_TOP_1: L.latLng(40.658071, 22.80258),
+  M_TOP_2: L.latLng(40.657862, 22.802583),
+  M_TOP_3: L.latLng(40.657638, 22.802572),
+  M_TOP_4: L.latLng(40.657553, 22.802575),
+  M_TOP_5: L.latLng(40.657368, 22.802572),
+  M_TOP_6: L.latLng(40.657089, 22.802575),
+  M_TOP_7: L.latLng(40.657026, 22.802577),
+
+  // είσοδοι σχολής
+  M_SCHOOL_ENT_1: L.latLng(40.657362, 22.801816),
+  M_SCHOOL_ENT_2: L.latLng(40.657657, 22.801708),
+
+  // συνέχεια προς κάτω
+  M_DOWN_1: L.latLng(40.656153, 22.802575),
+
+  M_BOTTOM_MID: L.latLng(40.65573, 22.80258),
+
+  // --- splits που είπες ---
+  M_68_TO_BOTTOM_1: L.latLng(40.655738, 22.802178), // ανάμεσα N0068 και M_BOTTOM_MID
+  M_BOTTOM_TO_60_1: L.latLng(40.655726, 22.803299), // ανάμεσα M_BOTTOM_MID και N0060
+  M_60_TO_69_1: L.latLng(40.655726, 22.804071), // ανάμεσα N0060 και N0069
+  M_0108_TO_0052_1: L.latLng(40.658671, 22.803696), // ανάμεσα N0108 και N0052
+  M_58_TO_59_1: L.latLng(40.656482, 22.803623), // ανάμεσα N0058 και N0059
+
+};
+
+const MANUAL_EDGES: Array<[string, string]> = [
+  // N0026 -> (40.656662,22.803098) -> (40.656660,22.802577)
+  ['N0026', 'M_CENT_PRE_1'],
+  ['M_CENT_PRE_1', 'M_CENTRAL'],
+
+  // N0075 -> (ενδιάμεσο) -> M_TOP_1 -> ... -> M_TOP_7 -> M_CENTRAL
+  ['N0075', 'M_TOP1_TO_75_1'],
+  ['M_TOP1_TO_75_1', 'M_TOP_1'],
+  ['M_TOP_1', 'M_TOP_2'],
+  ['M_TOP_2', 'M_TOP_3'],
+  ['M_TOP_3', 'M_TOP_4'],
+  ['M_TOP_4', 'M_TOP_5'],
+  ['M_TOP_5', 'M_TOP_6'],
+  ['M_TOP_6', 'M_TOP_7'],
+  ['M_TOP_7', 'M_CENTRAL'],
+
+  // κεντρικό -> M_DOWN_1 -> M_BOTTOM_MID
+  ['M_CENTRAL', 'M_DOWN_1'],
+  ['M_DOWN_1', 'M_BOTTOM_MID'],
+
+  // extra connections που είπες
+  ['M_TOP_7', 'N0134'],
+  ['M_TOP_6', 'N0020'],
+
+  // branches προς είσοδο σχολής
+  ['M_TOP_5', 'M_SCHOOL_ENT_1'],
+  ['M_SCHOOL_ENT_1', 'N0134'],
+  ['M_TOP_3', 'M_SCHOOL_ENT_2'],
+];
+
+// ----------------------------------------------------
+// 3) Normalizer & alias
 // ----------------------------------------------------
 function norm(s: string): string {
   return s
@@ -266,62 +401,296 @@ function norm(s: string): string {
     .trim();
 }
 
-// mapping από όνομα τμήματος → nodeId (είσοδοι κλπ)
-const alias = new Map<string, NodeId>([
+const alias = new Map<string, string>([
   ['ΜΑΙΕΥΤΙΚΗΣ', 'MAIEUTIKI_ENT'],
   ['ΝΟΣΗΛΕΥΤΙΚΗΣ', 'NURSING_ENT'],
   ['ΦΥΣΙΚΟΘΕΡΑΠΕΙΑΣ', 'PHYSIO_ENT'],
   ['ΔΙΑΤΡΟΦΗΣ ΚΑΙ ΔΙΑΙΤΟΛΟΓΙΑΣ', 'DIET_DIET_ENT'],
-  ['ΓΕΩΠΟΝΙΑΣ', 'TOP_JOIN_DD'],
-  ['ΕΠΙΣΤΗΜΗΣ ΚΑΙ ΤΕΧΝΟΛΟΓΙΑΣ ΤΡΟΦΙΜΩΝ', 'MID_8'],
-  ['ΜΗΧΑΝΙΚΩΝ ΠΑΡΑΓΩΓΗΣ ΚΑΙ ΔΙΟΙΚΗΣΗΣ (ΠΑΡΑΡΤΗΜΑ ΟΧΗΜΑΤΩΝ)', 'MPD_JUNC'],
-  ['ΜΗΧΑΝΙΚΩΝ ΠΛΗΡΟΦΟΡΙΚΗΣ (ΚΤΗΡΙΟ Η)', 'H_AFTER_1'],
-  ['ΜΗΧΑΝΙΚΩΝ ΠΛΗΡΟΦΟΡΙΚΗΣ (ΚΤΗΡΙΟ Π)', 'BR_INF_P_1'],
-  ['ΔΙΟΙΚΗΣΗΣ ΟΡΓΑΝΙΣΜΩΝ, ΜΑΡΚΕΤΙΝΓΚ ΚΑΙ ΤΟΥΡΙΣΜΟΥ', 'MID_HC_RIGHT_2'],
-  ['ΒΙΒΛΙΟΘΗΚΟΝΟΜΙΑΣ, ΑΡΧΕΙΟΝΟΜΙΑΣ & ΣΥΣΤΗΜΑΤΩΝ ΠΛΗΡΟΦΟΡΗΣΗΣ', 'LIB_FRONT'],
-  ['ΜΗΧΑΝΙΚΩΝ ΠΕΡΙΒΑΛΛΟΝΤΟΣ', 'MID_7'],
-  ['ΛΟΓΙΣΤΙΚΗΣ ΚΑΙ ΠΛΗΡΟΦΟΡΙΑΚΩΝ ΣΥΣΤΗΜΑΤΩΝ', 'LOG_FRONT'],
+
+  ['ΕΠΙΣΤΗΜΗΣ ΚΑΙ ΤΕΧΝΟΛΟΓΙΑΣ ΤΡΟΦΙΜΩΝ', 'TROFIMON_ENT'],
+  ['ΜΗΧΑΝΙΚΩΝ ΠΑΡΑΓΩΓΗΣ ΚΑΙ ΔΙΟΙΚΗΣΗΣ (ΠΑΡΑΡΤΗΜΑ ΟΧΗΜΑΤΩΝ)', 'MPD_OXIMATA_ENT'],
+  ['ΜΗΧΑΝΙΚΩΝ ΠΛΗΡΟΦΟΡΙΚΗΣ (ΚΤΗΡΙΟ Η)', 'INF_H_ENT'],
+  ['ΜΗΧΑΝΙΚΩΝ ΠΛΗΡΟΦΟΡΙΚΗΣ (ΚΤΗΡΙΟ Π)', 'INF_P_ENT'],
+  ['ΔΙΟΙΚΗΣΗΣ ΟΡΓΑΝΙΣΜΩΝ, ΜΑΡΚΕΤΙΝΓΚ ΚΑΙ ΤΟΥΡΙΣΜΟΥ', 'SDO_ENT'],
+  ['ΒΙΒΛΙΟΘΗΚΟΝΟΜΙΑΣ, ΑΡΧΕΙΟΝΟΜΙΑΣ & ΣΥΣΤΗΜΑΤΩΝ ΠΛΗΡΟΦΟΡΗΣΗΣ', 'LIB_ENT'],
+  ['ΜΗΧΑΝΙΚΩΝ ΠΕΡΙΒΑΛΛΟΝΤΟΣ', 'ENV_ENT'],
+  ['ΛΟΓΙΣΤΙΚΗΣ ΚΑΙ ΠΛΗΡΟΦΟΡΙΑΚΩΝ ΣΥΣΤΗΜΑΤΩΝ', 'LOG_ENT'],
+
+  // προσωρινό
+  ['ΓΕΩΠΟΝΙΑΣ', 'DIET_DIET_ENT'],
 ]);
+
+// ----------------------------------------------------
+// 4) Build merged graph
+// ----------------------------------------------------
+type Adjacency = Record<string, Record<string, number>>;
+
+function computeBBox(points: L.LatLng[]) {
+  let minLat = Infinity,
+    maxLat = -Infinity,
+    minLng = Infinity,
+    maxLng = -Infinity;
+
+  for (const p of points) {
+    minLat = Math.min(minLat, p.lat);
+    maxLat = Math.max(maxLat, p.lat);
+    minLng = Math.min(minLng, p.lng);
+    maxLng = Math.max(maxLng, p.lng);
+  }
+
+  return { minLat, maxLat, minLng, maxLng };
+}
+
+function inBBox(p: L.LatLng, bb: { minLat: number; maxLat: number; minLng: number; maxLng: number }) {
+  return p.lat >= bb.minLat && p.lat <= bb.maxLat && p.lng >= bb.minLng && p.lng <= bb.maxLng;
+}
+
+function addUndirectedEdge(g: Adjacency, coords: Record<string, L.LatLng>, u: string, v: string) {
+  const a = coords[u];
+  const b = coords[v];
+  if (!a || !b) return;
+
+  const w = Math.max(1, Math.round(a.distanceTo(b)));
+  if (!g[u]) g[u] = {};
+  if (!g[v]) g[v] = {};
+  g[u][v] = Math.min(g[u][v] ?? Infinity, w);
+  g[v][u] = Math.min(g[v][u] ?? Infinity, w);
+}
+
+function removeUndirectedEdge(g: Adjacency, u: string, v: string) {
+  if (g[u]) delete g[u][v];
+  if (g[v]) delete g[v][u];
+}
+
+function buildAdjacencyFromEdges(edges: Array<[string, string]>, coords: Record<string, L.LatLng>): Adjacency {
+  const g: Adjacency = {};
+  for (const [u, v] of edges) addUndirectedEdge(g, coords, u, v);
+  return g;
+}
+
+function splitEdgeWithChain(
+  g: Adjacency,
+  coords: Record<string, L.LatLng>,
+  a: string,
+  b: string,
+  chain: string[] // ενδιάμεσοι κόμβοι ΜΕ ΣΕΙΡΑ
+) {
+  removeUndirectedEdge(g, a, b);
+
+  let prev = a;
+  for (const mid of chain) {
+    addUndirectedEdge(g, coords, prev, mid);
+    prev = mid;
+  }
+  addUndirectedEdge(g, coords, prev, b);
+}
+
+function healCloseNodes(ids: string[], coords: Record<string, L.LatLng>, g: Adjacency, maxDistM: number) {
+  for (let i = 0; i < ids.length; i++) {
+    const aId = ids[i];
+    const a = coords[aId];
+    if (!a) continue;
+
+    for (let j = i + 1; j < ids.length; j++) {
+      const bId = ids[j];
+      const b = coords[bId];
+      if (!b) continue;
+
+      const d = a.distanceTo(b);
+      if (d <= maxDistM) addUndirectedEdge(g, coords, aId, bId);
+    }
+  }
+}
+
+function getLargestComponent(ids: string[], g: Adjacency): Set<string> {
+  const seen = new Set<string>();
+  let best = new Set<string>();
+
+  for (const start of ids) {
+    if (seen.has(start)) continue;
+
+    const comp = new Set<string>();
+    const stack = [start];
+    seen.add(start);
+
+    while (stack.length) {
+      const u = stack.pop()!;
+      comp.add(u);
+
+      const nbrs = g[u] ? Object.keys(g[u]) : [];
+      for (const v of nbrs) {
+        if (!seen.has(v)) {
+          seen.add(v);
+          stack.push(v);
+        }
+      }
+    }
+
+    if (comp.size > best.size) best = comp;
+  }
+
+  return best;
+}
+
+function findNearestNodeIdInSet(
+  lat: number,
+  lng: number,
+  nodeIds: string[],
+  coords: Record<string, L.LatLng>
+): { id: string | null; distM: number } {
+  const here = L.latLng(lat, lng);
+
+  let bestId: string | null = null;
+  let bestDist = Infinity;
+
+  for (const id of nodeIds) {
+    const c = coords[id];
+    if (!c) continue;
+
+    const d = here.distanceTo(c);
+    if (d < bestDist) {
+      bestDist = d;
+      bestId = id;
+    }
+  }
+
+  return { id: bestId, distM: bestDist };
+}
+
+function mergeOSMWithPOIs() {
+  // bbox από POIs + manual nodes (για να μη χάνονται περιοχές)
+  const seedPoints = [...Object.values(POI_NODE_COORDS), ...Object.values(MANUAL_NODE_COORDS)];
+  const bb0 = computeBBox(seedPoints);
+
+  // ~150–250m margin
+  const MARGIN = 0.0022;
+
+  const bb = {
+    minLat: bb0.minLat - MARGIN,
+    maxLat: bb0.maxLat + MARGIN,
+    minLng: bb0.minLng - MARGIN,
+    maxLng: bb0.maxLng + MARGIN,
+  };
+
+  // 1) filter OSM nodes by bbox
+  const keptOSM: Record<string, L.LatLng> = {};
+  for (const [id, ll] of Object.entries(OSM_NODE_COORDS)) {
+    if (inBBox(ll, bb)) keptOSM[id] = ll;
+  }
+  const keptOSMIds = Object.keys(keptOSM);
+
+  // 2) filter edges to kept nodes
+  const keptEdges: Array<[string, string]> = [];
+  for (const [u, v] of OSM_EDGES) {
+    if (keptOSM[u] && keptOSM[v]) keptEdges.push([u, v]);
+  }
+
+  // 3) merged coords = keptOSM + MANUAL + POIs
+  const manualIds = Object.keys(MANUAL_NODE_COORDS);
+  const ALL: Record<string, L.LatLng> = { ...keptOSM, ...MANUAL_NODE_COORDS, ...POI_NODE_COORDS };
+
+  // 4) base adjacency from OSM
+  const g = buildAdjacencyFromEdges(keptEdges, ALL);
+
+  // 4.5) add manual edges (οι “χειροκίνητες” συνδέσεις σου)
+  for (const [u, v] of MANUAL_EDGES) addUndirectedEdge(g, ALL, u, v);
+
+  // ----------------------------------------------------
+  // 4.6) APPLY SPLITS (για να περνάει από τα ενδιάμεσα σημεία)
+  // ----------------------------------------------------
+
+  // (A) N0068 <-> N0060: σπάει σε αλυσίδα
+  splitEdgeWithChain(g, ALL, 'N0068', 'N0060', [
+    'M_68_TO_BOTTOM_1',
+    'M_BOTTOM_MID',
+    'M_BOTTOM_TO_60_1',
+  ]);
+
+  // (B) N0060 <-> N0069: σπάει σε 2 κομμάτια
+  splitEdgeWithChain(g, ALL, 'N0060', 'N0069', ['M_60_TO_69_1']);
+
+  // (C) N0108 <-> N0052: σπάει σε 2 κομμάτια
+  splitEdgeWithChain(g, ALL, 'N0108', 'N0052', ['M_0108_TO_0052_1']);
+
+  // (D) N0058 <-> N0059: σπάει σε 2 κομμάτια
+  splitEdgeWithChain(g, ALL, 'N0058', 'N0059', ['M_58_TO_59_1']);
+
+
+  // 5) heal small gaps on OSM+manual network
+  const baseNetworkIds = [...keptOSMIds, ...manualIds];
+  const HEAL_DIST = 6; // αν ξαναδείς NO PATH, ανέβασε σε 7–8
+  healCloseNodes(baseNetworkIds, ALL, g, HEAL_DIST);
+
+  // 6) largest component for stable snapping
+  const largest = getLargestComponent(baseNetworkIds, g);
+  const snapCandidates = baseNetworkIds.filter((id) => largest.has(id));
+
+  // 7) snap POIs to nearest node in largest component
+  const SNAP_MAX_METERS = 60;
+
+  for (const [poiId, poiLL] of Object.entries(POI_NODE_COORDS)) {
+    const { id: nearId, distM } = findNearestNodeIdInSet(poiLL.lat, poiLL.lng, snapCandidates, ALL);
+
+    if (!nearId) {
+      console.warn(`[CampusGraph] POI ${poiId} could not snap (no network candidates).`);
+      continue;
+    }
+
+    if (distM > SNAP_MAX_METERS) {
+      console.warn(
+        `[CampusGraph] POI ${poiId} is ${Math.round(distM)}m away from nearest node ${nearId}. ` +
+          `Consider increasing SNAP_MAX_METERS or improving data.`
+      );
+    }
+
+    addUndirectedEdge(g, ALL, poiId, nearId);
+  }
+
+  return { coords: ALL, adjacency: g };
+}
+
+const MERGED = mergeOSMWithPOIs();
 
 // ----------------------------------------------------
 // 5) SERVICE
 // ----------------------------------------------------
 @Injectable({ providedIn: 'root' })
 export class CampusGraphService {
-  public getNodeIdForName(destinationName: string): NodeId | null {
+  private readonly nodeCoords: Record<string, L.LatLng> = MERGED.coords;
+  private readonly campusGraphData: Adjacency = MERGED.adjacency;
+
+  public getNodeIdForName(destinationName: string): string | null {
     const key = norm(destinationName);
     return alias.get(key) ?? null;
   }
 
   public getDestinationCoords(nameOrId: string): L.LatLng | undefined {
-    if ((nodeCoords as any)[nameOrId]) {
-      return nodeCoords[nameOrId as NodeId];
-    }
+    if (this.nodeCoords[nameOrId]) return this.nodeCoords[nameOrId];
     const id = this.getNodeIdForName(nameOrId);
-    return id ? nodeCoords[id] : undefined;
+    return id ? this.nodeCoords[id] : undefined;
   }
 
-  public findNearestNodeId(lat: number, lng: number): NodeId | null {
+  public findNearestNodeId(lat: number, lng: number): string | null {
     const here = L.latLng(lat, lng);
 
-    let best: NodeId | null = null;
+    let bestId: string | null = null;
     let bestDist = Infinity;
 
-    (Object.keys(nodeCoords) as NodeId[]).forEach((id) => {
-      const d = here.distanceTo(nodeCoords[id]);
+    for (const [id, ll] of Object.entries(this.nodeCoords)) {
+      const d = here.distanceTo(ll);
       if (d < bestDist) {
         bestDist = d;
-        best = id;
+        bestId = id;
       }
-    });
+    }
 
-    return best;
+    return bestId;
   }
 
   public calculatePath(startNodeId: string, endNodeId: string): L.LatLng[] | null {
     try {
-      const nodePath: string[] = find_path(campusGraphData, startNodeId, endNodeId);
-      return nodePath.map((pid) => nodeCoords[pid as NodeId]);
+      const nodePath: string[] = find_path(this.campusGraphData, startNodeId, endNodeId);
+      return nodePath.map((pid) => this.nodeCoords[pid]).filter(Boolean);
     } catch (e) {
       console.warn(`NO PATH: ${startNodeId} → ${endNodeId}`, e);
       return null;
@@ -340,23 +709,17 @@ export class CampusGraphService {
     return { points, lengthM: Math.round(len) };
   }
 
-  public findBestStartNodeForDestination(
-    lat: number,
-    lng: number,
-    endNodeId: string
-  ): string | null {
+  public findBestStartNodeForDestination(lat: number, lng: number, endNodeId: string): string | null {
     const here = L.latLng(lat, lng);
-    const destId = endNodeId as NodeId;
 
-    const lengthCache = new Map<NodeId, number>();
-
-    const getPathLengthFrom = (from: NodeId): number | null => {
+    const lengthCache = new Map<string, number>();
+    const getPathLengthFrom = (from: string): number | null => {
       if (lengthCache.has(from)) {
         const val = lengthCache.get(from)!;
         return val === Infinity ? null : val;
       }
 
-      const res = this.calculatePathWithLength(from, destId);
+      const res = this.calculatePathWithLength(from, endNodeId);
       if (!res) {
         lengthCache.set(from, Infinity);
         return null;
@@ -366,30 +729,39 @@ export class CampusGraphService {
       return res.lengthM;
     };
 
-    const MAX_START_RADIUS = 120; // μέτρα γύρω από τον χρήστη
-
-    let bestNode: NodeId | null = null;
+    const MAX_START_RADIUS = 120;
+    let bestNode: string | null = null;
     let bestCost = Infinity;
 
-    (Object.keys(nodeCoords) as NodeId[]).forEach((id) => {
-      const nodeCoord = nodeCoords[id];
-
-      const dUserToNode = here.distanceTo(nodeCoord);
-      if (dUserToNode > MAX_START_RADIUS) {
-        return;
-      }
+    for (const [id, ll] of Object.entries(this.nodeCoords)) {
+      const dUserToNode = here.distanceTo(ll);
+      if (dUserToNode > MAX_START_RADIUS) continue;
 
       const pathLen = getPathLengthFrom(id);
-      if (pathLen == null) return;
+      if (pathLen == null) continue;
 
       const totalCost = dUserToNode + pathLen;
-
       if (totalCost < bestCost) {
         bestCost = totalCost;
         bestNode = id;
       }
-    });
+    }
 
     return bestNode;
+  }
+
+  // -------- DEBUG helpers --------
+  public calculatePathNodeIds(startNodeId: string, endNodeId: string): string[] | null {
+    try {
+      const nodePath: string[] = find_path(this.campusGraphData, startNodeId, endNodeId);
+      return nodePath;
+    } catch (e) {
+      console.warn(`NO PATH (ids): ${startNodeId} → ${endNodeId}`, e);
+      return null;
+    }
+  }
+
+  public getNodeLatLng(id: string): L.LatLng | undefined {
+    return this.nodeCoords[id];
   }
 }
