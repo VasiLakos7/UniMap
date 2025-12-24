@@ -12,6 +12,7 @@ export class MapService {
 
   private userMarker!: L.Marker;
   private destinationMarker: L.Marker | null = null;
+  private endApproachPolyline: L.Polyline | null = null;
 
   private currentPolyline: L.Polyline | null = null;
   private passedPolyline: L.Polyline | null = null;
@@ -331,92 +332,135 @@ export class MapService {
   }
 
   public async drawCustomRouteToDestination(dest: Destination, startPoint: L.LatLng) {
-    if (!this.map) return;
+  if (!this.map) return;
 
-    if (this.currentPolyline) { this.map.removeLayer(this.currentPolyline); this.currentPolyline = null; }
-    if (this.passedPolyline) { this.map.removeLayer(this.passedPolyline); this.passedPolyline = null; }
-    if (this.approachPolyline) { this.map.removeLayer(this.approachPolyline); this.approachPolyline = null; }
-    this.routingService.removeRouting(this.map);
+  // καθάρισμα παλιών
+  if (this.currentPolyline) { this.map.removeLayer(this.currentPolyline); this.currentPolyline = null; }
+  if (this.passedPolyline) { this.map.removeLayer(this.passedPolyline); this.passedPolyline = null; }
+  if (this.approachPolyline) { this.map.removeLayer(this.approachPolyline); this.approachPolyline = null; }
+  if (this.endApproachPolyline) { this.map.removeLayer(this.endApproachPolyline); this.endApproachPolyline = null; }
+  this.routingService.removeRouting(this.map);
 
-    const destLat = dest.entranceLat ?? dest.lat;
-    const destLng = dest.entranceLng ?? dest.lng;
-
-    const endNodeId = this.graphService.findNearestNodeId(destLat, destLng);
-    if (!endNodeId) return;
-
-    type NodeId = typeof endNodeId;
-
-    let startNodeId: NodeId | null =
-      this.graphService.findNearestNodeId(startPoint.lat, startPoint.lng);
-
-    if (!startNodeId) {
-      startNodeId = this.graphService.findBestStartNodeForDestination(
-        startPoint.lat,
-        startPoint.lng,
-        endNodeId
-      ) as NodeId | null;
-    }
-
-    if (!startNodeId) return;
-
-    const pathNodes = this.graphService.calculatePath(startNodeId, endNodeId);
-    if (!pathNodes || pathNodes.length < 1) return;
-
-    const startNodeCoords = this.graphService.getDestinationCoords(startNodeId);
-    if (!startNodeCoords) return;
-
-    const mainRoutePoints: L.LatLng[] = [...pathNodes];
-
-    this.currentRoutePoints = [startPoint, startNodeCoords, ...mainRoutePoints];
-
-    if (startPoint.distanceTo(startNodeCoords) > 1) {
-      this.approachPolyline = L.polyline([startPoint, startNodeCoords], {
-        color: '#666666',
-        weight: 3,
-        opacity: 0.7,
-        dashArray: '4 8',
-      }).addTo(this.map);
-    }
-
-    this.currentPolyline = L.polyline(mainRoutePoints, {
-      color: '#007bff',
-      weight: 6,
-      opacity: 0.9,
-    }).addTo(this.map);
-
-    const bounds = L.latLngBounds([startPoint, startNodeCoords, ...mainRoutePoints]);
-
-    this.map.fitBounds(bounds, {
-      paddingTopLeft: [30, 140],
-      paddingBottomRight: [30, 260],
-      maxZoom: 18,
-      animate: true,
-      duration: 0.7,
-    });
-
-    const totalMeters = this.getCurrentRouteDistanceMeters();
-    this.routeProgress.emit({
-      passedMeters: 0,
-      remainingMeters: totalMeters,
-      totalMeters,
-      progress: 0
-    });
-    if (this.debugGraph) {
-  const nodeIds = this.graphService.calculatePathNodeIds(startNodeId, endNodeId); // ή όπως λέγονται σε σένα
-  if (nodeIds) {
-    console.log('[ROUTE NODE IDS]', nodeIds.join(' -> '));
-
-    // markers πάνω στο χάρτη
-    nodeIds.forEach((id, idx) => {
-      const ll = this.graphService.getNodeLatLng(id);
-      if (!ll) return;
-
-      const m = L.circleMarker(ll, { radius: 5, weight: 2, opacity: 0.9, fillOpacity: 0.4 });
-      m.bindTooltip(`${idx}: ${id}`, { permanent: false, direction: 'top' });
-      this.debugLayer?.addLayer(m);
-    });
+  if (this.endApproachPolyline) {
+  this.map.removeLayer(this.endApproachPolyline);
+  this.endApproachPolyline = null;
   }
-}
+
+
+  // καθάρισε debug markers αν θες να μην “γεμίζει”
+  if (this.debugLayer) this.debugLayer.clearLayers();
+
+  // ✅ τελικό σημείο: είσοδος αν υπάρχει
+  const destLat = dest.entranceLat ?? dest.lat;
+  const destLng = dest.entranceLng ?? dest.lng;
+  const endPoint = L.latLng(destLat, destLng);
+
+  // ✅ pin στην είσοδο (όχι στο center)
+  this.pinDestination(destLat, destLng, dest.name);
+
+  // ✅ προτίμησε semantic end node (*_ENT) αν υπάρχει στο alias
+  let endNodeId =
+    this.graphService.getNodeIdForName(dest.name) ||
+    this.graphService.findNearestNodeId(destLat, destLng);
+
+  if (!endNodeId) return;
+
+  type NodeId = typeof endNodeId;
+
+  let startNodeId: NodeId | null =
+    this.graphService.findNearestNodeId(startPoint.lat, startPoint.lng);
+
+  if (!startNodeId) {
+    startNodeId = this.graphService.findBestStartNodeForDestination(
+      startPoint.lat,
+      startPoint.lng,
+      endNodeId
+    ) as NodeId | null;
+  }
+  if (!startNodeId) return;
+
+  const pathNodes = this.graphService.calculatePath(startNodeId, endNodeId);
+  if (!pathNodes || pathNodes.length < 1) return;
+
+  const startNodeCoords = this.graphService.getDestinationCoords(startNodeId);
+  if (!startNodeCoords) return;
+
+  // main route points (Dijkstra)
+  const mainRoutePoints: L.LatLng[] = [...pathNodes];
+
+  // ✅ last-meters προς το ακριβές endPoint
+  const lastNode = mainRoutePoints[mainRoutePoints.length - 1];
+  const endGap = lastNode ? lastNode.distanceTo(endPoint) : Infinity;
+
+  // ✅ route points για αποστάσεις/progress (να μετράει και το τέλος)
+  this.currentRoutePoints = [startPoint, startNodeCoords, ...mainRoutePoints];
+  if (isFinite(endGap) && endGap > 1) {
+    this.currentRoutePoints.push(endPoint);
+  }
+
+  // dashed από startPoint -> startNode
+  if (startPoint.distanceTo(startNodeCoords) > 1) {
+    this.approachPolyline = L.polyline([startPoint, startNodeCoords], {
+      color: '#666666',
+      weight: 3,
+      opacity: 0.7,
+      dashArray: '4 8',
+    }).addTo(this.map);
+  }
+
+  // main route (solid)
+  this.currentPolyline = L.polyline(mainRoutePoints, {
+    color: '#007bff',
+    weight: 6,
+    opacity: 0.9,
+  }).addTo(this.map);
+
+  // dashed last meters (node -> entrance)
+  if (isFinite(endGap) && endGap > 1) {
+    this.endApproachPolyline = L.polyline([lastNode, endPoint], {
+      color: '#007bff',
+      weight: 5,
+      opacity: 0.7,
+      dashArray: '6 10',
+    }).addTo(this.map);
+  }
+
+  // bounds να πιάνει και το τελικό σημείο
+  const boundsPoints = [startPoint, startNodeCoords, ...mainRoutePoints];
+  if (isFinite(endGap) && endGap > 1) boundsPoints.push(endPoint);
+
+  const bounds = L.latLngBounds(boundsPoints);
+
+  this.map.fitBounds(bounds, {
+    paddingTopLeft: [30, 140],
+    paddingBottomRight: [30, 260],
+    maxZoom: 18,
+    animate: true,
+    duration: 0.7,
+  });
+
+  const totalMeters = this.getCurrentRouteDistanceMeters();
+  this.routeProgress.emit({
+    passedMeters: 0,
+    remainingMeters: totalMeters,
+    totalMeters,
+    progress: 0
+  });
+
+  // debug ids/markers
+  if (this.debugGraph) {
+    const nodeIds = this.graphService.calculatePathNodeIds(startNodeId, endNodeId);
+    if (nodeIds) {
+      console.log('[ROUTE NODE IDS]', nodeIds.join(' -> '));
+      nodeIds.forEach((id, idx) => {
+        const ll = this.graphService.getNodeLatLng(id);
+        if (!ll) return;
+        const m = L.circleMarker(ll, { radius: 5, weight: 2, opacity: 0.9, fillOpacity: 0.4 });
+        m.bindTooltip(`${idx}: ${id}`, { permanent: false, direction: 'top' });
+        this.debugLayer?.addLayer(m);
+      });
+    }
+  }
 
   }
 

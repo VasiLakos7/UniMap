@@ -307,19 +307,19 @@ const OSM_EDGES: Array<[string, string]> = [
 // 2) POIs / Entrances (semantic nodes)
 // ----------------------------------------------------
 const POI_NODE_COORDS: Record<string, L.LatLng> = {
-  MAIEUTIKI_ENT: L.latLng(40.657129383535285, 22.805900015164596),
-  NURSING_ENT: L.latLng(40.657403177714485, 22.804956696585524),
-  PHYSIO_ENT: L.latLng(40.65741108499712, 22.80423227005972),
+  MAIEUTIKI_ENT: L.latLng(40.657423, 22.805801),
+  NURSING_ENT: L.latLng(40.657440, 22.805002),
+  PHYSIO_ENT: L.latLng(40.657452, 22.804278),
   DIET_DIET_ENT: L.latLng(40.658006430808285, 22.803597743580113),
-
   TROFIMON_ENT: L.latLng(40.65585974854294, 22.802158248369402),
-  MPD_OXIMATA_ENT: L.latLng(40.65554652009317, 22.803217274195887),
+  MPD_OXIMATA_ENT: L.latLng(40.65552063447767, 22.803255064657716),
   INF_H_ENT: L.latLng(40.6556801165255, 22.8057602909593),
   INF_P_ENT: L.latLng(40.65587753014149, 22.804064757176615),
-  SDO_ENT: L.latLng(40.65687857987505, 22.803628321838005),
-  LIB_ENT: L.latLng(40.65720355937115, 22.803524571319407),
-  ENV_ENT: L.latLng(40.656539730755995, 22.802607758414982),
-  LOG_ENT: L.latLng(40.65646309503383, 22.803648884664465),
+  SDO_ENT: L.latLng(40.65718391160669, 22.803757375002238),
+  LIB_ENT: L.latLng(40.6572426564661, 22.803505173997745),
+  ENV_ENT: L.latLng(40.656512671672225, 22.802679487255652),
+  LOG_ENT: L.latLng(40.656488, 22.803707),
+  GEOPONIA_ENT: L.latLng(40.658552, 22.803704),
 };
 
 // ----------------------------------------------------
@@ -347,14 +347,18 @@ const MANUAL_NODE_COORDS: Record<string, L.LatLng> = {
   // συνέχεια προς κάτω
   M_DOWN_1: L.latLng(40.656153, 22.802575),
 
-  M_BOTTOM_MID: L.latLng(40.65573, 22.80258),
+  M_BOTTOM_MID: L.latLng(40.655737, 22.802588),
 
   // --- splits που είπες ---
   M_68_TO_BOTTOM_1: L.latLng(40.655738, 22.802178), // ανάμεσα N0068 και M_BOTTOM_MID
-  M_BOTTOM_TO_60_1: L.latLng(40.655726, 22.803299), // ανάμεσα M_BOTTOM_MID και N0060
+  M_BOTTOM_TO_60_1: L.latLng(40.65574083890454, 22.803266228597206), // ανάμεσα M_BOTTOM_MID και N0060
   M_60_TO_69_1: L.latLng(40.655726, 22.804071), // ανάμεσα N0060 και N0069
-  M_0108_TO_0052_1: L.latLng(40.658671, 22.803696), // ανάμεσα N0108 και N0052
+  M_0108_TO_0052_1: L.latLng(40.658673, 22.803712), // ανάμεσα N0108 και N0052
   M_58_TO_59_1: L.latLng(40.656482, 22.803623), // ανάμεσα N0058 και N0059
+  M_36_TO_67_1: L.latLng(40.657202, 22.804278), //ανάμεσα N0036 και N0067s
+  M_36_TO_67_PRE_1: L.latLng(40.657211397739765, 22.803763058404975), // ανάμεσα N0036 και M_36_TO_67_1
+  M_CENTRAL_TO_DOWN_1: L.latLng(40.65650298153248, 22.802573043723065), // ανάμεσα M_CENTRAL και M_DOWN_1
+
 
 };
 
@@ -375,7 +379,9 @@ const MANUAL_EDGES: Array<[string, string]> = [
   ['M_TOP_7', 'M_CENTRAL'],
 
   // κεντρικό -> M_DOWN_1 -> M_BOTTOM_MID
-  ['M_CENTRAL', 'M_DOWN_1'],
+  ['M_CENTRAL', 'M_CENTRAL_TO_DOWN_1'],
+  ['M_CENTRAL_TO_DOWN_1', 'M_DOWN_1'],
+
   ['M_DOWN_1', 'M_BOTTOM_MID'],
 
   // extra connections που είπες
@@ -415,9 +421,7 @@ const alias = new Map<string, string>([
   ['ΒΙΒΛΙΟΘΗΚΟΝΟΜΙΑΣ, ΑΡΧΕΙΟΝΟΜΙΑΣ & ΣΥΣΤΗΜΑΤΩΝ ΠΛΗΡΟΦΟΡΗΣΗΣ', 'LIB_ENT'],
   ['ΜΗΧΑΝΙΚΩΝ ΠΕΡΙΒΑΛΛΟΝΤΟΣ', 'ENV_ENT'],
   ['ΛΟΓΙΣΤΙΚΗΣ ΚΑΙ ΠΛΗΡΟΦΟΡΙΑΚΩΝ ΣΥΣΤΗΜΑΤΩΝ', 'LOG_ENT'],
-
-  // προσωρινό
-  ['ΓΕΩΠΟΝΙΑΣ', 'DIET_DIET_ENT'],
+  ['ΓΕΩΠΟΝΙΑΣ', 'GEOPONIA_ENT'],
 ]);
 
 // ----------------------------------------------------
@@ -614,6 +618,13 @@ function mergeOSMWithPOIs() {
 
   // (D) N0058 <-> N0059: σπάει σε 2 κομμάτια
   splitEdgeWithChain(g, ALL, 'N0058', 'N0059', ['M_58_TO_59_1']);
+
+  // (E) N0036 <-> N0067: σπάει σε 3 κομμάτια
+  splitEdgeWithChain(g, ALL, 'N0036', 'N0067', ['M_36_TO_67_PRE_1','M_36_TO_67_1',]);
+
+
+  
+
 
 
   // 5) heal small gaps on OSM+manual network
