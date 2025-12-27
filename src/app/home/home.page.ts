@@ -46,17 +46,18 @@ export class HomePage implements OnInit, OnDestroy {
   hasArrived = false;
   selectionLocked = false;
 
+  // TOP (instructions only)
   navEnabled = false;
   navInstruction = 'Προορισμός...';
-  navTheme: 'nav-green' | 'nav-orange' | 'nav-blue' = 'nav-blue';
-  navIcon = '📍';
-  navSub: string | null = null;
+  navTheme: 'nav-go' | 'nav-turn' | 'nav-arrive' = 'nav-go';
+  navIcon: string = 'navigate-outline';
 
   routeTotalMeters = 0;
   routeRemainingMeters = 0;
-  routeProgress = 0;
 
-  selectedDistanceMeters: number | null = null;
+  // κάτω popup metrics
+  popupMeters: number | null = null;
+  popupEtaMin: number | null = null;
 
   private maneuvers: { i: number; type: 'left' | 'right' }[] = [];
   private mapSubscriptions: Subscription[] = [];
@@ -91,7 +92,7 @@ export class HomePage implements OnInit, OnDestroy {
     await toast.present();
   }
 
-  private async presentLoading(message: string, durationMs = 900) {
+  private async presentLoading(message: string, durationMs = 700) {
     const loading = document.createElement('ion-loading');
     loading.message = message;
     loading.spinner = 'crescent';
@@ -102,9 +103,10 @@ export class HomePage implements OnInit, OnDestroy {
     await loading.dismiss();
   }
 
-  private formatMeters(meters: number): string {
-    const m = Math.max(0, Math.ceil(meters));
-    return `${m} m`;
+  private etaFromMeters(m: number): number {
+    // ~ 78 m/min (walking)
+    const metersPerMinute = 78;
+    return Math.max(1, Math.ceil(m / metersPerMinute));
   }
 
   private bearing(a: L.LatLng, b: L.LatLng) {
@@ -119,6 +121,7 @@ export class HomePage implements OnInit, OnDestroy {
     return (toDeg(Math.atan2(y, x)) + 360) % 360;
   }
 
+  // FIX: σωστό left/right
   private buildManeuvers(points: L.LatLng[]) {
     const out: { i: number; type: 'left' | 'right' }[] = [];
     if (!points || points.length < 3) return out;
@@ -146,25 +149,20 @@ export class HomePage implements OnInit, OnDestroy {
       const angle = (Math.atan2(Math.abs(cross), dot) * 180) / Math.PI;
       if (angle < TURN_ANGLE_DEG) continue;
 
-      out.push({ i, type: cross > 0 ? 'right' : 'left' });
+      // cross>0 => LEFT (στο lat/lng επίπεδο)
+      out.push({ i, type: cross > 0 ? 'left' : 'right' });
       i += 1;
     }
 
     return out;
   }
 
+  // ΠΟΤΕ "Τώρα" / "Σε λίγο" -> πάντα "Σε X μ ..."
   private updateNavInstruction(currentPoint: L.LatLng, points: L.LatLng[]) {
-    if (!this.navEnabled) {
+    if (!this.navEnabled || !points || points.length < 2) {
       this.navInstruction = 'Προορισμός...';
-      this.navIcon = '📍';
-      this.navTheme = 'nav-blue';
-      return;
-    }
-
-    if (!points || points.length < 2) {
-      this.navInstruction = 'Προορισμός...';
-      this.navIcon = '📍';
-      this.navTheme = 'nav-blue';
+      this.navIcon = 'navigate-outline';
+      this.navTheme = 'nav-go';
       return;
     }
 
@@ -180,51 +178,30 @@ export class HomePage implements OnInit, OnDestroy {
 
     const ARRIVE_DIST = 25;
     if (distToEnd <= ARRIVE_DIST) {
-      this.navInstruction = 'Ο προορισμός βρίσκεται μπροστά σας';
-      this.navIcon = '📍';
-      this.navTheme = 'nav-green';
+      this.navInstruction = 'Ο προορισμός είναι μπροστά σας';
+      this.navIcon = 'flag-outline';
+      this.navTheme = 'nav-arrive';
       return;
     }
 
     const next = this.maneuvers.find(m => m.i > closest);
-
-    const TURN_NOW = 18;
-    const PRE_TURN = 80;
-    const LONG_STRAIGHT = 140;
+    const round10 = (m: number) => Math.max(10, Math.round(m / 10) * 10);
 
     if (!next) {
-      this.navInstruction = 'Συνέχισε ευθεία';
-      this.navIcon = '⬆️';
-      this.navTheme = 'nav-blue';
+      const d = round10(distToEnd);
+      this.navInstruction = `Συνέχισε ευθεία για ${d} μ`;
+      this.navIcon = 'arrow-up-outline';
+      this.navTheme = 'nav-go';
       return;
     }
 
     const distToTurn = currentPoint.distanceTo(points[next.i]);
+    const d = round10(distToTurn);
 
-    if (distToTurn <= TURN_NOW) {
-      this.navInstruction = next.type === 'left' ? 'Στρίψε αριστερά' : 'Στρίψε δεξιά';
-      this.navIcon = next.type === 'left' ? '⬅️' : '➡️';
-      this.navTheme = 'nav-orange';
-      return;
-    }
-
-    if (distToTurn <= PRE_TURN) {
-      this.navInstruction = next.type === 'left' ? 'Σε λίγο στρίψε αριστερά' : 'Σε λίγο στρίψε δεξιά';
-      this.navIcon = next.type === 'left' ? '⬅️' : '➡️';
-      this.navTheme = 'nav-orange';
-      return;
-    }
-
-    if (distToTurn >= LONG_STRAIGHT) {
-      this.navInstruction = 'Συνέχισε ευθεία';
-      this.navIcon = '⬆️';
-      this.navTheme = 'nav-blue';
-      return;
-    }
-
-    this.navInstruction = 'Πήγαινε ευθεία';
-    this.navIcon = '⬆️';
-    this.navTheme = 'nav-blue';
+    const dirText = next.type === 'left' ? 'στρίψε αριστερά' : 'στρίψε δεξιά';
+    this.navInstruction = `Σε ${d} μ ${dirText}`;
+    this.navIcon = next.type === 'left' ? 'return-up-back-outline' : 'return-up-forward-outline';
+    this.navTheme = 'nav-turn';
   }
 
   private getTestStartPoint(): L.LatLng {
@@ -239,7 +216,6 @@ export class HomePage implements OnInit, OnDestroy {
         return L.latLng(lat, lng);
       }
     }
-
     return L.latLng(baseLat, baseLng);
   }
 
@@ -264,6 +240,11 @@ export class HomePage implements OnInit, OnDestroy {
         this.navigationActive = false;
         this.hasArrived = true;
         this.mapService.setFollowUser(false);
+
+        this.navEnabled = true;
+        this.navTheme = 'nav-arrive';
+        this.navIcon = 'flag-outline';
+        this.navInstruction = 'Ο προορισμός είναι μπροστά σας';
         return;
       }
 
@@ -304,7 +285,7 @@ export class HomePage implements OnInit, OnDestroy {
       if (this.isSearchOpen) return;
 
       if (this.selectionLocked) {
-        await this.presentToast('Πάτα Χ για να ακυρώσεις τη διαδρομή και να επιλέξεις νέο προορισμό.');
+        await this.presentToast('Πάτα Χ στο popup για ακύρωση.');
         return;
       }
 
@@ -315,12 +296,17 @@ export class HomePage implements OnInit, OnDestroy {
     const progSub = this.mapService.routeProgress.subscribe(p => {
       this.routeTotalMeters = Math.max(0, Math.ceil(p.totalMeters));
       this.routeRemainingMeters = Math.max(0, Math.ceil(p.remainingMeters));
-      this.routeProgress = p.progress;
 
-      if (this.navEnabled && this.navigationActive) {
-        this.navSub = this.formatMeters(p.remainingMeters);
-      } else if (this.routeReady && !this.navigationActive) {
-        this.navSub = this.formatMeters(p.totalMeters);
+      // μέτρα/λεπτά ΜΟΝΟ κάτω (popup)
+      if (this.navigationActive) {
+        this.popupMeters = this.routeRemainingMeters;
+        this.popupEtaMin = this.etaFromMeters(this.routeRemainingMeters);
+      } else if (this.routeReady) {
+        this.popupMeters = this.routeTotalMeters;
+        this.popupEtaMin = this.etaFromMeters(this.routeTotalMeters);
+      } else {
+        this.popupMeters = null;
+        this.popupEtaMin = null;
       }
     });
 
@@ -329,7 +315,7 @@ export class HomePage implements OnInit, OnDestroy {
 
   async onDestinationSelected(destination: Destination) {
     if (this.selectionLocked) {
-      await this.presentToast('Πάτα Χ για να ακυρώσεις τη διαδρομή και να επιλέξεις νέο προορισμό.');
+      await this.presentToast('Πάτα Χ στο popup για ακύρωση.');
       return;
     }
     this.handleMapClick(destination.lat, destination.lng, destination.name);
@@ -341,7 +327,7 @@ export class HomePage implements OnInit, OnDestroy {
 
   async handleMapClick(lat: number, lng: number, name: string = 'Επιλεγμένος προορισμός') {
     if (this.selectionLocked) {
-      await this.presentToast('Πάτα Χ για να ακυρώσεις τη διαδρομή και να επιλέξεις νέο προορισμό.');
+      await this.presentToast('Πάτα Χ στο popup για ακύρωση.');
       return;
     }
 
@@ -349,18 +335,21 @@ export class HomePage implements OnInit, OnDestroy {
 
     this.hasArrived = false;
 
+    // reset top instructions
     this.navEnabled = false;
     this.navInstruction = 'Προορισμός...';
-    this.navIcon = '📍';
-    this.navTheme = 'nav-blue';
-    this.navSub = null;
+    this.navIcon = 'navigate-outline';
+    this.navTheme = 'nav-go';
 
+    // reset route
     this.routeReady = false;
     this.navigationActive = false;
     this.routeTotalMeters = 0;
     this.routeRemainingMeters = 0;
-    this.routeProgress = 0;
-    this.selectedDistanceMeters = null;
+
+    // reset popup metrics
+    this.popupMeters = null;
+    this.popupEtaMin = null;
 
     if (found) {
       this.currentDestination = found;
@@ -386,15 +375,15 @@ export class HomePage implements OnInit, OnDestroy {
 
     this.routeTotalMeters = totalMeters;
     this.routeRemainingMeters = totalMeters;
-    this.routeProgress = 0;
 
-    this.selectedDistanceMeters = totalMeters;
-    this.navSub = this.formatMeters(totalMeters);
+    // κάτω δείχνει μέτρα + λεπτά
+    this.popupMeters = totalMeters;
+    this.popupEtaMin = this.etaFromMeters(totalMeters);
 
     this.routeReady = true;
-    this.navigationActive = false;
     this.showModal = true;
 
+    // κλειδώνει επιλογή όσο υπάρχει route/popup
     this.selectionLocked = true;
   }
 
@@ -409,39 +398,60 @@ export class HomePage implements OnInit, OnDestroy {
     this.mapService.pinDestination(destLat, destLng, this.currentDestination.name);
 
     this.mapService.setFollowUser(true, 19);
-    
-    
     this.mapService.focusOn(this.userLat, this.userLng, 19);
 
+    // πάνω: μόνο οδηγίες
     this.navEnabled = true;
     this.navigationActive = true;
 
     const route = this.mapService.getCurrentRoutePoints();
     this.updateNavInstruction(L.latLng(this.userLat, this.userLng), route);
 
-    this.navSub = this.formatMeters(this.routeRemainingMeters || this.routeTotalMeters);
-
     if (this.simulateMovement) {
       this.simulateUserWalk(route);
     }
   }
 
-  cancelNavigation() {
+  cancelRouteKeepPopup() {
     this.navigationActive = false;
     this.hasArrived = false;
 
     if (this.simulationInterval) clearInterval(this.simulationInterval);
     this.mapService.setFollowUser(false);
 
+    // κρατάμε pin, σβήνουμε route
+    const dest = this.currentDestination;
+    const pinLat = dest ? (dest.entranceLat ?? dest.lat) : null;
+    const pinLng = dest ? (dest.entranceLng ?? dest.lng) : null;
+
+    this.mapService.removeRouting(true);
+
+    if (pinLat != null && pinLng != null && dest) {
+      this.mapService.pinDestination(pinLat, pinLng, dest.name);
+    }
+
+    // reset route state (popup stays)
+    this.routeReady = false;
+    this.routeTotalMeters = 0;
+    this.routeRemainingMeters = 0;
+
+    this.popupMeters = null;
+    this.popupEtaMin = null;
+
+    // top instructions off
     this.navEnabled = false;
     this.navInstruction = 'Προορισμός...';
-    this.navIcon = '📍';
-    this.navTheme = 'nav-blue';
-    this.navSub = null;
+    this.navIcon = 'navigate-outline';
+    this.navTheme = 'nav-go';
+
+    // τώρα μπορεί να επιλέξει νέο προορισμό
+    this.selectionLocked = false;
+    this.showModal = true;
   }
 
+  // Χ στο popup (όταν ΔΕΝ τρέχει navigation): κλείνει popup κανονικά
   onPopupClose() {
-    this.showModal = false;
+    this.showModal = true;
 
     this.navigationActive = false;
     if (this.simulationInterval) clearInterval(this.simulationInterval);
@@ -457,15 +467,15 @@ export class HomePage implements OnInit, OnDestroy {
 
     this.navEnabled = false;
     this.navInstruction = 'Προορισμός...';
-    this.navIcon = '📍';
-    this.navTheme = 'nav-blue';
-    this.navSub = null;
+    this.navIcon = 'navigate-outline';
+    this.navTheme = 'nav-go';
 
     this.routeTotalMeters = 0;
     this.routeRemainingMeters = 0;
-    this.routeProgress = 0;
 
-    this.selectedDistanceMeters = null;
+    this.popupMeters = null;
+    this.popupEtaMin = null;
+
     this.maneuvers = [];
   }
 
@@ -474,6 +484,6 @@ export class HomePage implements OnInit, OnDestroy {
   }
 
   async onSearchLockedAttempt() {
-    await this.presentToast('Πάτα Χ για να ακυρώσεις τη διαδρομή και να επιλέξεις νέο προορισμό.');
+    await this.presentToast('Πάτα Χ στο popup για ακύρωση.');
   }
 }

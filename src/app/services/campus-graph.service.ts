@@ -355,11 +355,9 @@ const MANUAL_NODE_COORDS: Record<string, L.LatLng> = {
   M_60_TO_69_1: L.latLng(40.655726, 22.804071), // ανάμεσα N0060 και N0069
   M_0108_TO_0052_1: L.latLng(40.658673, 22.803712), // ανάμεσα N0108 και N0052
   M_58_TO_59_1: L.latLng(40.656482, 22.803623), // ανάμεσα N0058 και N0059
-  M_36_TO_67_1: L.latLng(40.657202, 22.804278), //ανάμεσα N0036 και N0067s
+  M_36_TO_67_1: L.latLng(40.657202, 22.804278), //ανάμεσα N0036 και N0067
   M_36_TO_67_PRE_1: L.latLng(40.657211397739765, 22.803763058404975), // ανάμεσα N0036 και M_36_TO_67_1
   M_CENTRAL_TO_DOWN_1: L.latLng(40.65650298153248, 22.802573043723065), // ανάμεσα M_CENTRAL και M_DOWN_1
-
-
 };
 
 const MANUAL_EDGES: Array<[string, string]> = [
@@ -381,7 +379,6 @@ const MANUAL_EDGES: Array<[string, string]> = [
   // κεντρικό -> M_DOWN_1 -> M_BOTTOM_MID
   ['M_CENTRAL', 'M_CENTRAL_TO_DOWN_1'],
   ['M_CENTRAL_TO_DOWN_1', 'M_DOWN_1'],
-
   ['M_DOWN_1', 'M_BOTTOM_MID'],
 
   // extra connections που είπες
@@ -402,8 +399,10 @@ function norm(s: string): string {
     .toUpperCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
+    .replace(/&/g, 'ΚΑΙ')          // ✅ fix: & -> ΚΑΙ
     .replace(/ΤΜΗΜΑ /g, '')
     .replace(/ΣΧΟΛΗ /g, '')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
@@ -417,8 +416,11 @@ const alias = new Map<string, string>([
   ['ΜΗΧΑΝΙΚΩΝ ΠΑΡΑΓΩΓΗΣ ΚΑΙ ΔΙΟΙΚΗΣΗΣ (ΠΑΡΑΡΤΗΜΑ ΟΧΗΜΑΤΩΝ)', 'MPD_OXIMATA_ENT'],
   ['ΜΗΧΑΝΙΚΩΝ ΠΛΗΡΟΦΟΡΙΚΗΣ (ΚΤΗΡΙΟ Η)', 'INF_H_ENT'],
   ['ΜΗΧΑΝΙΚΩΝ ΠΛΗΡΟΦΟΡΙΚΗΣ (ΚΤΗΡΙΟ Π)', 'INF_P_ENT'],
+  // ✅ extra alias αν το όνομα έρχεται "Η & Π" μαζί
+  ['ΜΗΧΑΝΙΚΩΝ ΠΛΗΡΟΦΟΡΙΚΗΣ (ΚΤΗΡΙΟ Η ΚΑΙ Π)', 'INF_H_ENT'],
+
   ['ΔΙΟΙΚΗΣΗΣ ΟΡΓΑΝΙΣΜΩΝ, ΜΑΡΚΕΤΙΝΓΚ ΚΑΙ ΤΟΥΡΙΣΜΟΥ', 'SDO_ENT'],
-  ['ΒΙΒΛΙΟΘΗΚΟΝΟΜΙΑΣ, ΑΡΧΕΙΟΝΟΜΙΑΣ & ΣΥΣΤΗΜΑΤΩΝ ΠΛΗΡΟΦΟΡΗΣΗΣ', 'LIB_ENT'],
+  ['ΒΙΒΛΙΟΘΗΚΟΝΟΜΙΑΣ, ΑΡΧΕΙΟΝΟΜΙΑΣ ΚΑΙ ΣΥΣΤΗΜΑΤΩΝ ΠΛΗΡΟΦΟΡΗΣΗΣ', 'LIB_ENT'],
   ['ΜΗΧΑΝΙΚΩΝ ΠΕΡΙΒΑΛΛΟΝΤΟΣ', 'ENV_ENT'],
   ['ΛΟΓΙΣΤΙΚΗΣ ΚΑΙ ΠΛΗΡΟΦΟΡΙΑΚΩΝ ΣΥΣΤΗΜΑΤΩΝ', 'LOG_ENT'],
   ['ΓΕΩΠΟΝΙΑΣ', 'GEOPONIA_ENT'],
@@ -430,18 +432,13 @@ const alias = new Map<string, string>([
 type Adjacency = Record<string, Record<string, number>>;
 
 function computeBBox(points: L.LatLng[]) {
-  let minLat = Infinity,
-    maxLat = -Infinity,
-    minLng = Infinity,
-    maxLng = -Infinity;
-
+  let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
   for (const p of points) {
     minLat = Math.min(minLat, p.lat);
     maxLat = Math.max(maxLat, p.lat);
     minLng = Math.min(minLng, p.lng);
     maxLng = Math.max(maxLng, p.lng);
   }
-
   return { minLat, maxLat, minLng, maxLng };
 }
 
@@ -477,10 +474,9 @@ function splitEdgeWithChain(
   coords: Record<string, L.LatLng>,
   a: string,
   b: string,
-  chain: string[] // ενδιάμεσοι κόμβοι ΜΕ ΣΕΙΡΑ
+  chain: string[]
 ) {
   removeUndirectedEdge(g, a, b);
-
   let prev = a;
   for (const mid of chain) {
     addUndirectedEdge(g, coords, prev, mid);
@@ -561,14 +557,17 @@ function findNearestNodeIdInSet(
   return { id: bestId, distM: bestDist };
 }
 
-function mergeOSMWithPOIs() {
-  // bbox από POIs + manual nodes (για να μη χάνονται περιοχές)
+type MergedGraph = {
+  coords: Record<string, L.LatLng>;
+  adjacency: Adjacency;
+  snapCandidates: string[]; // ✅ NEW
+};
+
+function mergeOSMWithPOIs(): MergedGraph {
   const seedPoints = [...Object.values(POI_NODE_COORDS), ...Object.values(MANUAL_NODE_COORDS)];
   const bb0 = computeBBox(seedPoints);
 
-  // ~150–250m margin
   const MARGIN = 0.0022;
-
   const bb = {
     minLat: bb0.minLat - MARGIN,
     maxLat: bb0.maxLat + MARGIN,
@@ -589,56 +588,34 @@ function mergeOSMWithPOIs() {
     if (keptOSM[u] && keptOSM[v]) keptEdges.push([u, v]);
   }
 
-  // 3) merged coords = keptOSM + MANUAL + POIs
+  // 3) merged coords
   const manualIds = Object.keys(MANUAL_NODE_COORDS);
   const ALL: Record<string, L.LatLng> = { ...keptOSM, ...MANUAL_NODE_COORDS, ...POI_NODE_COORDS };
 
-  // 4) base adjacency from OSM
+  // 4) base adjacency
   const g = buildAdjacencyFromEdges(keptEdges, ALL);
 
-  // 4.5) add manual edges (οι “χειροκίνητες” συνδέσεις σου)
+  // 4.5) manual edges
   for (const [u, v] of MANUAL_EDGES) addUndirectedEdge(g, ALL, u, v);
 
-  // ----------------------------------------------------
-  // 4.6) APPLY SPLITS (για να περνάει από τα ενδιάμεσα σημεία)
-  // ----------------------------------------------------
-
-  // (A) N0068 <-> N0060: σπάει σε αλυσίδα
-  splitEdgeWithChain(g, ALL, 'N0068', 'N0060', [
-    'M_68_TO_BOTTOM_1',
-    'M_BOTTOM_MID',
-    'M_BOTTOM_TO_60_1',
-  ]);
-
-  // (B) N0060 <-> N0069: σπάει σε 2 κομμάτια
+  // 4.6) splits
+  splitEdgeWithChain(g, ALL, 'N0068', 'N0060', ['M_68_TO_BOTTOM_1', 'M_BOTTOM_MID', 'M_BOTTOM_TO_60_1']);
   splitEdgeWithChain(g, ALL, 'N0060', 'N0069', ['M_60_TO_69_1']);
-
-  // (C) N0108 <-> N0052: σπάει σε 2 κομμάτια
   splitEdgeWithChain(g, ALL, 'N0108', 'N0052', ['M_0108_TO_0052_1']);
-
-  // (D) N0058 <-> N0059: σπάει σε 2 κομμάτια
   splitEdgeWithChain(g, ALL, 'N0058', 'N0059', ['M_58_TO_59_1']);
+  splitEdgeWithChain(g, ALL, 'N0036', 'N0067', ['M_36_TO_67_PRE_1', 'M_36_TO_67_1']);
 
-  // (E) N0036 <-> N0067: σπάει σε 3 κομμάτια
-  splitEdgeWithChain(g, ALL, 'N0036', 'N0067', ['M_36_TO_67_PRE_1','M_36_TO_67_1',]);
-
-
-  
-
-
-
-  // 5) heal small gaps on OSM+manual network
+  // 5) heal gaps
   const baseNetworkIds = [...keptOSMIds, ...manualIds];
-  const HEAL_DIST = 6; // αν ξαναδείς NO PATH, ανέβασε σε 7–8
+  const HEAL_DIST = 6;
   healCloseNodes(baseNetworkIds, ALL, g, HEAL_DIST);
 
-  // 6) largest component for stable snapping
+  // 6) largest component (σταθερό snapping)
   const largest = getLargestComponent(baseNetworkIds, g);
   const snapCandidates = baseNetworkIds.filter((id) => largest.has(id));
 
   // 7) snap POIs to nearest node in largest component
   const SNAP_MAX_METERS = 60;
-
   for (const [poiId, poiLL] of Object.entries(POI_NODE_COORDS)) {
     const { id: nearId, distM } = findNearestNodeIdInSet(poiLL.lat, poiLL.lng, snapCandidates, ALL);
 
@@ -649,15 +626,14 @@ function mergeOSMWithPOIs() {
 
     if (distM > SNAP_MAX_METERS) {
       console.warn(
-        `[CampusGraph] POI ${poiId} is ${Math.round(distM)}m away from nearest node ${nearId}. ` +
-          `Consider increasing SNAP_MAX_METERS or improving data.`
+        `[CampusGraph] POI ${poiId} is ${Math.round(distM)}m away from nearest node ${nearId}.`
       );
     }
 
     addUndirectedEdge(g, ALL, poiId, nearId);
   }
 
-  return { coords: ALL, adjacency: g };
+  return { coords: ALL, adjacency: g, snapCandidates };
 }
 
 const MERGED = mergeOSMWithPOIs();
@@ -670,6 +646,12 @@ export class CampusGraphService {
   private readonly nodeCoords: Record<string, L.LatLng> = MERGED.coords;
   private readonly campusGraphData: Adjacency = MERGED.adjacency;
 
+  // ✅ NEW: μόνο αυτά επιτρέπονται για snapping start/end
+  private readonly snapCandidates: string[] = MERGED.snapCandidates;
+
+  // ✅ tweak: πόσο μακριά επιτρέπουμε να "κουμπώσει" στο δίκτυο
+  private readonly MAX_SNAP_METERS = 90;
+
   public getNodeIdForName(destinationName: string): string | null {
     const key = norm(destinationName);
     return alias.get(key) ?? null;
@@ -681,13 +663,17 @@ export class CampusGraphService {
     return id ? this.nodeCoords[id] : undefined;
   }
 
+  // ✅ FIX: nearest ΜΟΝΟ στο largest component + max distance
   public findNearestNodeId(lat: number, lng: number): string | null {
     const here = L.latLng(lat, lng);
 
     let bestId: string | null = null;
     let bestDist = Infinity;
 
-    for (const [id, ll] of Object.entries(this.nodeCoords)) {
+    for (const id of this.snapCandidates) {
+      const ll = this.nodeCoords[id];
+      if (!ll) continue;
+
       const d = here.distanceTo(ll);
       if (d < bestDist) {
         bestDist = d;
@@ -695,7 +681,7 @@ export class CampusGraphService {
       }
     }
 
-    return bestId;
+    return bestDist <= this.MAX_SNAP_METERS ? bestId : null;
   }
 
   public calculatePath(startNodeId: string, endNodeId: string): L.LatLng[] | null {
@@ -720,6 +706,7 @@ export class CampusGraphService {
     return { points, lengthM: Math.round(len) };
   }
 
+  // ✅ FIX: μην ψάχνεις start candidates σε ΟΛΟΥΣ τους nodes (μόνο snapCandidates)
   public findBestStartNodeForDestination(lat: number, lng: number, endNodeId: string): string | null {
     const here = L.latLng(lat, lng);
 
@@ -741,10 +728,14 @@ export class CampusGraphService {
     };
 
     const MAX_START_RADIUS = 120;
+
     let bestNode: string | null = null;
     let bestCost = Infinity;
 
-    for (const [id, ll] of Object.entries(this.nodeCoords)) {
+    for (const id of this.snapCandidates) {
+      const ll = this.nodeCoords[id];
+      if (!ll) continue;
+
       const dUserToNode = here.distanceTo(ll);
       if (dUserToNode > MAX_START_RADIUS) continue;
 

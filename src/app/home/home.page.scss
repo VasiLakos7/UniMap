@@ -15,14 +15,12 @@ ion-content {
   z-index: 0;
 }
 
-
 .search-host {
   padding-top: calc(env(safe-area-inset-top) + 10px);
   display: flex;
   justify-content: center;
   width: 100%;
   z-index: 1;
-
   pointer-events: none;
 }
 
@@ -32,12 +30,16 @@ ion-content {
 }
 
 .popup-overlay {
-  position: absolute;
+  position: fixed;  
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 1500;
+  z-index: 2000;   
+  pointer-events: auto;
 }
+
+
+/* NAV BOX */
 .nav-box{
   width: min(520px, calc(100% - 24px));
   border-radius: 18px;
@@ -47,7 +49,6 @@ ion-content {
   pointer-events: auto;
 }
 
-/* πάνω μπάρα χρώματος */
 .nav-top{
   padding: 10px 14px;
   color: #fff;
@@ -57,13 +58,14 @@ ion-content {
   text-transform: uppercase;
 }
 
-/* περιεχόμενο */
 .nav-body{
   background: rgba(255,255,255,0.95);
   padding: 12px 14px;
   display: flex;
   align-items: center;
   gap: 10px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .nav-icon{
@@ -73,61 +75,46 @@ ion-content {
   display: grid;
   place-items: center;
   color: #fff;
-  font-size: 18px;
-  font-weight: 900;
   flex: 0 0 auto;
+}
+
+.nav-icon ion-icon{
+  font-size: 18px;
 }
 
 .nav-text{
   font-size: 16px;
   font-weight: 900;
   line-height: 1.1;
-}
-
-.nav-sub{
-  font-size: 12px;
-  opacity: .65;
-  margin-top: 2px;
-}
-
-/* themes */
-.nav-green  .nav-top{ background: #1f9d55; }   /* πράσινο */
-.nav-orange .nav-top{ background: #f59e0b; }   /* πορτοκαλί */
-.nav-blue   .nav-top{ background: #1e3a8a; }   /* σκούρο μπλε */
-
-.nav-green  .nav-icon{ background: #1f9d55; }
-.nav-orange .nav-icon{ background: #f59e0b; }
-.nav-blue   .nav-icon{ background: #1e3a8a; }
-
-.nav-body{
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-}
-
-.nav-box{
-  transform: translateZ(0); /* πιο smooth σε mobile */
-}
-
-.nav-text{
   letter-spacing: -0.2px;
 }
+
+/* themes (ταιριαστά, όχι orange/green) */
+.nav-go     .nav-top  { background: #1e3a8a; }   /* deep blue */
+.nav-turn   .nav-top  { background: #5b21b6; }   /* purple */
+.nav-arrive .nav-top  { background: #0f766e; }   /* teal */
+
+.nav-go     .nav-icon { background: #1e3a8a; }
+.nav-turn   .nav-icon { background: #5b21b6; }
+.nav-arrive .nav-icon { background: #0f766e; }
+
+/* ΑΜΕΑ */
 .amea-fab{
   margin-left: 12px;
-  margin-bottom: calc(env(safe-area-inset-bottom) + 12px);
   z-index: 1400;
 }
 
 .amea-btn{
   width: 44px;
   height: 44px;
-  --background: #1e40af; 
+  --background: #1e40af;
 }
 
 .amea-mask{
   width: 22px;
   height: 22px;
   display: block;
-  background: #fff; 
+  background: #fff;
 
   -webkit-mask: url('/assets/images/others/wheelchair.png') no-repeat center / contain;
   mask: url('/assets/images/others/wheelchair.png') no-repeat center / contain;

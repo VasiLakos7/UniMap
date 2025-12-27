@@ -1,6 +1,11 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import {
+  Component, Input, Output, EventEmitter,
+  AfterViewInit, ElementRef, ViewChild, NgZone,
+  OnChanges, SimpleChanges, OnDestroy
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
+import { createGesture, Gesture } from '@ionic/core';
 import { Destination } from '../../models/destination.model';
 
 @Component({
@@ -8,24 +13,141 @@ import { Destination } from '../../models/destination.model';
   selector: 'app-department-popup',
   templateUrl: './department-popup.component.html',
   styleUrls: ['./department-popup.component.scss'],
-  imports: [CommonModule, IonicModule],
+  imports: [IonicModule, CommonModule],
 })
-export class DepartmentPopupComponent {
+export class DepartmentPopupComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() destination!: Destination;
-
   @Input() routeReady = false;
   @Input() navigationActive = false;
   @Input() hasArrived = false;
 
-  // ✅ για να δείχνεις “Απόσταση: Χ μ” πριν το ΞΕΚΙΝΑ
-  @Input() distanceMeters: number | null = null;
+  @Input() meters: number | null = null;
+  @Input() etaMin: number | null = null;
 
   @Output() navigate = new EventEmitter<void>();
   @Output() cancel = new EventEmitter<void>();
-  @Output() close = new EventEmitter<void>();
+  @Output() close = new EventEmitter<void>();  
+
+  @ViewChild('sheet', { read: ElementRef }) sheetRef!: ElementRef<HTMLElement>;
+
+  expanded = true;
+
+  private gesture?: Gesture;
+  private maxUp = 0;
+  private collapsedY = 0;
+  private currentY = 0;
+
+  private ready = false;
+  private pendingCollapse = false;
+
+  constructor(private zone: NgZone) {}
+
+  ngAfterViewInit(): void {
+    this.zone.runOutsideAngular(() => {
+      const el = this.sheetRef?.nativeElement;
+      if (!el) return;
+
+      // max height: δεν ανεβαίνει full screen
+      this.maxUp = Math.min(Math.round(window.innerHeight * 0.42), 340);
+      el.style.setProperty('--sheet-max', `${this.maxUp}px`);
+
+      // Gesture
+      this.gesture = createGesture({
+        el,
+        gestureName: 'um-sheet',
+        direction: 'y',
+        threshold: 0,
+        onMove: (detail) => {
+          const y = this.clamp(this.currentY + detail.deltaY, 0, this.collapsedY);
+          el.style.transform = `translateY(${y}px)`;
+        },
+        onEnd: (detail) => {
+          const endY = this.clamp(this.currentY + detail.deltaY, 0, this.collapsedY);
+          const snapToCollapsed = endY > this.collapsedY * 0.55 || detail.velocityY > 0.35;
+          const target = snapToCollapsed ? this.collapsedY : 0;
+
+          this.snapTo(target);
+        },
+      });
+
+      this.gesture.enable(true);
+
+      requestAnimationFrame(() => {
+      this.recalcSnapPoints();
+
+      this.ready = true;
+
+      if (this.pendingCollapse) {
+        this.pendingCollapse = false;
+        this.snapTo(this.collapsedY);
+      }
+
+      this.zone.run(() => (this.expanded = true));
+    });
+
+    });
+  }
+
+    ngOnChanges(changes: SimpleChanges): void {
+      const modeChanged =
+        !!changes['navigationActive'] || !!changes['hasArrived'] || !!changes['destination'];
+
+      if (modeChanged && this.sheetRef?.nativeElement) {
+        setTimeout(() => this.recalcSnapPoints(), 0); 
+      }
+
+      // auto-collapse όταν ξεκινήσει navigation
+      if (changes['navigationActive'] && this.navigationActive && !this.hasArrived) {
+        if (this.ready) this.snapTo(this.collapsedY);
+        else this.pendingCollapse = true;
+      }
+    }
+
+
+  ngOnDestroy(): void {
+    try { this.gesture?.destroy(); } catch {}
+    this.gesture = undefined;
+  }
+
+  toggleExpand() {
+    const target = this.expanded ? this.collapsedY : 0;
+    this.snapTo(target);
+  }
+
+  private snapTo(target: number) {
+    const el = this.sheetRef?.nativeElement;
+    if (!el) return;
+
+    el.style.transition = 'transform 180ms ease';
+    el.style.transform = `translateY(${target}px)`;
+    setTimeout(() => (el.style.transition = ''), 200);
+
+    this.currentY = target;
+
+    this.zone.run(() => {
+      this.expanded = target === 0;
+    });
+  }
+
+  private clamp(v: number, min: number, max: number) {
+    return Math.max(min, Math.min(max, v));
+  }
+
+  onClose() {
+    this.close.emit();
+  }
+
+  // ✅ Exit (μόνο στο nav mode)
+  onExit() {
+    this.cancel.emit();
+  }
+
+  onStart() {
+    this.navigate.emit();
+  }
 
   getImage(): string {
-    return this.destination?.image ?? 'assets/default-building.jpg';
+    return this.destination?.image ?? 'assets/images/branding/logo.svg';
   }
 
   getPhone(): string | null {
@@ -35,25 +157,37 @@ export class DepartmentPopupComponent {
   callNumber() {
     const phone = this.getPhone();
     if (!phone) return;
-    window.open(`tel:${phone}`, '_system');
+    window.location.href = `tel:${phone}`;
   }
 
-  shareLocation() {
-    if (!this.destination) return;
+  async shareLocation() {
+    const lat = this.destination?.entranceLat ?? this.destination?.lat;
+    const lng = this.destination?.entranceLng ?? this.destination?.lng;
+    const text = `${this.destination?.name}\n${lat}, ${lng}`;
 
-    const lat = this.destination.entranceLat ?? this.destination.lat;
-    const lng = this.destination.entranceLng ?? this.destination.lng;
-    const name = this.destination.name;
-
-    const text = `Συνάντηση στο ${name} (${lat}, ${lng})`;
-    const url = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=18/${lat}/${lng}`;
-
-    if (navigator.share) {
-      navigator.share({ title: name, text, url }).catch(() => {});
-      return;
-    }
-
-    // ✅ πιο “clean”: απλά copy, χωρίς message UI
-    navigator.clipboard?.writeText(`${text}\n${url}`).catch(() => {});
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'UniMap', text });
+      } else {
+        await navigator.clipboard.writeText(text);
+        alert('Αντιγράφηκε στο clipboard ✅');
+      }
+    } catch {}
   }
+
+  private recalcSnapPoints() {
+  const el = this.sheetRef?.nativeElement;
+  if (!el) return;
+
+  const effectiveH = Math.min(el.scrollHeight, this.maxUp);
+
+
+  const peek = (this.navigationActive && !this.hasArrived) ? 90 : 130;
+
+  this.collapsedY = Math.max(0, effectiveH - peek);
+
+  this.currentY = this.clamp(this.currentY, 0, this.collapsedY);
+  el.style.transform = `translateY(${this.currentY}px)`;
+}
+
 }

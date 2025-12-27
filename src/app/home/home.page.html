@@ -10,7 +10,7 @@
     <ng-container *ngIf="!navEnabled; else navBox">
       <app-search-bar
         [locked]="selectionLocked"
-        [placeholderText]="selectionLocked ? '🔒 Διαδρομή ενεργή — πάτα Χ' : 'Προορισμός...'"
+        [placeholderText]="selectionLocked ? '🔒 Διαδρομή ενεργή — πάτα Χ στο popup' : 'Προορισμός...'"
         (destinationSelected)="onDestinationSelected($event)"
         (searchOpenChange)="onSearchOpenChange($event)"
         (lockedAttempt)="onSearchLockedAttempt()">
@@ -21,11 +21,10 @@
       <div class="nav-box" [ngClass]="navTheme">
         <div class="nav-top">ΠΛΟΗΓΗΣΗ</div>
         <div class="nav-body">
-          <div class="nav-icon">{{ navIcon }}</div>
-          <div>
-            <div class="nav-text">{{ navInstruction }}</div>
-            <div class="nav-sub" *ngIf="navSub">{{ navSub }}</div>
+          <div class="nav-icon">
+            <ion-icon [name]="navIcon"></ion-icon>
           </div>
+          <div class="nav-text">{{ navInstruction }}</div>
         </div>
       </div>
     </ng-template>
@@ -37,23 +36,27 @@
     <div class="lock-card">Εκτός εμβέλειας</div>
   </div>
 
-  <ion-fab slot="fixed" vertical="bottom" horizontal="start" class="amea-fab">
+  <!-- ΑΜΕΑ: κέντρο αριστερά -->
+  <ion-fab slot="fixed" vertical="center" horizontal="start" class="amea-fab">
     <ion-fab-button (click)="onAmeaClick()" aria-label="Προσβασιμότητα" class="amea-btn">
       <span class="amea-mask"></span>
     </ion-fab-button>
   </ion-fab>
 
-  <app-department-popup
-    *ngIf="showModal && currentDestination"
-    class="popup-overlay"
-    [destination]="currentDestination"
-    [routeReady]="routeReady"
-    [navigationActive]="navigationActive"
-    [hasArrived]="hasArrived"
-    [distanceMeters]="selectedDistanceMeters"
-    (navigate)="startNavigation()"
-    (cancel)="cancelNavigation()"
-    (close)="onPopupClose()">
-  </app-department-popup>
+  <div slot="fixed" class="popup-overlay">
+    <app-department-popup
+      *ngIf="showModal && currentDestination"
+      [destination]="currentDestination"
+      [routeReady]="routeReady"
+      [navigationActive]="navigationActive"
+      [hasArrived]="hasArrived"
+      [meters]="popupMeters"
+      [etaMin]="popupEtaMin"
+      (navigate)="startNavigation()"
+      (cancel)="cancelRouteKeepPopup()"
+      (close)="onPopupClose()">
+    </app-department-popup>
+  </div>
+
 
 </ion-content>

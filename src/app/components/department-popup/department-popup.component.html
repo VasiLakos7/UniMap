@@ -1,52 +1,72 @@
-<div class="popup-container">
-  <ion-button fill="clear" color="medium" (click)="close.emit()" class="close-icon-btn">
-    <ion-icon class="close-icon" name="close-circle-outline"></ion-icon>
-  </ion-button>
+<div #sheet class="um-sheet" [class.is-expanded]="expanded">
 
-  <img [src]="getImage()" alt="Φωτογραφία" class="popup-image" />
+  <div class="um-handle" (click)="toggleExpand()"></div>
 
-  <div class="popup-content">
-    <h2>{{ destination.name }}</h2>
+  <!-- ✅ SELECT MODE (πριν ξεκινήσει) -->
+  <ng-container *ngIf="!navigationActive || hasArrived; else navMode">
 
-    <div class="distance" *ngIf="distanceMeters !== null && !navigationActive && !hasArrived">
-      {{ distanceMeters }} m
+    <!-- ✅ Χ ΜΟΝΟ εδώ -->
+    <button class="um-x-top" type="button" (click)="onClose()" aria-label="Κλείσιμο">
+      <ion-icon name="close"></ion-icon>
+    </button>
+
+    <div class="um-head">
+      <img class="um-avatar" [src]="getImage()" alt="Εικόνα τμήματος" />
+
+      <div class="um-title">
+        <div class="um-name">{{ destination.name }}</div>
+
+        <div class="um-meta" *ngIf="meters !== null || etaMin !== null">
+          <span *ngIf="meters !== null">{{ meters }} m</span>
+          <span class="dot" *ngIf="meters !== null && etaMin !== null">•</span>
+          <span *ngIf="etaMin !== null">{{ etaMin }} λεπτά</span>
+        </div>
+      </div>
     </div>
 
-    <div class="popup-buttons">
-      <ion-button
-        *ngIf="!hasArrived"
-        [color]="navigationActive ? 'danger' : 'primary'"
-        [disabled]="!routeReady"
-        (click)="navigationActive ? cancel.emit() : navigate.emit()">
+    <div class="um-actions" *ngIf="!hasArrived">
+      <div class="um-actions-row">
+        <ion-button class="um-start" color="primary" [disabled]="!routeReady" (click)="onStart()">
+          <ion-icon name="navigate" slot="start"></ion-icon>
+          ΞΕΚΙΝΑ
+        </ion-button>
 
-        <ion-icon
-          [name]="navigationActive ? 'close-circle-outline' : 'navigate-circle-outline'"
-          slot="start">
-        </ion-icon>
+        <ion-button class="um-mini" fill="outline" color="danger" *ngIf="getPhone()" (click)="callNumber()" aria-label="Τηλέφωνο">
+          <ion-icon name="call"></ion-icon>
+        </ion-button>
 
-        {{ navigationActive ? 'ΑΚΥΡΩΣΗ' : 'ΞΕΚΙΝΑ' }}
-      </ion-button>
+        <ion-button class="um-mini" fill="outline" color="primary" (click)="shareLocation()" aria-label="Κοινοποίηση">
+          <ion-icon name="share-social"></ion-icon>
+        </ion-button>
+      </div>
+    </div>
 
-      <ion-button
-        *ngIf="hasArrived"
-        color="success"
-        fill="solid"
-        (click)="close.emit()">
-        <ion-icon name="checkmark-circle-outline" slot="start"></ion-icon>
-        Έφτασες
-      </ion-button>
+    <ion-button class="um-arrived" expand="block" color="success" *ngIf="hasArrived" (click)="onClose()">
+      <ion-icon name="checkmark" slot="start"></ion-icon>
+      Έφτασες
+    </ion-button>
 
-      <ion-button
-        *ngIf="getPhone()"
-        fill="outline"
-        color="danger"
-        (click)="callNumber()">
-        <ion-icon name="call-outline"></ion-icon>
-      </ion-button>
+  </ng-container>
 
-      <ion-button fill="outline" color="primary" (click)="shareLocation()">
-        <ion-icon name="share-outline"></ion-icon>
+  <ng-template #navMode>
+    <div class="um-nav">
+      <div class="um-nav-left">
+        <div class="um-nav-title">{{ destination.name }}</div>
+
+        <div class="um-nav-metrics">
+          <div class="um-nav-time" *ngIf="etaMin !== null">{{ etaMin }} λεπτά</div>
+
+          <div class="um-nav-dist" *ngIf="meters !== null">
+            <ion-icon name="walk-outline"></ion-icon>
+            <span>{{ meters }} m</span>
+          </div>
+        </div>
+      </div>
+
+      <ion-button class="um-exit" color="danger" (click)="onExit()">
+        ΕΞΟΔΟΣ
       </ion-button>
     </div>
-  </div>
+  </ng-template>
+
 </div>
