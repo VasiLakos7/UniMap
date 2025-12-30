@@ -99,14 +99,16 @@ export class SettingsModalComponent implements OnInit {
     this.modalCtrl.dismiss(null, 'refreshMap');
   }
 
-  sendFeedback() {
-    const to = 'billrantzos@gmail.com';
-    const subject = encodeURIComponent('UniMap – Feedback / Αναφορά προβλήματος');
-    const body = encodeURIComponent(
-      `Περιγραφή:\n\nΒήματα για αναπαραγωγή:\n1)\n2)\n\nΣυσκευή/OS (προαιρετικό):\nΈκδοση app: ${this.appVersion}\n`
-    );
-    window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
-  }
+    sendFeedback() {
+      const to = 'billrantzos@gmail.com';
+
+      const subject = encodeURIComponent(this.translate.instant('SUPPORT.EMAIL_SUBJECT'));
+      const body = encodeURIComponent(
+        this.translate.instant('SUPPORT.EMAIL_BODY', { appVersion: this.appVersion })
+      );
+
+      window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
+    }
 
   async openPrivacy() {
     const modal = await this.modalCtrl.create({

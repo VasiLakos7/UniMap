@@ -61,9 +61,9 @@
   },
 
   "HOME": {
-    "AMEA": "A11Y",
+    "AMEA": "PwD",
     "SEARCH_PLACEHOLDER": "Destination...",
-    "SEARCH_LOCKED": "🔒 Route active — tap X on the popup",
+    "SEARCH_LOCKED": "🔒 Route active",
     "OUT_OF_RANGE": "Out of range"
   },
 
@@ -182,5 +182,27 @@
       "SETTINGS": "Settings",
       "OPEN_LOCATION": "Open Location"
     }
-  }
+  },
+  "PRIVACY": {
+  "TITLE": "Privacy policy",
+  "STORED": {
+    "TITLE": "What is stored",
+    "BODY": "Only settings are stored (units m/km, map layer selection, north lock)."
+  },
+  "NOT_STORED": {
+    "TITLE": "What is NOT stored",
+    "BODY": "We do not store location or movement history. GPS is used only for navigation."
+  },
+  "THIRD_PARTIES": {
+    "TITLE": "Third-party services",
+    "BODY": "Map tiles: © OpenStreetMap contributors, displayed via Leaflet (optionally MapTiler)."
+  },
+  "NOTE": "* Draft text — it will be refined officially later."
+},
+"SUPPORT": {
+  "EMAIL_SUBJECT": "UniMap – Feedback / Αναφορά προβλήματος",
+  "EMAIL_BODY": "Περιγραφή:\n\nΒήματα για αναπαραγωγή:\n1)\n2)\n\nΣυσκευή/OS (προαιρετικό):\nΈκδοση app: {{appVersion}}\n"
+}
+
+
 }

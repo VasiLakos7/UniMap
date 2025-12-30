@@ -61,9 +61,9 @@
   },
 
   "HOME": {
-    "AMEA": "ΑΜΕΑ",
+    "AMEA": "ΑμΕΑ",
     "SEARCH_PLACEHOLDER": "Προορισμός...",
-    "SEARCH_LOCKED": "🔒 Διαδρομή ενεργή — πάτα Χ στο popup",
+    "SEARCH_LOCKED": "🔒 Διαδρομή ενεργή",
     "OUT_OF_RANGE": "Εκτός εμβέλειας"
   },
 
@@ -182,5 +182,27 @@
       "SETTINGS": "Ρυθμίσεις",
       "OPEN_LOCATION": "Άνοιγμα Τοποθεσίας"
     }
-  }
+  },
+  "PRIVACY": {
+  "TITLE": "Πολιτική απορρήτου",
+  "STORED": {
+    "TITLE": "Τι αποθηκεύεται",
+    "BODY": "Αποθηκεύονται μόνο ρυθμίσεις (μονάδες m/km, επιλογή layer, κλείδωμα βορρά)."
+  },
+  "NOT_STORED": {
+    "TITLE": "Τι ΔΕΝ αποθηκεύεται",
+    "BODY": "Δεν αποθηκεύουμε ιστορικό κινήσεων ή τοποθεσία. Το GPS χρησιμοποιείται μόνο για πλοήγηση."
+  },
+  "THIRD_PARTIES": {
+    "TITLE": "Τρίτες υπηρεσίες",
+    "BODY": "Χάρτες/tiles: © OpenStreetMap contributors. Προβάλλονται μέσω Leaflet (προαιρετικά MapTiler)."
+  },
+  "NOTE": "* Προσωρινό κείμενο — θα βελτιωθεί επίσημα αργότερα."
+},
+"SUPPORT": {
+  "EMAIL_SUBJECT": "UniMap – Feedback / Issue report",
+  "EMAIL_BODY": "Description:\n\nSteps to reproduce:\n1)\n2)\n\nDevice/OS (optional):\nApp version: {{appVersion}}\n"
+}
+
+
 }
