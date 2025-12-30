@@ -1,7 +1,7 @@
 {
   "APP": { "TITLE": "UniMap" },
 
-  "A11Y": { "AMEA_MODE": "Accessibility mode" },
+  "A11Y": { "AMEA_MODE": "Accessibility" },
 
   "DEST": {
     "CUSTOM": { "NAME": "Selected destination" },
@@ -109,7 +109,8 @@
       "TITLE": "Units",
       "SUB": "Distance display",
       "M": "m",
-      "KM": "km"
+      "KM": "km",
+      "ARIA": "Units"
     },
     "ACTIONS": {
       "REFRESH_MAP": "Refresh map",
@@ -119,7 +120,9 @@
       "NORTH_LOCK": "North lock",
       "NORTH_LOCK_SUB": "No rotation",
       "MAP_TYPE": "Map type",
-      "MAP_TYPE_SUB": "Layers"
+      "MAP_TYPE_SUB": "Layers",
+      "OSM": "OpenStreetMap",
+      "MAPTILER": "MapTiler"
     },
     "RESET": {
       "TITLE": "Reset",
@@ -153,7 +156,7 @@
   },
 
   "TOAST": {
-    "AMEA_STATUS": "A11Y: {{state}} (soon)",
+    "AMEA_STATUS": "Accessibility: {{state}}",
     "CLOSE_POPUP_TO_CANCEL": "Tap X on the popup to cancel.",
     "SETTINGS_SAVED": "Settings saved ✅",
     "SETTINGS_RESET": "Settings reset ✅",
@@ -183,26 +186,58 @@
       "OPEN_LOCATION": "Open Location"
     }
   },
+
   "PRIVACY": {
-  "TITLE": "Privacy policy",
-  "STORED": {
-    "TITLE": "What is stored",
-    "BODY": "Only settings are stored (units m/km, map layer selection, north lock)."
+    "TITLE": "Privacy policy",
+    "STORED": {
+      "TITLE": "What is stored",
+      "BODY": "Only settings are stored (units m/km, map layer selection, north lock)."
+    },
+    "NOT_STORED": {
+      "TITLE": "What is NOT stored",
+      "BODY": "We do not store location or movement history. GPS is used only for navigation."
+    },
+    "THIRD_PARTIES": {
+      "TITLE": "Third-party services",
+      "BODY": "Map tiles: © OpenStreetMap contributors, displayed via Leaflet (optionally MapTiler)."
+    },
+    "NOTE": "* Draft text — it will be refined officially later."
   },
-  "NOT_STORED": {
-    "TITLE": "What is NOT stored",
-    "BODY": "We do not store location or movement history. GPS is used only for navigation."
+
+  "SUPPORT": {
+    "EMAIL_SUBJECT": "UniMap – Feedback / Issue report",
+    "EMAIL_BODY": "Description:\n\nSteps to reproduce:\n1)\n2)\n\nDevice/OS (optional):\nApp version: {{appVersion}}\n"
   },
-  "THIRD_PARTIES": {
-    "TITLE": "Third-party services",
-    "BODY": "Map tiles: © OpenStreetMap contributors, displayed via Leaflet (optionally MapTiler)."
-  },
-  "NOTE": "* Draft text — it will be refined officially later."
-},
-"SUPPORT": {
-  "EMAIL_SUBJECT": "UniMap – Feedback / Αναφορά προβλήματος",
-  "EMAIL_BODY": "Περιγραφή:\n\nΒήματα για αναπαραγωγή:\n1)\n2)\n\nΣυσκευή/OS (προαιρετικό):\nΈκδοση app: {{appVersion}}\n"
-}
+
+  "DIALOG": {
+    "OK": "OK",
+
+    "SETTINGS_CHANGED_TITLE": "Settings updated",
+    "SETTINGS_CHANGED_MSG": "Your changes have been saved.",
+
+    "RESET_DONE_TITLE": "Settings reset",
+    "RESET_DONE_MSG": "Settings were restored to defaults.",
+
+    "MAP_REFRESHED_TITLE": "Map refresh",
+    "MAP_REFRESHED_MSG": "The map has been refreshed.",
+
+    "ERROR_TITLE": "Error",
+    "ERROR_SAVE_SETTINGS": "Could not save settings.",
+    "ERROR_RESET": "Could not reset settings.",
+    "INFO_TITLE": "Info",
+    "CLOSE_POPUP_TO_CANCEL_MSG": "Tap X on the popup to cancel.",
+    "AMEA_TITLE": "Accessibility",
+    "AMEA_ON_MSG": "Accessibility mode is enabled.",
+    "AMEA_OFF_MSG": "Accessibility mode is disabled.",
+    "CANCEL": "Cancel",
+    "OUTSIDE_CAMPUS_TITLE": "Outside campus",
+    "OUTSIDE_CAMPUS_MSG": "This point is outside the campus. Please choose another.",
+
+    "ROUTE_ACTIVE_TITLE": "Route active",
+    "ROUTE_ACTIVE_MSG": "A route is active. Do you want to cancel it to select a new destination?",
+    "KEEP_ROUTE": "Keep route",
+    "CANCEL_ROUTE": "Cancel route"
 
 
+  }
 }

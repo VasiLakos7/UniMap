@@ -21,9 +21,13 @@ export class MapService {
 
   private baseLayer?: L.TileLayer;
 
+  // ✅ recenter support
+  private lastUserLatLng: L.LatLng | null = null;
+
   public locationFound = new EventEmitter<{ lat: number; lng: number }>();
   public mapClicked = new EventEmitter<{ lat: number; lng: number; name: string | null }>();
   public locationError = new EventEmitter<void>();
+  public outsideCampusClick = new EventEmitter<void>();
 
   public routeProgress = new EventEmitter<{
     passedMeters: number;
@@ -33,24 +37,36 @@ export class MapService {
   }>();
 
   private destinationList = destinationList;
-
   public currentRoutePoints: L.LatLng[] = [];
 
   private followUser = false;
   private followZoom: number | null = null;
 
-  // Native watch id (Capacitor)
   private watchId: string | null = null;
-
-  // Web watch id (Browser)
   private webWatchId: number | null = null;
 
-  // “center once” when app opens
   private hasInitialFix = false;
 
   public setFollowUser(enabled: boolean, zoom?: number) {
     this.followUser = enabled;
     this.followZoom = typeof zoom === 'number' ? zoom : null;
+  }
+
+  // ✅ used by HomePage FAB
+  public recenterToUser(opts?: { zoom?: number; animate?: boolean; follow?: boolean }): boolean {
+    if (!this.map) return false;
+    if (!this.lastUserLatLng) return false;
+
+    const zoom = opts?.zoom ?? Math.max(this.map.getZoom(), 18);
+    const animate = opts?.animate ?? true;
+
+    this.map.setView(this.lastUserLatLng, zoom, { animate });
+
+    if (opts?.follow) {
+      this.setFollowUser(true, zoom);
+    }
+
+    return true;
   }
 
   private userIcon = L.divIcon({
@@ -110,9 +126,8 @@ export class MapService {
     await toast.present();
   }
 
-  // -----------------------------
-  // Permissions (native)
-  // -----------------------------
+  private campusBounds = this.campusBoundary.getBounds();
+
   public async requestLocationPermission(): Promise<boolean> {
     if (!Capacitor.isNativePlatform()) return true;
 
@@ -139,11 +154,17 @@ export class MapService {
     this.map = L.map(elementId, {
       zoomControl: false,
       keyboard: true,
-      maxZoom: 19,
+      maxZoom: 22,
+      maxBounds: this.campusBounds,
+      maxBoundsViscosity: 1.0,
+      zoomSnap: 0.5,
+      zoomDelta: 0.5,
     }).setView([lat, lng], 18);
+
     this.setBaseLayer('maptiler-osm', 'fFUNZQgQLPQX2iZWUJ8w');
 
     this.setupUserMarker(lat, lng);
+    this.updateUserPosition(lat, lng); // ✅ set lastUserLatLng too
     this.setupMapClickEvent();
   }
 
@@ -158,9 +179,6 @@ export class MapService {
     this.userMarker = L.marker([lat, lng], { icon: this.userIcon }).addTo(this.map);
   }
 
-  // -----------------------------
-  // ✅ Settings hooks
-  // -----------------------------
   public setBaseLayerFromSettings(mode: 'osm' | 'maptiler') {
     if (mode === 'maptiler') {
       this.setBaseLayer('maptiler-osm', 'fFUNZQgQLPQX2iZWUJ8w');
@@ -179,7 +197,6 @@ export class MapService {
 
   public setNorthLock(_enabled: boolean) {}
 
- 
   public async startGpsWatch(centerOnFirstFix: boolean = true, zoomOnFirstFix: number = 18) {
     await this.stopGpsWatch();
     this.hasInitialFix = false;
@@ -210,7 +227,6 @@ export class MapService {
         { enableHighAccuracy: false, timeout: 20000, maximumAge: 10000 }
       );
 
-      // Watch updates
       this.webWatchId = navigator.geolocation.watchPosition(
         (pos) => {
           const lat = pos.coords.latitude;
@@ -256,9 +272,9 @@ export class MapService {
         try { this.map.setView([lat, lng], zoomOnFirstFix, { animate: true }); } catch {}
       }
     } catch {
+      // ignore
     }
 
-    // Watch updates
     try {
       this.watchId = await Geolocation.watchPosition(
         { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 },
@@ -286,13 +302,11 @@ export class MapService {
   }
 
   public async stopGpsWatch() {
-    // web
     if (this.webWatchId != null) {
       try { navigator.geolocation.clearWatch(this.webWatchId); } catch {}
       this.webWatchId = null;
     }
 
-    // native
     if (this.watchId) {
       try { await Geolocation.clearWatch({ id: this.watchId }); } catch {}
       this.watchId = null;
@@ -316,9 +330,6 @@ export class MapService {
     img.style.transform = `rotate(${deg}deg)`;
   }
 
-  // -----------------------------
-  // Base layer
-  // -----------------------------
   private setBaseLayer(
     style: 'osm' | 'positron' | 'dark' | 'maptiler-outdoor' | 'maptiler-osm',
     apiKey?: string
@@ -327,18 +338,24 @@ export class MapService {
 
     if (this.baseLayer) this.map.removeLayer(this.baseLayer);
 
+    const commonOpt: L.TileLayerOptions = {
+      maxZoom: 22,
+      maxNativeZoom: 19,
+      keepBuffer: 6,
+    };
+
     const layers: Record<string, { url: string; opt: L.TileLayerOptions }> = {
       osm: {
         url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        opt: { attribution: '© OpenStreetMap contributors' },
+        opt: { attribution: '© OpenStreetMap contributors', ...commonOpt },
       },
       positron: {
         url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-        opt: { attribution: '© OpenStreetMap contributors, © CARTO' },
+        opt: { attribution: '© OpenStreetMap contributors, © CARTO', ...commonOpt },
       },
       dark: {
         url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-        opt: { attribution: '© OpenStreetMap contributors, © CARTO' },
+        opt: { attribution: '© OpenStreetMap contributors, © CARTO', ...commonOpt },
       },
       'maptiler-outdoor': {
         url: `https://api.maptiler.com/maps/outdoor-v2/{z}/{x}/{y}.png?key=${apiKey ?? ''}`,
@@ -346,8 +363,7 @@ export class MapService {
           attribution: '© OpenStreetMap | © MapTiler',
           tileSize: 512,
           zoomOffset: -1,
-          maxZoom: 19,
-          maxNativeZoom: 19,
+          ...commonOpt,
         },
       },
       'maptiler-osm': {
@@ -356,8 +372,7 @@ export class MapService {
           attribution: '© OpenStreetMap | © MapTiler',
           tileSize: 512,
           zoomOffset: -1,
-          maxZoom: 19,
-          maxNativeZoom: 19,
+          ...commonOpt,
         },
       },
     };
@@ -365,9 +380,6 @@ export class MapService {
     this.baseLayer = L.tileLayer(layers[style].url, layers[style].opt).addTo(this.map);
   }
 
-  // -----------------------------
-  // Click handling
-  // -----------------------------
   private setupMapClickEvent() {
     if (!this.map) return;
 
@@ -376,7 +388,7 @@ export class MapService {
       const clickedLng = e.latlng.lng;
 
       if (!this.isInsideCampus(clickedLat, clickedLng)) {
-        await this.presentToast('Αυτό το σημείο είναι εκτός campus. Παρακαλώ επίλεξε άλλο.');
+        this.outsideCampusClick.emit();
         return;
       }
 
@@ -399,9 +411,6 @@ export class MapService {
     });
   }
 
-  // -----------------------------
-  // Destination pin
-  // -----------------------------
   public pinDestination(lat: number, lng: number, label?: string) {
     if (!this.map) return;
 
@@ -425,9 +434,6 @@ export class MapService {
     this.map.setView(to, Math.min(19, this.map.getZoom() || 19));
   }
 
-  // -----------------------------
-  // Routing helpers (unchanged)
-  // -----------------------------
   private sumDistanceMeters(points: L.LatLng[]): number {
     if (!points || points.length < 2) return 0;
     let total = 0;
@@ -444,7 +450,6 @@ export class MapService {
   public async drawCustomRouteToDestination(dest: Destination, startPoint: L.LatLng) {
     if (!this.map) return;
 
-    // clear old
     if (this.currentPolyline) { this.map.removeLayer(this.currentPolyline); this.currentPolyline = null; }
     if (this.passedPolyline) { this.map.removeLayer(this.passedPolyline); this.passedPolyline = null; }
     if (this.approachPolyline) { this.map.removeLayer(this.approachPolyline); this.approachPolyline = null; }
@@ -601,11 +606,13 @@ export class MapService {
   public updateUserPosition(lat: number, lng: number) {
     const ll = L.latLng(lat, lng);
 
+    // ✅ keep last user fix for recenter
+    this.lastUserLatLng = ll;
+
     if (this.userMarker) {
       this.userMarker.setLatLng(ll);
     }
 
-    // Follow camera (only if enabled)
     if (this.map && this.followUser) {
       const z = this.followZoom ?? this.map.getZoom();
       this.map.panTo(ll, { animate: true, duration: 0.5 });

@@ -3,24 +3,23 @@
     <ion-title>{{ 'APP.TITLE' | translate }}</ion-title>
 
     <ion-buttons slot="end">
-      <!-- AMEA ON/OFF -->
       <ion-button
         class="amea-pill"
         (click)="toggleAmea()"
-        [class.on]="ameaEnabled"
+        [color]="ameaEnabled ? 'success' : 'light'"
+        [fill]="ameaEnabled ? 'solid' : 'outline'"
         [attr.aria-label]="'A11Y.AMEA_MODE' | translate"
+        [attr.aria-pressed]="ameaEnabled"
       >
         <ion-icon name="accessibility-outline" slot="start"></ion-icon>
-        <ion-label class="amea-label">{{ 'HOME.AMEA' | translate }}</ion-label>
-
-        <span class="amea-indicator" aria-hidden="true">
-          <span class="dot"></span>
-          <span class="txt">{{ ameaEnabled ? ('COMMON.ON' | translate) : ('COMMON.OFF' | translate) }}</span>
-        </span>
+        <ion-label class="amea-label">{{ 'A11Y.AMEA_MODE' | translate }}</ion-label>
       </ion-button>
 
-      <!-- Settings -->
-      <ion-button class="settings-btn" (click)="openSettings()" [attr.aria-label]="'SETTINGS.TITLE' | translate">
+      <ion-button
+        class="settings-btn"
+        (click)="openSettings()"
+        [attr.aria-label]="'SETTINGS.TITLE' | translate"
+      >
         <ion-icon name="settings-outline" slot="icon-only"></ion-icon>
       </ion-button>
     </ion-buttons>
@@ -29,6 +28,10 @@
 
 <ion-content [fullscreen]="true">
 
+  <!-- MAP -->
+  <div id="map"></div>
+
+  <!-- TOP: Search / Nav -->
   <div slot="fixed" class="search-host">
     <ng-container *ngIf="!navEnabled; else navBox">
       <app-search-bar
@@ -49,32 +52,56 @@
           <div class="nav-icon">
             <ion-icon [name]="navIcon"></ion-icon>
           </div>
-          <div class="nav-text">{{ navInstructionKey | translate: navInstructionParams }}</div>
+          <div class="nav-text">
+            {{ navInstructionKey | translate: navInstructionParams }}
+          </div>
         </div>
       </div>
     </ng-template>
   </div>
 
-  <div id="map"></div>
-
-  <div *ngIf="showLockOverlay" class="lock-screen">
-    <div class="lock-card">{{ 'HOME.OUT_OF_RANGE' | translate }}</div>
+    <!-- RECENTER -->
+  <div
+      slot="fixed"
+      class="recenter-wrap"
+      [style.bottom]="'calc(' + recenterBottom + 'px + var(--ion-safe-area-bottom, 0px))'"
+      [style.right.px]="12"
+    >
+      <ion-fab-button
+        size="small"
+        (click)="onRecenter()"
+        [disabled]="!hasUserFix || showLockOverlay"
+        aria-label="Επανεστίαση"
+      >
+        <ion-icon name="locate-outline"></ion-icon>
+      </ion-fab-button>
   </div>
-
-  <div slot="fixed" class="popup-overlay">
+  
+   <!-- POPUP  -->
+  <div
+    *ngIf="showModal && currentDestination"
+    slot="fixed"
+    class="popup-overlay"
+    #popupCard
+  >
     <app-department-popup
-      *ngIf="showModal && currentDestination"
       [destination]="currentDestination"
       [routeReady]="routeReady"
       [navigationActive]="navigationActive"
       [hasArrived]="hasArrived"
       [meters]="popupMeters"
       [etaMin]="popupEtaMin"
+      [units]="settings.units"
       (navigate)="startNavigation()"
       (cancel)="cancelRouteKeepPopup()"
-      (close)="onPopupClose()"
-      [units]="settings.units">
+      (close)="onPopupClose()">
     </app-department-popup>
   </div>
 
+  <!-- LOCK OVERLAY -->
+  <div *ngIf="showLockOverlay" class="lock-screen">
+    <div class="lock-card">{{ 'HOME.OUT_OF_RANGE' | translate }}</div>
+  </div>
+
 </ion-content>
+

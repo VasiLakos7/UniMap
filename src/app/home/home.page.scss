@@ -1,3 +1,8 @@
+:host,
+ion-content {
+  height: 100%;
+}
+
 ion-content {
   --background: transparent;
   --padding-start: 0;
@@ -7,6 +12,7 @@ ion-content {
   overflow: hidden;
 }
 
+/* MAP (κάτω από όλα) */
 #map {
   position: absolute;
   inset: 0;
@@ -26,97 +32,84 @@ ion-content {
   --border-radius: 999px;
   --padding-start: 10px;
   --padding-end: 10px;
-  --background: rgba(255, 255, 255, 0.14);
-  --color: #fff;
   text-transform: none;
-}
-
-.amea-pill.on {
-  --background: rgba(255, 255, 255, 0.30);
-}
-
-/* ON/OFF indicator μέσα στο κουμπί */
-.amea-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: 10px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.18);
-  font-weight: 900;
-  font-size: 11px;
-  letter-spacing: 0.3px;
-}
-
-.amea-indicator .dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: rgba(255,255,255,0.55); /* OFF */
-}
-
-.amea-pill.on .amea-indicator .dot {
-  background: #22c55e; /* ON πράσινο */
 }
 
 .settings-btn {
   --color: #fff;
 }
 
-/* Σε πολύ μικρές οθόνες: κρύψε το κείμενο "ΑΜΕΑ", μένει icon + ON/OFF */
 @media (max-width: 360px) {
   .amea-label {
     display: none;
   }
 }
 
-
+/* ------------------------------
+   SEARCH / NAV HOST (πάνω από map)
+------------------------------ */
 .search-host {
   padding-top: calc(env(safe-area-inset-top) + 10px);
   display: flex;
   justify-content: center;
   width: 100%;
-  z-index: 1;
+  z-index: 1500;
   pointer-events: none;
 }
-
 
 .search-host app-search-bar {
   width: min(520px, calc(100% - 24px));
   pointer-events: auto;
 }
 
+/* ------------------------------
+   POPUP (μόνο κάτω, δεν πιάνει όλη την οθόνη)
+------------------------------ */
 .popup-overlay {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
+
   z-index: 2000;
-  pointer-events: auto;
+  pointer-events: none;
+
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+
+  padding: 0 8px calc(env(safe-area-inset-bottom) + 8px);
+  background: transparent;
 }
 
-/* NAV BOX */
-.nav-box{
+.popup-overlay app-department-popup {
+  pointer-events: auto;
+  width: min(520px, calc(100% - 16px));
+}
+
+/* ------------------------------
+   NAV BOX
+------------------------------ */
+.nav-box {
   width: min(520px, calc(100% - 24px));
   border-radius: 18px;
-  box-shadow: 0 12px 30px rgba(0,0,0,0.18);
-  border: 1px solid rgba(0,0,0,0.06);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(0, 0, 0, 0.06);
   overflow: hidden;
   pointer-events: auto;
 }
 
-.nav-top{
+.nav-top {
   padding: 10px 14px;
   color: #fff;
   font-weight: 800;
   font-size: 12px;
-  letter-spacing: .4px;
+  letter-spacing: 0.4px;
   text-transform: uppercase;
 }
 
-.nav-body{
-  background: rgba(255,255,255,0.95);
+.nav-body {
+  background: rgba(255, 255, 255, 0.95);
   padding: 12px 14px;
   display: flex;
   align-items: center;
@@ -125,7 +118,7 @@ ion-content {
   -webkit-backdrop-filter: blur(8px);
 }
 
-.nav-icon{
+.nav-icon {
   width: 34px;
   height: 34px;
   border-radius: 12px;
@@ -135,11 +128,11 @@ ion-content {
   flex: 0 0 auto;
 }
 
-.nav-icon ion-icon{
+.nav-icon ion-icon {
   font-size: 18px;
 }
 
-.nav-text{
+.nav-text {
   font-size: 16px;
   font-weight: 900;
   line-height: 1.1;
@@ -147,10 +140,42 @@ ion-content {
 }
 
 /* themes */
-.nav-go     .nav-top  { background: #1e3a8a; }
-.nav-turn   .nav-top  { background: #5b21b6; }
-.nav-arrive .nav-top  { background: #0f766e; }
+.nav-go .nav-top { background: #1e3a8a; }
+.nav-turn .nav-top { background: #5b21b6; }
+.nav-arrive .nav-top { background: #0f766e; }
 
-.nav-go     .nav-icon { background: #1e3a8a; }
-.nav-turn   .nav-icon { background: #5b21b6; }
+.nav-go .nav-icon { background: #1e3a8a; }
+.nav-turn .nav-icon { background: #5b21b6; }
 .nav-arrive .nav-icon { background: #0f766e; }
+
+
+.recenter-wrap {
+  position: fixed;
+  z-index: 2100;
+}
+
+.recenter-wrap ion-fab-button {
+  --box-shadow: 0 12px 30px rgba(0, 0, 0, 0.22);
+}
+
+
+/* ------------------------------
+   LOCK OVERLAY (πάνω από όλα)
+------------------------------ */
+.lock-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: grid;
+  place-items: center;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.lock-card {
+  background: rgba(255, 255, 255, 0.95);
+  padding: 14px 16px;
+  border-radius: 16px;
+  font-weight: 800;
+}

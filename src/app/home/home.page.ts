@@ -1,11 +1,20 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  OnDestroy,
+  AfterViewInit,
+  AfterViewChecked,
+  ElementRef,
+  ViewChild,
+  NgZone,
+  inject,
+} from '@angular/core';
+
 import * as L from 'leaflet';
 import { IonicModule, ModalController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription, firstValueFrom } from 'rxjs';
-
-import { Geolocation } from '@capacitor/geolocation';
 
 import { Destination, destinationList } from '../models/destination.model';
 import { MapService } from '../services/map.service';
@@ -16,6 +25,8 @@ import { SettingsService, AppSettings } from '../services/settings.service';
 import { SettingsModalComponent } from '../components/settings-modal/settings-modal.component';
 
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { UiDialogService } from '../services/ui-dialog.service';
+
 
 @Component({
   standalone: true,
@@ -31,16 +42,24 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
     TranslateModule,
   ],
 })
-export class HomePage implements OnInit, OnDestroy {
+export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChecked {
   private mapService = inject(MapService);
   private modalCtrl = inject(ModalController);
   private settingsSvc = inject(SettingsService);
   private translate = inject(TranslateService);
+  private uiDialog = inject(UiDialogService);
+  private zone = inject(NgZone);
+
+  private popupRO?: ResizeObserver;
+  private popupObservedEl: HTMLElement | null = null;
+  @ViewChild('popupCard', { read: ElementRef }) popupCard?: ElementRef<HTMLElement>;
+
+  popupHeightPx = 0;
 
   // Settings
   settings: AppSettings = this.settingsSvc.defaults();
 
-  // AMEA state (προς το παρόν μόνο UI)
+  // AMEA state
   ameaEnabled = false;
 
   routeReady = false;
@@ -63,7 +82,9 @@ export class HomePage implements OnInit, OnDestroy {
   hasArrived = false;
   selectionLocked = false;
 
-  // TOP (instructions only) — i18n keys
+  // ✅ for recenter button
+  hasUserFix = false;
+
   navEnabled = false;
   navInstructionKey = 'NAV.PLACEHOLDER';
   navInstructionParams: any = {};
@@ -73,84 +94,129 @@ export class HomePage implements OnInit, OnDestroy {
   routeTotalMeters = 0;
   routeRemainingMeters = 0;
 
-  // κάτω popup metrics
   popupMeters: number | null = null;
   popupEtaMin: number | null = null;
 
   private maneuvers: { i: number; type: 'left' | 'right' }[] = [];
   private mapSubscriptions: Subscription[] = [];
 
-    async ngOnInit() {
-      this.translate.addLangs(['el', 'en']);
-      this.translate.setDefaultLang('el');
+  get recenterBottom(): number {
+    const base = 14;
 
-      this.subscribeToMapEvents();
+    const popupOpen = this.showModal && !!this.currentDestination;
+    if (!popupOpen) return base;
 
-      await this.initSettings();
-      await this.applyLanguageFromSettings();
+    const h = this.popupHeightPx || 120;
+
+    return base + h + 44; //
+  }
+
+
+
+  ngAfterViewInit() {
+  
+  }
+
+  ngAfterViewChecked() {
+    
+    const el = this.popupCard?.nativeElement ?? null;
+
+    // popup κλειστό
+    if (!el) {
+      if (this.popupRO) this.popupRO.disconnect();
+      this.popupRO = undefined;
+      this.popupObservedEl = null;
+      this.popupHeightPx = 0;
+      return;
     }
 
-    ngOnDestroy() {
-      this.mapSubscriptions.forEach(s => s.unsubscribe());
-      if (this.simulationInterval) clearInterval(this.simulationInterval);
-      this.mapService.stopGpsWatch();
+    if (this.popupObservedEl === el) return;
+
+    this.popupRO?.disconnect();
+    this.popupObservedEl = el;
+
+    this.popupHeightPx = Math.ceil(el.getBoundingClientRect().height || 0);
+
+    this.popupRO = new ResizeObserver((entries) => {
+      const h = Math.ceil(entries[0]?.contentRect?.height ?? 0);
+      this.zone.run(() => (this.popupHeightPx = h));
+    });
+
+    this.popupRO.observe(el);
+  }
+
+  async ngOnInit() {
+    this.translate.addLangs(['el', 'en']);
+    this.translate.setDefaultLang('el');
+
+    this.subscribeToMapEvents();
+
+    await this.initSettings();
+    await this.applyLanguageFromSettings();
+  }
+
+  ngOnDestroy() {
+    this.popupRO?.disconnect();
+
+    this.mapSubscriptions.forEach(s => s.unsubscribe());
+    if (this.simulationInterval) clearInterval(this.simulationInterval);
+    this.mapService.stopGpsWatch();
+  }
+
+  async ionViewDidEnter() {
+    const st: any = history.state;
+    if (st?.lat && st?.lng) {
+      this.userLat = st.lat;
+      this.userLng = st.lng;
     }
 
-    async ionViewDidEnter() {
-      const st: any = history.state;
-      if (st?.lat && st?.lng) {
-        this.userLat = st.lat;
-        this.userLng = st.lng;
-      }
+    this.mapService.initializeMap(this.userLat, this.userLng, 'map');
+    this.applyMapSettings();
 
-      this.mapService.initializeMap(this.userLat, this.userLng, 'map');
-      this.applyMapSettings();
+    this.hasUserFix = false;
+    await this.mapService.startGpsWatch(true, 18);
+  }
 
-      await this.mapService.startGpsWatch(true, 18);
+  // ✅ locate me
+  onRecenter() {
+    if (!this.hasUserFix) return;
+
+    const ok = this.mapService.recenterToUser({ zoom: 19, follow: true, animate: true });
+    if (!ok) {
+      this.mapService.focusOn(this.userLat, this.userLng, 19);
+      this.mapService.setFollowUser(true, 19);
     }
-
+  }
 
   private async initSettings() {
     this.settings = await this.settingsSvc.load();
   }
 
-      private normalizeLang(raw: any): 'el' | 'en' {
-      const l = String(raw || '').toLowerCase();
-      if (l === 'en') return 'en';
-      return 'el';
-    } 
-
-    private async applyLanguageFromSettings() {
-      const lang = this.normalizeLang(this.settings?.language);
-      try {
-        await firstValueFrom(this.translate.use(lang));
-      } catch {
-        await firstValueFrom(this.translate.use('el'));
-      }
+  private normalizeLang(raw: any): 'el' | 'en' {
+    const l = String(raw || '').toLowerCase();
+    if (l === 'en') return 'en';
+    return 'el';
   }
-  
+
+  private async applyLanguageFromSettings() {
+    const lang = this.normalizeLang(this.settings?.language);
+    try {
+      await firstValueFrom(this.translate.use(lang));
+    } catch {
+      await firstValueFrom(this.translate.use('el'));
+    }
+  }
 
   private applyMapSettings() {
     const anyMap: any = this.mapService as any;
 
     if (typeof anyMap.setBaseLayerFromSettings === 'function') {
-      anyMap.setBaseLayerFromSettings(this.settings.baseLayer); // 'osm' | 'maptiler'
+      anyMap.setBaseLayerFromSettings(this.settings.baseLayer);
     }
 
     if (typeof anyMap.setNorthLock === 'function') {
       anyMap.setNorthLock(this.settings.northLock);
     }
-  }
-
-
-  // i18n helpers
-  private async presentToastKey(key: string, params?: any) {
-    const toast = document.createElement('ion-toast');
-    toast.message = this.translate.instant(key, params);
-    toast.duration = 1800;
-    toast.position = 'top';
-    document.body.appendChild(toast);
-    await toast.present();
   }
 
   private async presentLoadingKey(key: string, params?: any, durationMs = 700) {
@@ -164,11 +230,30 @@ export class HomePage implements OnInit, OnDestroy {
     await loading.dismiss();
   }
 
-  // Header buttons
+  private async ensureUnlockedOrCancel(): Promise<boolean> {
+    if (!this.selectionLocked) return true;
+
+    const cancelRoute = await this.uiDialog.confirmKeys({
+      titleKey: 'DIALOG.ROUTE_ACTIVE_TITLE',
+      messageKey: 'DIALOG.ROUTE_ACTIVE_MSG',
+      icon: 'warning',
+      cancelKey: 'DIALOG.KEEP_ROUTE',
+      confirmKey: 'DIALOG.CANCEL_ROUTE',
+    });
+
+    if (!cancelRoute) return false;
+
+    this.onPopupClose();
+    return true;
+  }
+
   async toggleAmea() {
     this.ameaEnabled = !this.ameaEnabled;
-    const stateText = this.translate.instant(this.ameaEnabled ? 'COMMON.ENABLED' : 'COMMON.DISABLED');
-    await this.presentToastKey('TOAST.AMEA_STATUS', { state: stateText });
+
+    await this.uiDialog.info(
+      'DIALOG.AMEA_TITLE',
+      this.ameaEnabled ? 'DIALOG.AMEA_ON_MSG' : 'DIALOG.AMEA_OFF_MSG'
+    );
   }
 
   async openSettings() {
@@ -185,40 +270,23 @@ export class HomePage implements OnInit, OnDestroy {
     await modal.present();
     const res = await modal.onDidDismiss();
 
-    // Save
     if (res.role === 'save' && res.data) {
       this.settings = res.data as AppSettings;
-      await this.settingsSvc.save(this.settings);
-
       await this.applyLanguageFromSettings();
       this.applyMapSettings();
-      await this.presentToastKey('TOAST.SETTINGS_SAVED');
       return;
     }
 
-
-
-        // Reset
     if (res.role === 'reset' && res.data) {
       this.settings = res.data as AppSettings;
       await this.applyLanguageFromSettings();
       this.applyMapSettings();
-      await this.presentToastKey('TOAST.SETTINGS_RESET');
       return;
     }
 
-
-
-
-    // Refresh map
     if (res.role === 'refreshMap') {
-      const anyMap: any = this.mapService as any;
-      if (typeof anyMap.refreshMap === 'function') {
-        anyMap.refreshMap();
-        await this.presentToastKey('TOAST.MAP_REFRESHED');
-      } else {
-        await this.presentToastKey('TOAST.MAP_REFRESH_SOON');
-      }
+      await this.refreshMapWithPercent();
+      await this.uiDialog.info('DIALOG.MAP_REFRESHED_TITLE', 'DIALOG.MAP_REFRESHED_MSG');
     }
   }
 
@@ -403,22 +471,23 @@ export class HomePage implements OnInit, OnDestroy {
       this.userLat = pos.lat;
       this.userLng = pos.lng;
       this.showLockOverlay = false;
+      this.hasUserFix = true;
     });
 
     const errSub = this.mapService.locationError.subscribe(() => {});
+
+    const outSub = this.mapService.outsideCampusClick.subscribe(async () => {
+      await this.uiDialog.info('DIALOG.OUTSIDE_CAMPUS_TITLE', 'DIALOG.OUTSIDE_CAMPUS_MSG');
+    });
 
     const clickSub = this.mapService.mapClicked.subscribe(async data => {
       if (this.showLockOverlay) return;
       if (this.isSearchOpen) return;
 
-      if (this.selectionLocked) {
-        await this.presentToastKey('TOAST.CLOSE_POPUP_TO_CANCEL');
-        return;
-      }
+      const ok = await this.ensureUnlockedOrCancel();
+      if (!ok) return;
 
-      const fallbackName =
-        this.translate.instant('DEST.CUSTOM.NAME') || 'Επιλεγμένος προορισμός';
-
+      const fallbackName = this.translate.instant('DEST.CUSTOM.NAME') || 'Επιλεγμένος προορισμός';
       const name = data.name || fallbackName;
       void this.handleMapClick(data.lat, data.lng, name);
     });
@@ -439,14 +508,13 @@ export class HomePage implements OnInit, OnDestroy {
       }
     });
 
-    this.mapSubscriptions.push(locSub, errSub, clickSub, progSub);
+    this.mapSubscriptions.push(locSub, errSub, outSub, clickSub, progSub);
   }
 
   async onDestinationSelected(destination: Destination) {
-    if (this.selectionLocked) {
-      await this.presentToastKey('TOAST.CLOSE_POPUP_TO_CANCEL');
-      return;
-    }
+    const ok = await this.ensureUnlockedOrCancel();
+    if (!ok) return;
+
     void this.handleMapClick(destination.lat, destination.lng, destination.name);
   }
 
@@ -455,10 +523,8 @@ export class HomePage implements OnInit, OnDestroy {
   }
 
   async handleMapClick(lat: number, lng: number, name: string = 'Επιλεγμένος προορισμός') {
-    if (this.selectionLocked) {
-      await this.presentToastKey('TOAST.CLOSE_POPUP_TO_CANCEL');
-      return;
-    }
+    const ok = await this.ensureUnlockedOrCancel();
+    if (!ok) return;
 
     const found = this.destinationList.find(d => d.name === name);
 
@@ -473,10 +539,7 @@ export class HomePage implements OnInit, OnDestroy {
     this.popupMeters = null;
     this.popupEtaMin = null;
 
-    const dest: Destination = found
-      ? found
-      : { id: 'CUSTOM', name, lat, lng };
-
+    const dest: Destination = found ? found : { id: 'CUSTOM', name, lat, lng };
     this.currentDestination = dest;
 
     const pinLat = dest.entranceLat ?? dest.lat;
@@ -561,8 +624,12 @@ export class HomePage implements OnInit, OnDestroy {
   }
 
   onPopupClose() {
-    // (κρατάω το δικό σου behavior)
-    this.showModal = true;
+    this.showModal = false;
+
+    this.popupHeightPx = 0;
+    this.popupRO?.disconnect();
+    this.popupRO = undefined;
+    this.popupObservedEl = null;
 
     this.navigationActive = false;
     if (this.simulationInterval) clearInterval(this.simulationInterval);
@@ -588,7 +655,7 @@ export class HomePage implements OnInit, OnDestroy {
   }
 
   async onSearchLockedAttempt() {
-    await this.presentToastKey('TOAST.CLOSE_POPUP_TO_CANCEL');
+    await this.ensureUnlockedOrCancel();
   }
 
   private async refreshMapWithPercent() {

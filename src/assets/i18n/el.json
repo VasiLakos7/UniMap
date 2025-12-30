@@ -1,11 +1,10 @@
 {
   "APP": { "TITLE": "UniMap" },
 
-  "A11Y": { "AMEA_MODE": "Λειτουργία ΑΜΕΑ" },
+  "A11Y": { "AMEA_MODE": "Προσβασιμότητα" },
 
   "DEST": {
     "CUSTOM": { "NAME": "Επιλεγμένος προορισμός" },
-
     "MAIEUTIKI": {
       "NAME": "Τμήμα Μαιευτικής",
       "DESCRIPTION": "Το Τμήμα Μαιευτικής προσφέρει υψηλού επιπέδου εκπαίδευση στη φροντίδα της γυναίκας και του νεογνού."
@@ -109,7 +108,8 @@
       "TITLE": "Μονάδες",
       "SUB": "Εμφάνιση απόστασης",
       "M": "μ",
-      "KM": "χλμ"
+      "KM": "χλμ",
+      "ARIA": "Μονάδες μέτρησης"
     },
     "ACTIONS": {
       "REFRESH_MAP": "Ανανέωση χάρτη",
@@ -119,11 +119,13 @@
       "NORTH_LOCK": "Κλείδωμα Βορρά",
       "NORTH_LOCK_SUB": "Χωρίς περιστροφές",
       "MAP_TYPE": "Τύπος χάρτη",
-      "MAP_TYPE_SUB": "Layers"
+      "MAP_TYPE_SUB": "Layers",
+      "OSM": "OpenStreetMap",
+      "MAPTILER": "MapTiler"
     },
     "RESET": {
-      "TITLE": "Reset",
-      "BUTTON": "Reset ρυθμίσεων"
+      "TITLE": "Επαναφορά",
+      "BUTTON": "Επαναφορά ρυθμίσεων"
     },
     "SUPPORT": {
       "FEEDBACK_TITLE": "Feedback / Αναφορά προβλήματος",
@@ -153,7 +155,7 @@
   },
 
   "TOAST": {
-    "AMEA_STATUS": "ΑΜΕΑ: {{state}} (σύντομα)",
+    "AMEA_STATUS": "Προσβασιμότητα: {{state}}",
     "CLOSE_POPUP_TO_CANCEL": "Πάτα Χ στο popup για ακύρωση.",
     "SETTINGS_SAVED": "Ρυθμίσεις αποθηκεύτηκαν ✅",
     "SETTINGS_RESET": "Έγινε reset ρυθμίσεων ✅",
@@ -183,26 +185,56 @@
       "OPEN_LOCATION": "Άνοιγμα Τοποθεσίας"
     }
   },
+
   "PRIVACY": {
-  "TITLE": "Πολιτική απορρήτου",
-  "STORED": {
-    "TITLE": "Τι αποθηκεύεται",
-    "BODY": "Αποθηκεύονται μόνο ρυθμίσεις (μονάδες m/km, επιλογή layer, κλείδωμα βορρά)."
+    "TITLE": "Πολιτική απορρήτου",
+    "STORED": {
+      "TITLE": "Τι αποθηκεύεται",
+      "BODY": "Αποθηκεύονται μόνο ρυθμίσεις (μονάδες m/km, επιλογή layer, κλείδωμα βορρά)."
+    },
+    "NOT_STORED": {
+      "TITLE": "Τι ΔΕΝ αποθηκεύεται",
+      "BODY": "Δεν αποθηκεύουμε ιστορικό κινήσεων ή τοποθεσία. Το GPS χρησιμοποιείται μόνο για πλοήγηση."
+    },
+    "THIRD_PARTIES": {
+      "TITLE": "Τρίτες υπηρεσίες",
+      "BODY": "Χάρτες/tiles: © OpenStreetMap contributors. Προβάλλονται μέσω Leaflet (προαιρετικά MapTiler)."
+    },
+    "NOTE": "* Προσωρινό κείμενο — θα βελτιωθεί επίσημα αργότερα."
   },
-  "NOT_STORED": {
-    "TITLE": "Τι ΔΕΝ αποθηκεύεται",
-    "BODY": "Δεν αποθηκεύουμε ιστορικό κινήσεων ή τοποθεσία. Το GPS χρησιμοποιείται μόνο για πλοήγηση."
-  },
-  "THIRD_PARTIES": {
-    "TITLE": "Τρίτες υπηρεσίες",
-    "BODY": "Χάρτες/tiles: © OpenStreetMap contributors. Προβάλλονται μέσω Leaflet (προαιρετικά MapTiler)."
-  },
-  "NOTE": "* Προσωρινό κείμενο — θα βελτιωθεί επίσημα αργότερα."
-},
-"SUPPORT": {
-  "EMAIL_SUBJECT": "UniMap – Feedback / Issue report",
-  "EMAIL_BODY": "Description:\n\nSteps to reproduce:\n1)\n2)\n\nDevice/OS (optional):\nApp version: {{appVersion}}\n"
-}
 
+  "SUPPORT": {
+    "EMAIL_SUBJECT": "UniMap – Feedback / Issue report",
+    "EMAIL_BODY": "Description:\n\nSteps to reproduce:\n1)\n2)\n\nDevice/OS (optional):\nApp version: {{appVersion}}\n"
+  },
 
+  "DIALOG": {
+    "OK": "Εντάξει",
+    "SETTINGS_CHANGED_TITLE": "Οι ρυθμίσεις άλλαξαν",
+    "SETTINGS_CHANGED_MSG": "Η αλλαγή αποθηκεύτηκε με επιτυχία.",
+
+    "RESET_DONE_TITLE": "Επαναφορά ρυθμίσεων",
+    "RESET_DONE_MSG": "Οι ρυθμίσεις επανήλθαν στις προεπιλογές.",
+
+    "MAP_REFRESHED_TITLE": "Ανανέωση χάρτη",
+    "MAP_REFRESHED_MSG": "Ο χάρτης ανανεώθηκε.",
+
+    "ERROR_TITLE": "Σφάλμα",
+    "ERROR_SAVE_SETTINGS": "Δεν έγινε αποθήκευση ρυθμίσεων.",
+    "ERROR_RESET": "Δεν έγινε επαναφορά ρυθμίσεων.",
+    "INFO_TITLE": "Ενημέρωση",
+    "CLOSE_POPUP_TO_CANCEL_MSG": "Πάτα Χ στο popup για ακύρωση.",
+    "AMEA_TITLE": "Προσβασιμότητα",
+    "AMEA_ON_MSG": "Η λειτουργία προσβασιμότητας ενεργοποιήθηκε.",
+    "AMEA_OFF_MSG": "Η λειτουργία προσβασιμότητας απενεργοποιήθηκε.",
+    "CANCEL": "Ακύρωση",
+    "OUTSIDE_CAMPUS_TITLE": "Εκτός campus",
+    "OUTSIDE_CAMPUS_MSG": "Αυτό το σημείο είναι εκτός campus. Παρακαλώ επίλεξε άλλο.",
+
+    "ROUTE_ACTIVE_TITLE": "Διαδρομή ενεργή",
+    "ROUTE_ACTIVE_MSG": "Υπάρχει ενεργή διαδρομή. Θες να την ακυρώσεις για να επιλέξεις νέο προορισμό;",
+    "KEEP_ROUTE": "Συνέχεια",
+    "CANCEL_ROUTE": "Ακύρωση διαδρομής"
+
+  }
 }

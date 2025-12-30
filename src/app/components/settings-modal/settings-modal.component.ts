@@ -8,6 +8,8 @@ import { PrivacyModalComponent } from '../privacy-modal/privacy-modal.component'
 
 import { TranslateService, TranslateModule } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
+import { UiDialogService } from '../../services/ui-dialog.service';
+
 
 @Component({
   standalone: true,
@@ -40,6 +42,7 @@ export class SettingsModalComponent implements OnInit {
     private modalCtrl: ModalController,
     private settingsSvc: SettingsService,
     private translate: TranslateService,
+    private uiDialog: UiDialogService,
   ) {
     this.draft = this.settingsSvc.defaults();
   }
@@ -70,30 +73,46 @@ export class SettingsModalComponent implements OnInit {
     this.modalCtrl.dismiss(null, 'cancel');
   }
 
-  async save() {
-    if (!this.value) return;
+      async save() {
+      if (!this.value) return;
 
-    this.value = this.clone(this.draft);
+      try {
+        this.value = this.clone(this.draft);
 
-    await this.settingsSvc.save(this.value);
-    await firstValueFrom(this.translate.use(this.value.language));
+        await this.settingsSvc.save(this.value);
+        await firstValueFrom(this.translate.use(this.value.language));
 
-    this.dirty = false;
-    this.modalCtrl.dismiss(this.value, 'save');
-  }
+        this.dirty = false;
 
-  async reset() {
-    const fresh = await this.settingsSvc.reset();
+        // ✅ Παράθυρο μπροστά + tick + OK
+        await this.uiDialog.settingsSaved();
 
-    this.value = this.clone(fresh);
-    this.draft = this.clone(fresh);
+        this.modalCtrl.dismiss(this.value, 'save');
+      } catch (e) {
+        await this.uiDialog.error('DIALOG.ERROR_TITLE', 'DIALOG.ERROR_SAVE_SETTINGS');
+      }
+    }
 
-    await this.settingsSvc.save(this.value);
-    await firstValueFrom(this.translate.use(this.value.language));
+    async reset() {
+      try {
+        const fresh = await this.settingsSvc.reset();
 
-    this.dirty = false;
-    this.modalCtrl.dismiss(this.value, 'reset');
-  }
+        this.value = this.clone(fresh);
+        this.draft = this.clone(fresh);
+
+        await this.settingsSvc.save(this.value);
+        await firstValueFrom(this.translate.use(this.value.language));
+
+        this.dirty = false;
+
+        await this.uiDialog.info('DIALOG.RESET_DONE_TITLE', 'DIALOG.RESET_DONE_MSG');
+
+        this.modalCtrl.dismiss(this.value, 'reset');
+      } catch (e) {
+        await this.uiDialog.error('DIALOG.ERROR_TITLE', 'DIALOG.ERROR_RESET');
+      }
+    }
+
 
   requestRefreshMap() {
     this.modalCtrl.dismiss(null, 'refreshMap');

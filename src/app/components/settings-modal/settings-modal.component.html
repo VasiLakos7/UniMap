@@ -64,7 +64,7 @@
           <div class="units-sub">{{ 'SETTINGS.UNITS.SUB' | translate }}</div>
         </div>
 
-        <div class="units-toggle" role="group" aria-label="Units">
+        <div class="units-toggle" role="group" [attr.aria-label]="'SETTINGS.UNITS.ARIA' | translate">
           <button
             type="button"
             class="unit-btn"
@@ -140,8 +140,9 @@
             [(ngModel)]="draft.baseLayer"
             interface="popover"
             (ionChange)="markDirty()">
-            <ion-select-option value="osm">OpenStreetMap</ion-select-option>
-            <ion-select-option value="maptiler">MapTiler</ion-select-option>
+            <ion-select-option value="osm">{{ 'SETTINGS.MAP.OSM' | translate }}</ion-select-option>
+            <ion-select-option value="maptiler">{{ 'SETTINGS.MAP.MAPTILER' | translate }}</ion-select-option>
+
           </ion-select>
         </div>
       </ion-item>
