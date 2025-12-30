@@ -29,12 +29,18 @@ export class SettingsModalComponent implements OnInit {
 
   appVersion = '0.9.0';
 
+  selectPopoverOpts = {
+    cssClass: 'select-compact-popover',
+    size: 'auto',
+    side: 'bottom',
+    alignment: 'end',
+  };
+
   constructor(
     private modalCtrl: ModalController,
     private settingsSvc: SettingsService,
     private translate: TranslateService,
   ) {
-    // ✅ default αρχικοποίηση
     this.draft = this.settingsSvc.defaults();
   }
 
@@ -67,7 +73,6 @@ export class SettingsModalComponent implements OnInit {
   async save() {
     if (!this.value) return;
 
-    // ✅ Εφαρμογή ΜΟΝΟ εδώ
     this.value = this.clone(this.draft);
 
     await this.settingsSvc.save(this.value);

@@ -6,6 +6,10 @@ import { AlertController, Platform } from '@ionic/angular';
 
 import { NativeSettings, AndroidSettings, IOSSettings } from 'capacitor-native-settings';
 
+import { TranslateService } from '@ngx-translate/core';
+import { firstValueFrom, Subscription } from 'rxjs';
+import { SettingsService, AppLanguage } from '../services/settings.service';
+
 @Component({
   selector: 'app-splash',
   templateUrl: './splash.page.html',
@@ -16,22 +20,49 @@ export class SplashPage implements AfterViewInit, OnDestroy {
   loading = false;
 
   typedText = '';
-  fullText = 'Καλώς ήρθες στο campus του ΔΙΠΑΕ.';
+  fullText = '';
   typingDone = false;
   private typingTimeout: any;
   private i = 0;
 
   // ✅ bottom status UI
-  statusMessage = '';
+  statusKey: string | null = null;
   statusMode: 'none' | 'permission' | 'gps' | 'error' = 'none';
+
+  private langSub?: Subscription;
 
   constructor(
     private router: Router,
     private alertCtrl: AlertController,
-    private platform: Platform
+    private platform: Platform,
+    private translate: TranslateService,
+    private settingsSvc: SettingsService
   ) {}
 
   ngAfterViewInit() {
+    this.applyWelcomeTextAndRestartTyping();
+
+    this.langSub = this.translate.onLangChange.subscribe(() => {
+      this.applyWelcomeTextAndRestartTyping();
+    });
+  }
+
+  ngOnDestroy() {
+    if (this.typingTimeout) clearTimeout(this.typingTimeout);
+    this.langSub?.unsubscribe();
+  }
+
+  async toggleLanguage() {
+    const s = await this.settingsSvc.load();
+    const next: AppLanguage = (s.language === 'el') ? 'en' : 'el';
+
+    await this.settingsSvc.save({ ...s, language: next });
+    await firstValueFrom(this.translate.use(next));
+  }
+
+  private applyWelcomeTextAndRestartTyping() {
+    this.fullText = this.translate.instant('SPLASH.WELCOME');
+
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
     if (reduce) {
       this.typedText = this.fullText;
@@ -39,10 +70,6 @@ export class SplashPage implements AfterViewInit, OnDestroy {
       return;
     }
     this.startTyping();
-  }
-
-  ngOnDestroy() {
-    if (this.typingTimeout) clearTimeout(this.typingTimeout);
   }
 
   private startTyping() {
@@ -110,14 +137,14 @@ export class SplashPage implements AfterViewInit, OnDestroy {
     } catch {}
   }
 
-  private setStatus(mode: 'permission' | 'gps' | 'error', message: string) {
+  private setStatus(mode: 'permission' | 'gps' | 'error', key: string) {
     this.statusMode = mode;
-    this.statusMessage = message;
+    this.statusKey = key;
   }
 
   private clearStatus() {
     this.statusMode = 'none';
-    this.statusMessage = '';
+    this.statusKey = null;
   }
 
   private async showGenericAlert(header: string, message: string) {
@@ -133,7 +160,6 @@ export class SplashPage implements AfterViewInit, OnDestroy {
     try {
       await this.platform.ready();
 
-      // ✅ Ζητάμε permission (θα βγάλει system popup την 1η φορά)
       const st: any = await Geolocation.checkPermissions();
       let granted =
         st?.location === 'granted' ||
@@ -147,14 +173,10 @@ export class SplashPage implements AfterViewInit, OnDestroy {
       }
 
       if (!granted) {
-        this.setStatus(
-          'permission',
-          'Δεν δόθηκε άδεια τοποθεσίας. Πάτα “Ρυθμίσεις” και άνοιξε Τοποθεσία για το UniMap.'
-        );
+        this.setStatus('permission', 'SPLASH.STATUS.PERMISSION_DENIED');
         return;
       }
 
-      // ✅ Παίρνουμε θέση — εδώ “σκάει” όταν είναι κλειστό το GPS/Location services
       const pos = await Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
         timeout: 20000,
@@ -173,20 +195,12 @@ export class SplashPage implements AfterViewInit, OnDestroy {
         msg.includes('location') &&
         (msg.includes('disabled') || msg.includes('off') || msg.includes('turned off'))
       ) {
-        this.setStatus(
-          'gps',
-          'Η Τοποθεσία (GPS) είναι κλειστή. Πάτα “Άνοιγμα Τοποθεσίας” και ενεργοποίησέ την.'
-        );
+        this.setStatus('gps', 'SPLASH.STATUS.GPS_OFF');
         return;
       }
 
-      this.setStatus(
-        'error',
-        'Δεν μπόρεσα να πάρω τοποθεσία. Έλεγξε άδειες/τοποθεσία και δοκίμασε ξανά.'
-      );
+      this.setStatus('error', 'SPLASH.STATUS.ERROR_GENERIC');
 
-      // (προαιρετικό) και alert:
-      // await this.showGenericAlert('Σφάλμα τοποθεσίας', 'Δεν μπόρεσα να πάρω τοποθεσία. Δοκίμασε ξανά.');
     } finally {
       this.loading = false;
     }

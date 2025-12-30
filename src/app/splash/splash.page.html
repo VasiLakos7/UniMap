@@ -1,4 +1,9 @@
 <ion-content fullscreen class="splashCenterLine">
+  <!-- 🌐 Language toggle (top-right) -->
+  <ion-button class="langBtn" fill="clear" (click)="toggleLanguage()" aria-label="Language">
+    <ion-icon name="globe-outline" slot="icon-only"></ion-icon>
+  </ion-button>
+
   <div class="bg" aria-hidden="true"></div>
 
   <div class="wrap">
@@ -10,10 +15,10 @@
 
       <div class="brandName">UniMap</div>
 
-      <div class="brandLine" [attr.aria-label]="fullText">
+      <div class="brandLine" [attr.aria-label]="'SPLASH.WELCOME' | translate">
         <span class="typeLine">{{ typedText }}</span>
         <span class="cursor" *ngIf="!typingDone" aria-hidden="true"></span>
-        <span class="srOnly">{{ fullText }}</span>
+        <span class="srOnly">{{ 'SPLASH.WELCOME' | translate }}</span>
       </div>
 
       <ion-button expand="block" class="cta" (click)="getLocationAndGo()" [disabled]="loading">
@@ -22,14 +27,16 @@
           <ion-icon *ngIf="!loading" name="location-outline"></ion-icon>
         </span>
 
-        <span class="ctaText">{{ loading ? 'Εντοπισμός...' : 'Αναζήτηση Τοποθεσίας...' }}</span>
+        <span class="ctaText">
+          {{ (loading ? 'SPLASH.CTA.LOCATING' : 'SPLASH.CTA.START') | translate }}
+        </span>
 
         <span class="endSlot" aria-hidden="true"></span>
       </ion-button>
 
       <div class="note">
         <ion-icon name="shield-checkmark-outline"></ion-icon>
-        <span>Χρειάζεται τοποθεσία για πλοήγηση.</span>
+        <span>{{ 'SPLASH.NOTE' | translate }}</span>
       </div>
 
       <!-- ✅ Μήνυμα / actions όταν κάτι πάει στραβά -->
@@ -38,7 +45,7 @@
           [name]="statusMode === 'permission' ? 'lock-closed-outline' : (statusMode === 'gps' ? 'navigate-outline' : 'warning-outline')">
         </ion-icon>
 
-        <div class="statusText">{{ statusMessage }}</div>
+        <div class="statusText">{{ statusKey ? (statusKey | translate) : '' }}</div>
 
         <div class="statusActions">
           <ion-button
@@ -47,7 +54,7 @@
             fill="solid"
             shape="round"
             (click)="openAppSettings()">
-            Ρυθμίσεις
+            {{ 'SPLASH.ACTIONS.SETTINGS' | translate }}
           </ion-button>
 
           <ion-button
@@ -56,7 +63,7 @@
             fill="solid"
             shape="round"
             (click)="openLocationSettings()">
-            Άνοιγμα Τοποθεσίας
+            {{ 'SPLASH.ACTIONS.OPEN_LOCATION' | translate }}
           </ion-button>
         </div>
       </div>

@@ -7,15 +7,14 @@ import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { createGesture, Gesture } from '@ionic/core';
 import { Destination } from '../../models/destination.model';
-import { TranslateModule } from '@ngx-translate/core';
-
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
 @Component({
   standalone: true,
   selector: 'app-department-popup',
   templateUrl: './department-popup.component.html',
   styleUrls: ['./department-popup.component.scss'],
-  imports: [IonicModule, CommonModule,TranslateModule],
+  imports: [IonicModule, CommonModule, TranslateModule],
 })
 export class DepartmentPopupComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() destination!: Destination;
@@ -26,7 +25,6 @@ export class DepartmentPopupComponent implements AfterViewInit, OnChanges, OnDes
   @Input() meters: number | null = null;
   @Input() etaMin: number | null = null;
 
-  // ✅ NEW: από Settings
   @Input() units: 'm' | 'km' = 'm';
 
   @Output() navigate = new EventEmitter<void>();
@@ -45,14 +43,16 @@ export class DepartmentPopupComponent implements AfterViewInit, OnChanges, OnDes
   private ready = false;
   private pendingCollapse = false;
 
-  constructor(private zone: NgZone) {}
+  constructor(
+    private zone: NgZone,
+    private translate: TranslateService
+  ) {}
 
   ngAfterViewInit(): void {
     this.zone.runOutsideAngular(() => {
       const el = this.sheetRef?.nativeElement;
       if (!el) return;
 
-      // max height: δεν ανεβαίνει full screen
       this.maxUp = Math.min(Math.round(window.innerHeight * 0.42), 340);
       el.style.setProperty('--sheet-max', `${this.maxUp}px`);
 
@@ -140,7 +140,6 @@ export class DepartmentPopupComponent implements AfterViewInit, OnChanges, OnDes
     this.close.emit();
   }
 
-  // ✅ Exit (μόνο στο nav mode)
   onExit() {
     this.cancel.emit();
   }
@@ -178,18 +177,19 @@ export class DepartmentPopupComponent implements AfterViewInit, OnChanges, OnDes
     } catch {}
   }
 
-  // ✅ NEW: display m/km
   formatDistance(meters: number | null): string {
     if (meters == null) return '';
 
+    const unitM = this.translate.instant('SETTINGS.UNITS.M');   
+    const unitKM = this.translate.instant('SETTINGS.UNITS.KM'); 
     if (this.units === 'km') {
       const km = meters / 1000;
       const decimals = km < 1 ? 2 : (km < 10 ? 1 : 0);
-      const txt = km.toFixed(decimals).replace('.', ',');
-      return `${txt} χλμ`;
+      const txt = km.toFixed(decimals); 
+      return `${txt} ${unitKM}`;
     }
 
-    return `${Math.max(0, Math.round(meters))} μ`;
+    return `${Math.max(0, Math.round(meters))} ${unitM}`;
   }
 
   private recalcSnapPoints() {

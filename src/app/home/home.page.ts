@@ -81,7 +81,6 @@ export class HomePage implements OnInit, OnDestroy {
   private mapSubscriptions: Subscription[] = [];
 
     async ngOnInit() {
-      // ✅ i18n defaults (Ελληνικά by default)
       this.translate.addLangs(['el', 'en']);
       this.translate.setDefaultLang('el');
 
@@ -107,7 +106,6 @@ export class HomePage implements OnInit, OnDestroy {
       this.mapService.initializeMap(this.userLat, this.userLng, 'map');
       this.applyMapSettings();
 
-      // ✅ Με το που ανοίγει: παίρνει “ό,τι θέση μπορεί” (web+android) και κεντράρει 1 φορά
       await this.mapService.startGpsWatch(true, 18);
     }
 

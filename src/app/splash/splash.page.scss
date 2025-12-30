@@ -272,4 +272,13 @@
   gap: 10px;
   justify-content: center;
 }
-
+.langBtn{
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 10px);
+  right: 10px;
+  z-index: 9999;
+  --padding-start: 10px;
+  --padding-end: 10px;
+  --border-radius: 12px;
+  backdrop-filter: blur(10px);
+}

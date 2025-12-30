@@ -27,7 +27,7 @@ export function initLanguage(settingsSvc: SettingsService, translate: TranslateS
 
     const s = await settingsSvc.load();
     const lang = s.language || 'el';
-
+    translate.addLangs(['el', 'en']);
     await firstValueFrom(translate.use(lang)); 
     console.log('[i18n] init lang =', translate.currentLang);
   };
