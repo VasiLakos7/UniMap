@@ -15,6 +15,63 @@ ion-content {
   z-index: 0;
 }
 
+/* ------------------------------
+   TOP BAR BUTTONS
+------------------------------ */
+.unimap-toolbar {
+  --min-height: 56px;
+}
+
+.amea-pill {
+  --border-radius: 999px;
+  --padding-start: 10px;
+  --padding-end: 10px;
+  --background: rgba(255, 255, 255, 0.14);
+  --color: #fff;
+  text-transform: none;
+}
+
+.amea-pill.on {
+  --background: rgba(255, 255, 255, 0.30);
+}
+
+/* ON/OFF indicator μέσα στο κουμπί */
+.amea-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.18);
+  font-weight: 900;
+  font-size: 11px;
+  letter-spacing: 0.3px;
+}
+
+.amea-indicator .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.55); /* OFF */
+}
+
+.amea-pill.on .amea-indicator .dot {
+  background: #22c55e; /* ON πράσινο */
+}
+
+.settings-btn {
+  --color: #fff;
+}
+
+/* Σε πολύ μικρές οθόνες: κρύψε το κείμενο "ΑΜΕΑ", μένει icon + ON/OFF */
+@media (max-width: 360px) {
+  .amea-label {
+    display: none;
+  }
+}
+
+
 .search-host {
   padding-top: calc(env(safe-area-inset-top) + 10px);
   display: flex;
@@ -24,20 +81,20 @@ ion-content {
   pointer-events: none;
 }
 
+
 .search-host app-search-bar {
   width: min(520px, calc(100% - 24px));
   pointer-events: auto;
 }
 
 .popup-overlay {
-  position: fixed;  
+  position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 2000;   
+  z-index: 2000;
   pointer-events: auto;
 }
-
 
 /* NAV BOX */
 .nav-box{
@@ -89,33 +146,11 @@ ion-content {
   letter-spacing: -0.2px;
 }
 
-/* themes (ταιριαστά, όχι orange/green) */
-.nav-go     .nav-top  { background: #1e3a8a; }   /* deep blue */
-.nav-turn   .nav-top  { background: #5b21b6; }   /* purple */
-.nav-arrive .nav-top  { background: #0f766e; }   /* teal */
+/* themes */
+.nav-go     .nav-top  { background: #1e3a8a; }
+.nav-turn   .nav-top  { background: #5b21b6; }
+.nav-arrive .nav-top  { background: #0f766e; }
 
 .nav-go     .nav-icon { background: #1e3a8a; }
 .nav-turn   .nav-icon { background: #5b21b6; }
 .nav-arrive .nav-icon { background: #0f766e; }
-
-/* ΑΜΕΑ */
-.amea-fab{
-  margin-left: 12px;
-  z-index: 1400;
-}
-
-.amea-btn{
-  width: 44px;
-  height: 44px;
-  --background: #1e40af;
-}
-
-.amea-mask{
-  width: 22px;
-  height: 22px;
-  display: block;
-  background: #fff;
-
-  -webkit-mask: url('/assets/images/others/wheelchair.png') no-repeat center / contain;
-  mask: url('/assets/images/others/wheelchair.png') no-repeat center / contain;
-}

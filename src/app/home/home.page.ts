@@ -1,14 +1,21 @@
 import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import * as L from 'leaflet';
-import { IonicModule } from '@ionic/angular';
+import { IonicModule, ModalController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subscription } from 'rxjs';
+import { Subscription, firstValueFrom } from 'rxjs';
+
+import { Geolocation } from '@capacitor/geolocation';
 
 import { Destination, destinationList } from '../models/destination.model';
 import { MapService } from '../services/map.service';
 import { SearchBarComponent } from '../components/search-bar/search-bar.component';
 import { DepartmentPopupComponent } from '../components/department-popup/department-popup.component';
+
+import { SettingsService, AppSettings } from '../services/settings.service';
+import { SettingsModalComponent } from '../components/settings-modal/settings-modal.component';
+
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 
 @Component({
   standalone: true,
@@ -20,11 +27,21 @@ import { DepartmentPopupComponent } from '../components/department-popup/departm
     CommonModule,
     FormsModule,
     SearchBarComponent,
-    DepartmentPopupComponent
+    DepartmentPopupComponent,
+    TranslateModule,
   ],
 })
 export class HomePage implements OnInit, OnDestroy {
   private mapService = inject(MapService);
+  private modalCtrl = inject(ModalController);
+  private settingsSvc = inject(SettingsService);
+  private translate = inject(TranslateService);
+
+  // Settings
+  settings: AppSettings = this.settingsSvc.defaults();
+
+  // AMEA state (προς το παρόν μόνο UI)
+  ameaEnabled = false;
 
   routeReady = false;
   navigationActive = false;
@@ -46,9 +63,10 @@ export class HomePage implements OnInit, OnDestroy {
   hasArrived = false;
   selectionLocked = false;
 
-  // TOP (instructions only)
+  // TOP (instructions only) — i18n keys
   navEnabled = false;
-  navInstruction = 'Προορισμός...';
+  navInstructionKey = 'NAV.PLACEHOLDER';
+  navInstructionParams: any = {};
   navTheme: 'nav-go' | 'nav-turn' | 'nav-arrive' = 'nav-go';
   navIcon: string = 'navigate-outline';
 
@@ -62,39 +80,84 @@ export class HomePage implements OnInit, OnDestroy {
   private maneuvers: { i: number; type: 'left' | 'right' }[] = [];
   private mapSubscriptions: Subscription[] = [];
 
-  ngOnInit() {
-    this.subscribeToMapEvents();
-  }
+    async ngOnInit() {
+      // ✅ i18n defaults (Ελληνικά by default)
+      this.translate.addLangs(['el', 'en']);
+      this.translate.setDefaultLang('el');
 
-  ngOnDestroy() {
-    this.mapSubscriptions.forEach(s => s.unsubscribe());
-    if (this.simulationInterval) clearInterval(this.simulationInterval);
-    this.mapService.stopGpsWatch();
-  }
+      this.subscribeToMapEvents();
 
-  ionViewDidEnter() {
-    const st: any = history.state;
-    if (st?.lat && st?.lng) {
-      this.userLat = st.lat;
-      this.userLng = st.lng;
+      await this.initSettings();
+      await this.applyLanguageFromSettings();
     }
 
-    this.mapService.initializeMap(this.userLat, this.userLng, 'map');
-    this.mapService.startGpsWatch();
+    ngOnDestroy() {
+      this.mapSubscriptions.forEach(s => s.unsubscribe());
+      if (this.simulationInterval) clearInterval(this.simulationInterval);
+      this.mapService.stopGpsWatch();
+    }
+
+    async ionViewDidEnter() {
+      const st: any = history.state;
+      if (st?.lat && st?.lng) {
+        this.userLat = st.lat;
+        this.userLng = st.lng;
+      }
+
+      this.mapService.initializeMap(this.userLat, this.userLng, 'map');
+      this.applyMapSettings();
+
+      // ✅ Με το που ανοίγει: παίρνει “ό,τι θέση μπορεί” (web+android) και κεντράρει 1 φορά
+      await this.mapService.startGpsWatch(true, 18);
+    }
+
+
+  private async initSettings() {
+    this.settings = await this.settingsSvc.load();
   }
 
-  private async presentToast(message: string) {
+      private normalizeLang(raw: any): 'el' | 'en' {
+      const l = String(raw || '').toLowerCase();
+      if (l === 'en') return 'en';
+      return 'el';
+    } 
+
+    private async applyLanguageFromSettings() {
+      const lang = this.normalizeLang(this.settings?.language);
+      try {
+        await firstValueFrom(this.translate.use(lang));
+      } catch {
+        await firstValueFrom(this.translate.use('el'));
+      }
+  }
+  
+
+  private applyMapSettings() {
+    const anyMap: any = this.mapService as any;
+
+    if (typeof anyMap.setBaseLayerFromSettings === 'function') {
+      anyMap.setBaseLayerFromSettings(this.settings.baseLayer); // 'osm' | 'maptiler'
+    }
+
+    if (typeof anyMap.setNorthLock === 'function') {
+      anyMap.setNorthLock(this.settings.northLock);
+    }
+  }
+
+
+  // i18n helpers
+  private async presentToastKey(key: string, params?: any) {
     const toast = document.createElement('ion-toast');
-    toast.message = message;
+    toast.message = this.translate.instant(key, params);
     toast.duration = 1800;
     toast.position = 'top';
     document.body.appendChild(toast);
     await toast.present();
   }
 
-  private async presentLoading(message: string, durationMs = 700) {
+  private async presentLoadingKey(key: string, params?: any, durationMs = 700) {
     const loading = document.createElement('ion-loading');
-    loading.message = message;
+    loading.message = this.translate.instant(key, params);
     loading.spinner = 'crescent';
     document.body.appendChild(loading);
     await loading.present();
@@ -103,8 +166,65 @@ export class HomePage implements OnInit, OnDestroy {
     await loading.dismiss();
   }
 
+  // Header buttons
+  async toggleAmea() {
+    this.ameaEnabled = !this.ameaEnabled;
+    const stateText = this.translate.instant(this.ameaEnabled ? 'COMMON.ENABLED' : 'COMMON.DISABLED');
+    await this.presentToastKey('TOAST.AMEA_STATUS', { state: stateText });
+  }
+
+  async openSettings() {
+    const value = await this.settingsSvc.load();
+
+    const modal = await this.modalCtrl.create({
+      component: SettingsModalComponent,
+      componentProps: { value: { ...value } },
+      backdropDismiss: true,
+      showBackdrop: true,
+      cssClass: 'settings-modal',
+    });
+
+    await modal.present();
+    const res = await modal.onDidDismiss();
+
+    // Save
+    if (res.role === 'save' && res.data) {
+      this.settings = res.data as AppSettings;
+      await this.settingsSvc.save(this.settings);
+
+      await this.applyLanguageFromSettings();
+      this.applyMapSettings();
+      await this.presentToastKey('TOAST.SETTINGS_SAVED');
+      return;
+    }
+
+
+
+        // Reset
+    if (res.role === 'reset' && res.data) {
+      this.settings = res.data as AppSettings;
+      await this.applyLanguageFromSettings();
+      this.applyMapSettings();
+      await this.presentToastKey('TOAST.SETTINGS_RESET');
+      return;
+    }
+
+
+
+
+    // Refresh map
+    if (res.role === 'refreshMap') {
+      const anyMap: any = this.mapService as any;
+      if (typeof anyMap.refreshMap === 'function') {
+        anyMap.refreshMap();
+        await this.presentToastKey('TOAST.MAP_REFRESHED');
+      } else {
+        await this.presentToastKey('TOAST.MAP_REFRESH_SOON');
+      }
+    }
+  }
+
   private etaFromMeters(m: number): number {
-    // ~ 78 m/min (walking)
     const metersPerMinute = 78;
     return Math.max(1, Math.ceil(m / metersPerMinute));
   }
@@ -121,7 +241,6 @@ export class HomePage implements OnInit, OnDestroy {
     return (toDeg(Math.atan2(y, x)) + 360) % 360;
   }
 
-  // FIX: σωστό left/right
   private buildManeuvers(points: L.LatLng[]) {
     const out: { i: number; type: 'left' | 'right' }[] = [];
     if (!points || points.length < 3) return out;
@@ -149,7 +268,6 @@ export class HomePage implements OnInit, OnDestroy {
       const angle = (Math.atan2(Math.abs(cross), dot) * 180) / Math.PI;
       if (angle < TURN_ANGLE_DEG) continue;
 
-      // cross>0 => LEFT (στο lat/lng επίπεδο)
       out.push({ i, type: cross > 0 ? 'left' : 'right' });
       i += 1;
     }
@@ -157,10 +275,18 @@ export class HomePage implements OnInit, OnDestroy {
     return out;
   }
 
-  // ΠΟΤΕ "Τώρα" / "Σε λίγο" -> πάντα "Σε X μ ..."
+  private resetTopNav() {
+    this.navEnabled = false;
+    this.navInstructionKey = 'NAV.PLACEHOLDER';
+    this.navInstructionParams = {};
+    this.navIcon = 'navigate-outline';
+    this.navTheme = 'nav-go';
+  }
+
   private updateNavInstruction(currentPoint: L.LatLng, points: L.LatLng[]) {
     if (!this.navEnabled || !points || points.length < 2) {
-      this.navInstruction = 'Προορισμός...';
+      this.navInstructionKey = 'NAV.PLACEHOLDER';
+      this.navInstructionParams = {};
       this.navIcon = 'navigate-outline';
       this.navTheme = 'nav-go';
       return;
@@ -178,7 +304,8 @@ export class HomePage implements OnInit, OnDestroy {
 
     const ARRIVE_DIST = 25;
     if (distToEnd <= ARRIVE_DIST) {
-      this.navInstruction = 'Ο προορισμός είναι μπροστά σας';
+      this.navInstructionKey = 'NAV.ARRIVE_AHEAD';
+      this.navInstructionParams = {};
       this.navIcon = 'flag-outline';
       this.navTheme = 'nav-arrive';
       return;
@@ -189,7 +316,8 @@ export class HomePage implements OnInit, OnDestroy {
 
     if (!next) {
       const d = round10(distToEnd);
-      this.navInstruction = `Συνέχισε ευθεία για ${d} μ`;
+      this.navInstructionKey = 'NAV.GO_STRAIGHT_FOR';
+      this.navInstructionParams = { meters: d };
       this.navIcon = 'arrow-up-outline';
       this.navTheme = 'nav-go';
       return;
@@ -198,8 +326,8 @@ export class HomePage implements OnInit, OnDestroy {
     const distToTurn = currentPoint.distanceTo(points[next.i]);
     const d = round10(distToTurn);
 
-    const dirText = next.type === 'left' ? 'στρίψε αριστερά' : 'στρίψε δεξιά';
-    this.navInstruction = `Σε ${d} μ ${dirText}`;
+    this.navInstructionKey = next.type === 'left' ? 'NAV.TURN_LEFT_IN' : 'NAV.TURN_RIGHT_IN';
+    this.navInstructionParams = { meters: d };
     this.navIcon = next.type === 'left' ? 'return-up-back-outline' : 'return-up-forward-outline';
     this.navTheme = 'nav-turn';
   }
@@ -244,7 +372,8 @@ export class HomePage implements OnInit, OnDestroy {
         this.navEnabled = true;
         this.navTheme = 'nav-arrive';
         this.navIcon = 'flag-outline';
-        this.navInstruction = 'Ο προορισμός είναι μπροστά σας';
+        this.navInstructionKey = 'NAV.ARRIVE_AHEAD';
+        this.navInstructionParams = {};
         return;
       }
 
@@ -285,19 +414,21 @@ export class HomePage implements OnInit, OnDestroy {
       if (this.isSearchOpen) return;
 
       if (this.selectionLocked) {
-        await this.presentToast('Πάτα Χ στο popup για ακύρωση.');
+        await this.presentToastKey('TOAST.CLOSE_POPUP_TO_CANCEL');
         return;
       }
 
-      const name = data.name || 'Επιλεγμένος προορισμός';
-      this.handleMapClick(data.lat, data.lng, name);
+      const fallbackName =
+        this.translate.instant('DEST.CUSTOM.NAME') || 'Επιλεγμένος προορισμός';
+
+      const name = data.name || fallbackName;
+      void this.handleMapClick(data.lat, data.lng, name);
     });
 
     const progSub = this.mapService.routeProgress.subscribe(p => {
       this.routeTotalMeters = Math.max(0, Math.ceil(p.totalMeters));
       this.routeRemainingMeters = Math.max(0, Math.ceil(p.remainingMeters));
 
-      // μέτρα/λεπτά ΜΟΝΟ κάτω (popup)
       if (this.navigationActive) {
         this.popupMeters = this.routeRemainingMeters;
         this.popupEtaMin = this.etaFromMeters(this.routeRemainingMeters);
@@ -315,10 +446,10 @@ export class HomePage implements OnInit, OnDestroy {
 
   async onDestinationSelected(destination: Destination) {
     if (this.selectionLocked) {
-      await this.presentToast('Πάτα Χ στο popup για ακύρωση.');
+      await this.presentToastKey('TOAST.CLOSE_POPUP_TO_CANCEL');
       return;
     }
-    this.handleMapClick(destination.lat, destination.lng, destination.name);
+    void this.handleMapClick(destination.lat, destination.lng, destination.name);
   }
 
   onSearchOpenChange(open: boolean) {
@@ -327,45 +458,38 @@ export class HomePage implements OnInit, OnDestroy {
 
   async handleMapClick(lat: number, lng: number, name: string = 'Επιλεγμένος προορισμός') {
     if (this.selectionLocked) {
-      await this.presentToast('Πάτα Χ στο popup για ακύρωση.');
+      await this.presentToastKey('TOAST.CLOSE_POPUP_TO_CANCEL');
       return;
     }
 
     const found = this.destinationList.find(d => d.name === name);
 
     this.hasArrived = false;
+    this.resetTopNav();
 
-    // reset top instructions
-    this.navEnabled = false;
-    this.navInstruction = 'Προορισμός...';
-    this.navIcon = 'navigate-outline';
-    this.navTheme = 'nav-go';
-
-    // reset route
     this.routeReady = false;
     this.navigationActive = false;
     this.routeTotalMeters = 0;
     this.routeRemainingMeters = 0;
 
-    // reset popup metrics
     this.popupMeters = null;
     this.popupEtaMin = null;
 
-    if (found) {
-      this.currentDestination = found;
-      const pinLat = found.entranceLat ?? found.lat;
-      const pinLng = found.entranceLng ?? found.lng;
-      this.mapService.pinDestination(pinLat, pinLng, found.name);
-    } else {
-      this.currentDestination = { name, lat, lng };
-      this.mapService.pinDestination(lat, lng, this.currentDestination.name);
-    }
+    const dest: Destination = found
+      ? found
+      : { id: 'CUSTOM', name, lat, lng };
+
+    this.currentDestination = dest;
+
+    const pinLat = dest.entranceLat ?? dest.lat;
+    const pinLng = dest.entranceLng ?? dest.lng;
+    this.mapService.pinDestination(pinLat, pinLng, dest.name);
 
     const start = this.simulateMovement
       ? this.getTestStartPoint()
       : L.latLng(this.userLat, this.userLng);
 
-    await this.mapService.drawCustomRouteToDestination(this.currentDestination, start);
+    await this.mapService.drawCustomRouteToDestination(dest, start);
 
     const routePts = this.mapService.getCurrentRoutePoints();
     this.maneuvers = this.buildManeuvers(routePts);
@@ -376,21 +500,18 @@ export class HomePage implements OnInit, OnDestroy {
     this.routeTotalMeters = totalMeters;
     this.routeRemainingMeters = totalMeters;
 
-    // κάτω δείχνει μέτρα + λεπτά
     this.popupMeters = totalMeters;
     this.popupEtaMin = this.etaFromMeters(totalMeters);
 
     this.routeReady = true;
     this.showModal = true;
-
-    // κλειδώνει επιλογή όσο υπάρχει route/popup
     this.selectionLocked = true;
   }
 
   async startNavigation() {
     if (!this.currentDestination || !this.routeReady) return;
 
-    await this.presentLoading('Φόρτωση διαδρομής...');
+    await this.presentLoadingKey('LOADING.ROUTE_LOADING');
     this.hasArrived = false;
 
     const destLat = this.currentDestination.entranceLat ?? this.currentDestination.lat;
@@ -400,7 +521,6 @@ export class HomePage implements OnInit, OnDestroy {
     this.mapService.setFollowUser(true, 19);
     this.mapService.focusOn(this.userLat, this.userLng, 19);
 
-    // πάνω: μόνο οδηγίες
     this.navEnabled = true;
     this.navigationActive = true;
 
@@ -419,7 +539,6 @@ export class HomePage implements OnInit, OnDestroy {
     if (this.simulationInterval) clearInterval(this.simulationInterval);
     this.mapService.setFollowUser(false);
 
-    // κρατάμε pin, σβήνουμε route
     const dest = this.currentDestination;
     const pinLat = dest ? (dest.entranceLat ?? dest.lat) : null;
     const pinLng = dest ? (dest.entranceLng ?? dest.lng) : null;
@@ -430,7 +549,6 @@ export class HomePage implements OnInit, OnDestroy {
       this.mapService.pinDestination(pinLat, pinLng, dest.name);
     }
 
-    // reset route state (popup stays)
     this.routeReady = false;
     this.routeTotalMeters = 0;
     this.routeRemainingMeters = 0;
@@ -438,19 +556,14 @@ export class HomePage implements OnInit, OnDestroy {
     this.popupMeters = null;
     this.popupEtaMin = null;
 
-    // top instructions off
-    this.navEnabled = false;
-    this.navInstruction = 'Προορισμός...';
-    this.navIcon = 'navigate-outline';
-    this.navTheme = 'nav-go';
+    this.resetTopNav();
 
-    // τώρα μπορεί να επιλέξει νέο προορισμό
     this.selectionLocked = false;
     this.showModal = true;
   }
 
-  // Χ στο popup (όταν ΔΕΝ τρέχει navigation): κλείνει popup κανονικά
   onPopupClose() {
+    // (κρατάω το δικό σου behavior)
     this.showModal = true;
 
     this.navigationActive = false;
@@ -465,10 +578,7 @@ export class HomePage implements OnInit, OnDestroy {
 
     this.selectionLocked = false;
 
-    this.navEnabled = false;
-    this.navInstruction = 'Προορισμός...';
-    this.navIcon = 'navigate-outline';
-    this.navTheme = 'nav-go';
+    this.resetTopNav();
 
     this.routeTotalMeters = 0;
     this.routeRemainingMeters = 0;
@@ -479,11 +589,34 @@ export class HomePage implements OnInit, OnDestroy {
     this.maneuvers = [];
   }
 
-  async onAmeaClick() {
-    await this.presentToast('Προσβασιμότητα: σύντομα');
+  async onSearchLockedAttempt() {
+    await this.presentToastKey('TOAST.CLOSE_POPUP_TO_CANCEL');
   }
 
-  async onSearchLockedAttempt() {
-    await this.presentToast('Πάτα Χ στο popup για ακύρωση.');
+  private async refreshMapWithPercent() {
+    const loading = document.createElement('ion-loading');
+    loading.message = this.translate.instant('LOADING.MAP_REFRESHING', { pct: 0 });
+    loading.spinner = 'crescent';
+    document.body.appendChild(loading);
+    await loading.present();
+
+    let pct = 0;
+    const tick = setInterval(() => {
+      pct = Math.min(90, pct + 6);
+      loading.message = this.translate.instant('LOADING.MAP_REFRESHING', { pct });
+    }, 120);
+
+    const anyMap: any = this.mapService as any;
+    if (typeof anyMap.refreshMap === 'function') {
+      try { anyMap.refreshMap(); } catch {}
+    } else {
+      try { (anyMap.map ?? null)?.invalidateSize?.(true); } catch {}
+    }
+
+    await new Promise(res => setTimeout(res, 900));
+    clearInterval(tick);
+    loading.message = this.translate.instant('LOADING.MAP_REFRESHING', { pct: 100 });
+    await new Promise(res => setTimeout(res, 250));
+    await loading.dismiss();
   }
 }

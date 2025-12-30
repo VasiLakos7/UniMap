@@ -7,33 +7,31 @@ import {
   HostListener,
   OnInit,
   ViewChild,
+  OnDestroy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, IonSearchbar } from '@ionic/angular';
 import { Destination, destinationList } from '../../models/destination.model';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-search-bar',
   standalone: true,
-  imports: [IonicModule, CommonModule, FormsModule],
+  imports: [IonicModule, CommonModule, FormsModule, TranslateModule],
   templateUrl: './search-bar.component.html',
   styleUrls: ['./search-bar.component.scss'],
 })
-export class SearchBarComponent implements OnInit {
+export class SearchBarComponent implements OnInit, OnDestroy {
   @Output() destinationSelected = new EventEmitter<Destination>();
   @Output() searchOpenChange = new EventEmitter<boolean>();
 
-  // ✅ όταν ο χρήστης προσπαθεί να ψάξει ενώ είναι locked
   @Output() lockedAttempt = new EventEmitter<void>();
-
-  // ✅ ζητάει ακύρωση (πατάει Ακύρωση στο pill)
   @Output() cancelRequested = new EventEmitter<void>();
 
-  // ✅ lock από HomePage
   @Input() locked = false;
 
-  // ✅ pill ορατό/κείμενο
   @Input() showLockBadge = false;
   @Input() lockBadgeText = '🔒 Διαδρομή ενεργή';
   @Input() placeholderText = 'Προορισμός...';
@@ -44,22 +42,64 @@ export class SearchBarComponent implements OnInit {
   filteredResults: Destination[] = [];
   destinationList: Destination[] = destinationList;
 
-  // ✅ Recents
+  // ✅ Recents by id (stable across languages)
   recentResults: Destination[] = [];
-  private readonly RECENTS_KEY = 'unimap_recent_destinations_v1';
+  private readonly RECENTS_KEY = 'unimap_recent_destinations_v2'; // ✅ bumped
   private readonly RECENTS_LIMIT = 6;
 
-  // ✅ dropdown ανοικτό μόνο όταν ο χρήστης κάνει focus/γράφει
   panelOpen = false;
 
-  constructor(private elRef: ElementRef) {}
+  // cache translated names for filtering
+  private nameCache = new Map<string, string>();
+  private langSub?: Subscription;
+
+  constructor(
+    private elRef: ElementRef,
+    private translate: TranslateService
+  ) {}
 
   ngOnInit(): void {
+    this.rebuildNameCache();
     this.loadRecents();
+
+    // when language changes -> rebuild cache + re-filter
+    this.langSub = this.translate.onLangChange.subscribe(() => {
+      this.rebuildNameCache();
+
+      if (this.panelOpen && this.searchQuery.trim()) {
+        this.filteredResults = this.filterByQuery(this.searchQuery);
+      }
+      this.emitOpenState();
+    });
+
     this.panelOpen = false;
     this.searchOpenChange.emit(false);
   }
 
+  ngOnDestroy(): void {
+    this.langSub?.unsubscribe();
+  }
+
+  // ---------- i18n helpers ----------
+  displayName(dest: Destination): string {
+    const cached = this.nameCache.get(dest.id);
+    if (cached) return cached;
+
+    // fallback (should not happen if cache built)
+    const t = this.translate.instant(`DEST.${dest.id}.NAME`);
+    return (t && t !== `DEST.${dest.id}.NAME`) ? t : dest.name;
+  }
+
+  private rebuildNameCache() {
+    this.nameCache.clear();
+    for (const d of this.destinationList) {
+      const key = `DEST.${d.id}.NAME`;
+      const t = this.translate.instant(key);
+      this.nameCache.set(d.id, (t && t !== key) ? t : d.name);
+    }
+  }
+
+  // ---------- dropdown logic ----------
   private canShowAnyList(): boolean {
     const hasQuery = !!this.searchQuery.trim();
     if (hasQuery) return this.filteredResults.length > 0;
@@ -106,21 +146,23 @@ export class SearchBarComponent implements OnInit {
       return;
     }
 
-    const q = this.normalize(this.searchQuery);
     this.panelOpen = true;
 
-    // άδειο query -> δείξε recents (αν υπάρχουν)
-    if (!q.trim()) {
+    if (!this.searchQuery.trim()) {
       this.filteredResults = [];
       this.emitOpenState();
       return;
     }
 
-    this.filteredResults = this.destinationList.filter((dest) =>
-      this.normalize(dest.name).includes(q)
-    );
-
+    this.filteredResults = this.filterByQuery(this.searchQuery);
     this.emitOpenState();
+  }
+
+  private filterByQuery(query: string): Destination[] {
+    const q = this.normalize(query);
+    return this.destinationList.filter(dest =>
+      this.normalize(this.displayName(dest)).includes(q)
+    );
   }
 
   normalize(text: string): string {
@@ -145,12 +187,11 @@ export class SearchBarComponent implements OnInit {
     this.pushRecent(destination);
     this.destinationSelected.emit(destination);
 
-    // ✅ κλείνει αμέσως dropdown + keyboard
     await this.closeDropdown(true);
   }
 
   // -----------------------------
-  // ✅ RECENTS
+  // ✅ RECENTS (by id)
   // -----------------------------
   private loadRecents() {
     try {
@@ -160,14 +201,13 @@ export class SearchBarComponent implements OnInit {
         return;
       }
 
-      const names: string[] = JSON.parse(raw);
+      const ids: string[] = JSON.parse(raw);
 
-      // name -> Destination (από τρέχον destinationList)
-      const byName = new Map(this.destinationList.map((d) => [d.name, d]));
+      const byId = new Map(this.destinationList.map(d => [d.id, d]));
       const recents: Destination[] = [];
 
-      for (const n of names) {
-        const found = byName.get(n);
+      for (const id of ids) {
+        const found = byId.get(id);
         if (found) recents.push(found);
       }
 
@@ -179,15 +219,15 @@ export class SearchBarComponent implements OnInit {
 
   private saveRecents() {
     try {
-      const names = this.recentResults.map((d) => d.name).slice(0, this.RECENTS_LIMIT);
-      localStorage.setItem(this.RECENTS_KEY, JSON.stringify(names));
+      const ids = this.recentResults.map(d => d.id).slice(0, this.RECENTS_LIMIT);
+      localStorage.setItem(this.RECENTS_KEY, JSON.stringify(ids));
     } catch {}
   }
 
   private pushRecent(dest: Destination) {
     this.recentResults = [
       dest,
-      ...this.recentResults.filter((d) => d.name !== dest.name),
+      ...this.recentResults.filter(d => d.id !== dest.id),
     ].slice(0, this.RECENTS_LIMIT);
 
     this.saveRecents();
@@ -199,7 +239,6 @@ export class SearchBarComponent implements OnInit {
       localStorage.removeItem(this.RECENTS_KEY);
     } catch {}
 
-    // αν δεν γράφει κάτι, κλείσε dropdown
     if (!this.searchQuery.trim()) {
       this.panelOpen = false;
       this.searchOpenChange.emit(false);

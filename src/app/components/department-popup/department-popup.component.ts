@@ -7,13 +7,15 @@ import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { createGesture, Gesture } from '@ionic/core';
 import { Destination } from '../../models/destination.model';
+import { TranslateModule } from '@ngx-translate/core';
+
 
 @Component({
   standalone: true,
   selector: 'app-department-popup',
   templateUrl: './department-popup.component.html',
   styleUrls: ['./department-popup.component.scss'],
-  imports: [IonicModule, CommonModule],
+  imports: [IonicModule, CommonModule,TranslateModule],
 })
 export class DepartmentPopupComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() destination!: Destination;
@@ -24,9 +26,12 @@ export class DepartmentPopupComponent implements AfterViewInit, OnChanges, OnDes
   @Input() meters: number | null = null;
   @Input() etaMin: number | null = null;
 
+  // ✅ NEW: από Settings
+  @Input() units: 'm' | 'km' = 'm';
+
   @Output() navigate = new EventEmitter<void>();
   @Output() cancel = new EventEmitter<void>();
-  @Output() close = new EventEmitter<void>();  
+  @Output() close = new EventEmitter<void>();
 
   @ViewChild('sheet', { read: ElementRef }) sheetRef!: ElementRef<HTMLElement>;
 
@@ -73,36 +78,34 @@ export class DepartmentPopupComponent implements AfterViewInit, OnChanges, OnDes
       this.gesture.enable(true);
 
       requestAnimationFrame(() => {
-      this.recalcSnapPoints();
+        this.recalcSnapPoints();
 
-      this.ready = true;
+        this.ready = true;
 
-      if (this.pendingCollapse) {
-        this.pendingCollapse = false;
-        this.snapTo(this.collapsedY);
-      }
+        if (this.pendingCollapse) {
+          this.pendingCollapse = false;
+          this.snapTo(this.collapsedY);
+        }
 
-      this.zone.run(() => (this.expanded = true));
-    });
-
+        this.zone.run(() => (this.expanded = true));
+      });
     });
   }
 
-    ngOnChanges(changes: SimpleChanges): void {
-      const modeChanged =
-        !!changes['navigationActive'] || !!changes['hasArrived'] || !!changes['destination'];
+  ngOnChanges(changes: SimpleChanges): void {
+    const modeChanged =
+      !!changes['navigationActive'] || !!changes['hasArrived'] || !!changes['destination'];
 
-      if (modeChanged && this.sheetRef?.nativeElement) {
-        setTimeout(() => this.recalcSnapPoints(), 0); 
-      }
-
-      // auto-collapse όταν ξεκινήσει navigation
-      if (changes['navigationActive'] && this.navigationActive && !this.hasArrived) {
-        if (this.ready) this.snapTo(this.collapsedY);
-        else this.pendingCollapse = true;
-      }
+    if (modeChanged && this.sheetRef?.nativeElement) {
+      setTimeout(() => this.recalcSnapPoints(), 0);
     }
 
+    // auto-collapse όταν ξεκινήσει navigation
+    if (changes['navigationActive'] && this.navigationActive && !this.hasArrived) {
+      if (this.ready) this.snapTo(this.collapsedY);
+      else this.pendingCollapse = true;
+    }
+  }
 
   ngOnDestroy(): void {
     try { this.gesture?.destroy(); } catch {}
@@ -175,19 +178,31 @@ export class DepartmentPopupComponent implements AfterViewInit, OnChanges, OnDes
     } catch {}
   }
 
+  // ✅ NEW: display m/km
+  formatDistance(meters: number | null): string {
+    if (meters == null) return '';
+
+    if (this.units === 'km') {
+      const km = meters / 1000;
+      const decimals = km < 1 ? 2 : (km < 10 ? 1 : 0);
+      const txt = km.toFixed(decimals).replace('.', ',');
+      return `${txt} χλμ`;
+    }
+
+    return `${Math.max(0, Math.round(meters))} μ`;
+  }
+
   private recalcSnapPoints() {
-  const el = this.sheetRef?.nativeElement;
-  if (!el) return;
+    const el = this.sheetRef?.nativeElement;
+    if (!el) return;
 
-  const effectiveH = Math.min(el.scrollHeight, this.maxUp);
+    const effectiveH = Math.min(el.scrollHeight, this.maxUp);
 
+    const peek = (this.navigationActive && !this.hasArrived) ? 90 : 130;
 
-  const peek = (this.navigationActive && !this.hasArrived) ? 90 : 130;
+    this.collapsedY = Math.max(0, effectiveH - peek);
 
-  this.collapsedY = Math.max(0, effectiveH - peek);
-
-  this.currentY = this.clamp(this.currentY, 0, this.collapsedY);
-  el.style.transform = `translateY(${this.currentY}px)`;
-}
-
+    this.currentY = this.clamp(this.currentY, 0, this.collapsedY);
+    el.style.transform = `translateY(${this.currentY}px)`;
+  }
 }

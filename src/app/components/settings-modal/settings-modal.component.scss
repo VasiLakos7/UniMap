@@ -1,0 +1,99 @@
+.settings-content {
+  --background: #f6f8fc;
+}
+
+.settings-topbar {
+  --background: #3b82f6;
+  --color: #fff;
+}
+
+.settings-tabs {
+  --background: #ffffff;
+}
+
+.section-card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.section-card.danger {
+  border-color: rgba(239, 68, 68, 0.18);
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  background: #eef4ff;
+}
+
+.section-title ion-icon {
+  font-size: 18px;
+  color: #2563eb;
+}
+
+.progress-wrap {
+  padding: 10px 14px 14px;
+}
+
+.progress-label {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: #334155;
+}
+
+.actions {
+  padding: 6px 0 10px;
+}
+
+ion-item h2 {
+  font-weight: 800;
+  margin: 0;
+}
+
+ion-item p {
+  margin: 4px 0 0;
+  color: #64748b;
+}
+
+
+.settings-tabs ion-segment {
+  width: 100%;
+}
+
+.settings-tabs ion-segment-button {
+  min-width: 0;
+  flex: 1;
+}
+
+.settings-tabs ion-label {
+  font-size: 12px;
+}
+
+.units-segment {
+  width: 140px;
+  max-width: 140px;
+  margin-inline: auto;
+
+  transform: translateX(-130px);
+}
+
+.units-segment ion-segment-button {
+  min-width: 0;
+  flex: 1;
+  padding-inline: 0;
+  text-align: center;
+}
+
+.units-segment ion-label {
+  width: 100%;
+  text-align: center;
+}

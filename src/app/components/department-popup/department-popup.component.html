@@ -6,20 +6,26 @@
   <ng-container *ngIf="!navigationActive || hasArrived; else navMode">
 
     <!-- ✅ Χ ΜΟΝΟ εδώ -->
-    <button class="um-x-top" type="button" (click)="onClose()" aria-label="Κλείσιμο">
+    <button class="um-x-top" type="button" (click)="onClose()" [attr.aria-label]="'COMMON.CLOSE' | translate">
       <ion-icon name="close"></ion-icon>
     </button>
 
     <div class="um-head">
-      <img class="um-avatar" [src]="getImage()" alt="Εικόνα τμήματος" />
+      <img class="um-avatar" [src]="getImage()" [attr.alt]="'POPUP.IMAGE_ALT' | translate" />
 
       <div class="um-title">
-        <div class="um-name">{{ destination.name }}</div>
+        <!-- ✅ translated name -->
+        <div class="um-name">
+          {{ ('DEST.' + destination.id + '.NAME') | translate }}
+        </div>
 
         <div class="um-meta" *ngIf="meters !== null || etaMin !== null">
-          <span *ngIf="meters !== null">{{ meters }} m</span>
+          <span *ngIf="meters !== null">{{ formatDistance(meters) }}</span>
           <span class="dot" *ngIf="meters !== null && etaMin !== null">•</span>
-          <span *ngIf="etaMin !== null">{{ etaMin }} λεπτά</span>
+
+          <span *ngIf="etaMin !== null">
+            {{ 'POPUP.MINUTES' | translate:{ value: etaMin } }}
+          </span>
         </div>
       </div>
     </div>
@@ -28,14 +34,25 @@
       <div class="um-actions-row">
         <ion-button class="um-start" color="primary" [disabled]="!routeReady" (click)="onStart()">
           <ion-icon name="navigate" slot="start"></ion-icon>
-          ΞΕΚΙΝΑ
+          {{ 'POPUP.START' | translate }}
         </ion-button>
 
-        <ion-button class="um-mini" fill="outline" color="danger" *ngIf="getPhone()" (click)="callNumber()" aria-label="Τηλέφωνο">
+        <ion-button
+          class="um-mini"
+          fill="outline"
+          color="danger"
+          *ngIf="getPhone()"
+          (click)="callNumber()"
+          [attr.aria-label]="'POPUP.PHONE' | translate">
           <ion-icon name="call"></ion-icon>
         </ion-button>
 
-        <ion-button class="um-mini" fill="outline" color="primary" (click)="shareLocation()" aria-label="Κοινοποίηση">
+        <ion-button
+          class="um-mini"
+          fill="outline"
+          color="primary"
+          (click)="shareLocation()"
+          [attr.aria-label]="'POPUP.SHARE' | translate">
           <ion-icon name="share-social"></ion-icon>
         </ion-button>
       </div>
@@ -43,7 +60,7 @@
 
     <ion-button class="um-arrived" expand="block" color="success" *ngIf="hasArrived" (click)="onClose()">
       <ion-icon name="checkmark" slot="start"></ion-icon>
-      Έφτασες
+      {{ 'POPUP.ARRIVED' | translate }}
     </ion-button>
 
   </ng-container>
@@ -51,20 +68,25 @@
   <ng-template #navMode>
     <div class="um-nav">
       <div class="um-nav-left">
-        <div class="um-nav-title">{{ destination.name }}</div>
+        <!-- ✅ translated name -->
+        <div class="um-nav-title">
+          {{ ('DEST.' + destination.id + '.NAME') | translate }}
+        </div>
 
         <div class="um-nav-metrics">
-          <div class="um-nav-time" *ngIf="etaMin !== null">{{ etaMin }} λεπτά</div>
+          <div class="um-nav-time" *ngIf="etaMin !== null">
+            {{ 'POPUP.MINUTES' | translate:{ value: etaMin } }}
+          </div>
 
           <div class="um-nav-dist" *ngIf="meters !== null">
             <ion-icon name="walk-outline"></ion-icon>
-            <span>{{ meters }} m</span>
+            <span>{{ formatDistance(meters) }}</span>
           </div>
         </div>
       </div>
 
       <ion-button class="um-exit" color="danger" (click)="onExit()">
-        ΕΞΟΔΟΣ
+        {{ 'POPUP.EXIT' | translate }}
       </ion-button>
     </div>
   </ng-template>

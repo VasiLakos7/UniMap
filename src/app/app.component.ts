@@ -11,9 +11,9 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 export class AppComponent {
   constructor(private platform: Platform) {
     this.platform.ready().then(async () => {
-      await StatusBar.setOverlaysWebView({ overlay: false }); 
+      await StatusBar.setOverlaysWebView({ overlay: false });
       await StatusBar.setBackgroundColor({ color: '#3880ff' });
-      await StatusBar.setStyle({ style: Style.Light }); 
+      await StatusBar.setStyle({ style: Style.Light });
     });
   }
 }

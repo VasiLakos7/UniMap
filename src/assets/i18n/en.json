@@ -1,0 +1,168 @@
+{
+  "APP": { "TITLE": "UniMap" },
+
+  "A11Y": { "AMEA_MODE": "Accessibility mode" },
+
+  "DEST": {
+    "CUSTOM": { "NAME": "Selected destination" },
+
+    "MAIEUTIKI": {
+      "NAME": "Department of Midwifery",
+      "DESCRIPTION": "The Department of Midwifery offers high-level education in the care of women and newborns."
+    },
+    "NURSING": {
+      "NAME": "Department of Nursing",
+      "DESCRIPTION": "Education and hands-on practice in healthcare and nursing science."
+    },
+    "PHYSIO": {
+      "NAME": "Department of Physiotherapy",
+      "DESCRIPTION": "Studies focused on rehabilitation and treatment of mobility-related dysfunctions."
+    },
+    "DIETETICS": {
+      "NAME": "Department of Nutrition and Dietetics",
+      "DESCRIPTION": "Focuses on nutrition, healthy eating, and disease prevention through diet."
+    },
+    "AGRONOMY": {
+      "NAME": "Department of Agronomy",
+      "DESCRIPTION": "Studies in agronomy, natural resource management, and agricultural production."
+    },
+    "FOOD_TECH": {
+      "NAME": "Department of Food Science and Technology",
+      "DESCRIPTION": "Study of food production processes and food quality control."
+    },
+    "MPD_VEHICLES": {
+      "NAME": "Department of Production and Management Engineering (Vehicles Annex)",
+      "DESCRIPTION": "Specialization in the study and management of motor vehicles and production processes."
+    },
+    "CS_BUILDING_H": {
+      "NAME": "Department of Computer Engineering (Building H)",
+      "DESCRIPTION": "Innovative research and applications in the field of computing."
+    },
+    "CS_BUILDING_P": {
+      "NAME": "Department of Computer Engineering (Building P)",
+      "DESCRIPTION": "Programming, artificial intelligence, and modern computing technologies."
+    },
+    "SDO": {
+      "NAME": "Department of Business Administration, Marketing and Tourism",
+      "DESCRIPTION": "Studies in organizational management, marketing, and tourism."
+    },
+    "LIS": {
+      "NAME": "Department of Library Science, Archival Science & Information Systems",
+      "DESCRIPTION": "Department focused on library science and information systems."
+    },
+    "ENV_ENGINEERING": {
+      "NAME": "Department of Environmental Engineering",
+      "DESCRIPTION": "Studies in environmental engineering."
+    },
+    "ACCOUNTING_IS": {
+      "NAME": "Department of Accounting and Information Systems",
+      "DESCRIPTION": "Studies in accounting and information systems."
+    }
+  },
+
+  "HOME": {
+    "AMEA": "A11Y",
+    "SEARCH_PLACEHOLDER": "Destination...",
+    "SEARCH_LOCKED": "🔒 Route active — tap X on the popup",
+    "OUT_OF_RANGE": "Out of range"
+  },
+
+  "NAV": {
+    "TITLE": "NAVIGATION",
+    "PLACEHOLDER": "Destination...",
+    "ARRIVE_AHEAD": "Destination ahead",
+    "GO_STRAIGHT_FOR": "Go straight for {{meters}} m",
+    "TURN_LEFT_IN": "In {{meters}} m turn left",
+    "TURN_RIGHT_IN": "In {{meters}} m turn right"
+  },
+
+  "COMMON": {
+    "ON": "ON",
+    "OFF": "OFF",
+    "CLOSE": "Close",
+    "SAVE": "Save",
+    "ENABLED": "ON",
+    "DISABLED": "OFF"
+  },
+
+  "LANG": {
+    "EL": "Greek",
+    "EN": "English"
+  },
+
+  "SETTINGS": {
+    "TITLE": "Settings",
+    "TABS": {
+      "GENERAL": "General",
+      "MAP": "Map",
+      "SUPPORT": "Support"
+    },
+    "SECTIONS": {
+      "GENERAL": "General",
+      "ACTIONS": "Actions",
+      "MAP_VIEW": "Map display",
+      "CONTACT": "Contact",
+      "ABOUT": "About"
+    },
+    "LANGUAGE": { "TITLE": "Language" },
+    "UNITS": {
+      "TITLE": "Units",
+      "SUB": "Distance display",
+      "M": "m",
+      "KM": "km"
+    },
+    "ACTIONS": {
+      "REFRESH_MAP": "Refresh map",
+      "REFRESHING": "Refreshing"
+    },
+    "MAP": {
+      "NORTH_LOCK": "North lock",
+      "NORTH_LOCK_SUB": "North-up (no rotation)",
+      "MAP_TYPE": "Map type",
+      "MAP_TYPE_SUB": "Layers"
+    },
+    "RESET": {
+      "TITLE": "Reset",
+      "BUTTON": "Reset settings"
+    },
+    "SUPPORT": {
+      "FEEDBACK_TITLE": "Feedback / Report an issue",
+      "FEEDBACK_SUB": "Send us a message with 1–2 details"
+    },
+    "ABOUT": {
+      "VERSION": "App version",
+      "PRIVACY_TITLE": "Privacy policy",
+      "PRIVACY_SUB": "See what is stored and what is not"
+    }
+  },
+
+  "POPUP": {
+    "IMAGE_ALT": "Department image",
+    "START": "START",
+    "PHONE": "Phone",
+    "SHARE": "Share",
+    "ARRIVED": "Arrived",
+    "EXIT": "EXIT",
+    "MINUTES": "{{value}} min"
+  },
+
+  "SEARCH": {
+    "CANCEL": "Cancel",
+    "RECENT_SHORT": "Recents",
+    "CLEAR_ALL": "Clear all"
+  },
+
+  "TOAST": {
+    "AMEA_STATUS": "A11Y: {{state}} (soon)",
+    "CLOSE_POPUP_TO_CANCEL": "Tap X on the popup to cancel.",
+    "SETTINGS_SAVED": "Settings saved ✅",
+    "SETTINGS_RESET": "Settings reset ✅",
+    "MAP_REFRESHED": "Map refreshed ✅",
+    "MAP_REFRESH_SOON": "Map refresh: soon"
+  },
+
+  "LOADING": {
+    "ROUTE_LOADING": "Loading route...",
+    "MAP_REFRESHING": "Refreshing map… {{pct}}%"
+  }
+}

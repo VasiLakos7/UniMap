@@ -1,6 +1,29 @@
 <ion-header>
-  <ion-toolbar color="primary">
-    <ion-title>UniMap</ion-title>
+  <ion-toolbar color="primary" class="unimap-toolbar">
+    <ion-title>{{ 'APP.TITLE' | translate }}</ion-title>
+
+    <ion-buttons slot="end">
+      <!-- AMEA ON/OFF -->
+      <ion-button
+        class="amea-pill"
+        (click)="toggleAmea()"
+        [class.on]="ameaEnabled"
+        [attr.aria-label]="'A11Y.AMEA_MODE' | translate"
+      >
+        <ion-icon name="accessibility-outline" slot="start"></ion-icon>
+        <ion-label class="amea-label">{{ 'HOME.AMEA' | translate }}</ion-label>
+
+        <span class="amea-indicator" aria-hidden="true">
+          <span class="dot"></span>
+          <span class="txt">{{ ameaEnabled ? ('COMMON.ON' | translate) : ('COMMON.OFF' | translate) }}</span>
+        </span>
+      </ion-button>
+
+      <!-- Settings -->
+      <ion-button class="settings-btn" (click)="openSettings()" [attr.aria-label]="'SETTINGS.TITLE' | translate">
+        <ion-icon name="settings-outline" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
@@ -10,7 +33,9 @@
     <ng-container *ngIf="!navEnabled; else navBox">
       <app-search-bar
         [locked]="selectionLocked"
-        [placeholderText]="selectionLocked ? '🔒 Διαδρομή ενεργή — πάτα Χ στο popup' : 'Προορισμός...'"
+        [placeholderText]="selectionLocked
+          ? ('HOME.SEARCH_LOCKED' | translate)
+          : ('HOME.SEARCH_PLACEHOLDER' | translate)"
         (destinationSelected)="onDestinationSelected($event)"
         (searchOpenChange)="onSearchOpenChange($event)"
         (lockedAttempt)="onSearchLockedAttempt()">
@@ -19,12 +44,12 @@
 
     <ng-template #navBox>
       <div class="nav-box" [ngClass]="navTheme">
-        <div class="nav-top">ΠΛΟΗΓΗΣΗ</div>
+        <div class="nav-top">{{ 'NAV.TITLE' | translate }}</div>
         <div class="nav-body">
           <div class="nav-icon">
             <ion-icon [name]="navIcon"></ion-icon>
           </div>
-          <div class="nav-text">{{ navInstruction }}</div>
+          <div class="nav-text">{{ navInstructionKey | translate: navInstructionParams }}</div>
         </div>
       </div>
     </ng-template>
@@ -33,15 +58,8 @@
   <div id="map"></div>
 
   <div *ngIf="showLockOverlay" class="lock-screen">
-    <div class="lock-card">Εκτός εμβέλειας</div>
+    <div class="lock-card">{{ 'HOME.OUT_OF_RANGE' | translate }}</div>
   </div>
-
-  <!-- ΑΜΕΑ: κέντρο αριστερά -->
-  <ion-fab slot="fixed" vertical="center" horizontal="start" class="amea-fab">
-    <ion-fab-button (click)="onAmeaClick()" aria-label="Προσβασιμότητα" class="amea-btn">
-      <span class="amea-mask"></span>
-    </ion-fab-button>
-  </ion-fab>
 
   <div slot="fixed" class="popup-overlay">
     <app-department-popup
@@ -54,9 +72,9 @@
       [etaMin]="popupEtaMin"
       (navigate)="startNavigation()"
       (cancel)="cancelRouteKeepPopup()"
-      (close)="onPopupClose()">
+      (close)="onPopupClose()"
+      [units]="settings.units">
     </app-department-popup>
   </div>
-
 
 </ion-content>

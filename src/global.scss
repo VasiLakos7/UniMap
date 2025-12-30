@@ -116,3 +116,17 @@ html, body, ion-app, ion-content {
 ion-header, ion-toolbar {
   padding-top: var(--ion-safe-area-top);
 }
+
+body.unimap-contrast {
+  filter: contrast(1.08) saturate(1.05);
+}
+
+body.unimap-large ion-button {
+  --padding-start: 14px;
+  --padding-end: 14px;
+  min-height: 44px;
+}
+
+body.unimap-large ion-toggle {
+  transform: scale(1.08);
+}
