@@ -133,3 +133,21 @@ body.unimap-large ion-toggle {
 .app-dialog-modal {
   --background: transparent;
 }
+.user-dot {
+  position: relative;
+}
+
+.user-dot .dot {
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: #2f80ed;
+  border: 2px solid #fff;
+}
+
+.user-dot .halo {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  // background: rgba(47, 128, 237, 0.25);
+}

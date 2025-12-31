@@ -164,18 +164,33 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
   }
 
   async ionViewDidEnter() {
+    this.showLockOverlay = true; 
+
     const st: any = history.state;
     if (st?.lat && st?.lng) {
       this.userLat = st.lat;
       this.userLng = st.lng;
     }
 
+    const first = await this.mapService.getInitialPosition(15000);
+    if (first) {
+      this.userLat = first.lat;
+      this.userLng = first.lng;
+      this.hasUserFix = true;
+    } else {
+      this.hasUserFix = false; 
+    }
     this.mapService.initializeMap(this.userLat, this.userLng, 'map');
+    //this.mapService.setUserMarkerStyle('arrow');
+    this.mapService.setNavigationMode(false);
+
     this.applyMapSettings();
 
-    this.hasUserFix = false;
-    await this.mapService.startGpsWatch(true, 18);
+    await this.mapService.startGpsWatch(false, 18);
+
+    this.showLockOverlay = false;
   }
+
 
   // ✅ locate me
   onRecenter() {
@@ -186,6 +201,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
       this.mapService.focusOn(this.userLat, this.userLng, 19);
       this.mapService.setFollowUser(true, 19);
     }
+    
   }
 
   private async initSettings() {
@@ -434,6 +450,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
         this.navigationActive = false;
         this.hasArrived = true;
         this.mapService.setFollowUser(false);
+        this.mapService.setUserMarkerStyle('dot');
 
         this.navEnabled = true;
         this.navTheme = 'nav-arrive';
@@ -573,6 +590,9 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     if (!this.currentDestination || !this.routeReady) return;
 
     await this.presentLoadingKey('LOADING.ROUTE_LOADING');
+    // this.mapService.setUserMarkerStyle('arrow');
+    this.mapService.setNavigationMode(true);
+
     this.hasArrived = false;
 
     const destLat = this.currentDestination.entranceLat ?? this.currentDestination.lat;
@@ -593,9 +613,12 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     }
   }
 
+
   cancelRouteKeepPopup() {
     this.navigationActive = false;
     this.hasArrived = false;
+    this.mapService.setUserMarkerStyle('dot');
+
 
     if (this.simulationInterval) clearInterval(this.simulationInterval);
     this.mapService.setFollowUser(false);
@@ -633,6 +656,11 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
 
     this.navigationActive = false;
     if (this.simulationInterval) clearInterval(this.simulationInterval);
+
+    // this.mapService.setUserMarkerStyle('dot');
+    this.mapService.setNavigationMode(false);
+
+
 
     this.mapService.setFollowUser(false);
     this.mapService.removeRouting();
