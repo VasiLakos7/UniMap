@@ -5,7 +5,6 @@ import * as L from 'leaflet';
 export class RoutingService {
   private polyline: L.Polyline | null = null;
 
- 
   async addRoute(
     map: L.Map,
     from: L.LatLng,
@@ -16,7 +15,7 @@ export class RoutingService {
 
     this.removeRouting(map);
 
-    const fit = opts?.fit !== false; 
+    const fit = opts?.fit !== false;
     const padding = opts?.padding ?? [40, 40];
 
     try {
@@ -30,16 +29,12 @@ export class RoutingService {
 
       this.polyline = L.polyline(latlngs, { color: 'blue', weight: 5, opacity: 0.7 }).addTo(map);
 
-      if (fit) {
-        map.fitBounds(this.polyline.getBounds(), { padding });
-      }
+      if (fit) map.fitBounds(this.polyline.getBounds(), { padding });
     } catch (err) {
       console.warn('OSRM error, fallback σε ευθεία γραμμή:', err);
       this.polyline = L.polyline([from, to], { weight: 4, dashArray: '10,10' }).addTo(map);
 
-      if (fit) {
-        map.fitBounds(this.polyline.getBounds(), { padding });
-      }
+      if (fit) map.fitBounds(this.polyline.getBounds(), { padding });
     }
   }
 

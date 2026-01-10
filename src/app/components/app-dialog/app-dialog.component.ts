@@ -1,4 +1,3 @@
-// app-dialog.component.ts
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController } from '@ionic/angular';
@@ -19,11 +18,10 @@ import { TranslateModule } from '@ngx-translate/core';
         <ion-button class="okBtn" expand="block" color="primary" (click)="close()">
           {{ 'DIALOG.OK' | translate }}
         </ion-button>
-
       </div>
     </ion-content>
   `,
-  styleUrls: ['./app-dialog.component.scss']
+  styleUrls: ['./app-dialog.component.scss'],
 })
 export class AppDialogComponent {
   @Input() titleKey!: string;
@@ -31,5 +29,8 @@ export class AppDialogComponent {
   @Input() icon: string = 'checkmark-circle';
 
   constructor(private modalCtrl: ModalController) {}
-  close() { this.modalCtrl.dismiss(true, 'ok'); }
+
+  close() {
+    this.modalCtrl.dismiss(true, 'ok');
+  }
 }

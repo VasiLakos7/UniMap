@@ -15,16 +15,9 @@ export class UiDialogService {
 
   constructor(private modalCtrl: ModalController) {}
 
-  private async safeDismissTop() {
-    try {
-      const top = await this.modalCtrl.getTop();
-      if (top) await top.dismiss().catch(() => {});
-    } catch {}
-  }
-
   async openKeys(opts: DialogKeyOptions) {
     if (this.presenting) {
-      await this.safeDismissTop();
+      await this.modalCtrl.dismiss().catch(() => {});
     }
     this.presenting = true;
 
@@ -45,6 +38,7 @@ export class UiDialogService {
     return modal.onDidDismiss();
   }
 
+  // ✅ “Οι ρυθμίσεις άλλαξαν”
   settingsSaved() {
     return this.openKeys({
       titleKey: 'DIALOG.SETTINGS_CHANGED_TITLE',
@@ -53,27 +47,12 @@ export class UiDialogService {
     });
   }
 
-
-  info(titleKeyOrMessageKey: string, messageKey?: string) {
-    if (messageKey == null) {
-      return this.openKeys({
-        titleKey: 'DIALOG.INFO_TITLE',
-        messageKey: titleKeyOrMessageKey,
-        icon: 'information-circle',
-      });
-    }
-    return this.openKeys({ titleKey: titleKeyOrMessageKey, messageKey, icon: 'information-circle' });
+  info(titleKey: string, messageKey?: string) {
+    return this.openKeys({ titleKey, messageKey, icon: 'information-circle' });
   }
 
-  error(titleKeyOrMessageKey: string, messageKey?: string) {
-    if (messageKey == null) {
-      return this.openKeys({
-        titleKey: 'DIALOG.ERROR_TITLE',
-        messageKey: titleKeyOrMessageKey,
-        icon: 'alert-circle',
-      });
-    }
-    return this.openKeys({ titleKey: titleKeyOrMessageKey, messageKey, icon: 'alert-circle' });
+  error(titleKey: string, messageKey?: string) {
+    return this.openKeys({ titleKey, messageKey, icon: 'alert-circle' });
   }
 
   async confirmKeys(opts: {
@@ -84,7 +63,7 @@ export class UiDialogService {
     confirmKey?: string;
   }): Promise<boolean> {
     if (this.presenting) {
-      await this.safeDismissTop();
+      await this.modalCtrl.dismiss().catch(() => {});
     }
     this.presenting = true;
 

@@ -41,7 +41,7 @@ export class SettingsModalComponent implements OnInit {
     private modalCtrl: ModalController,
     private settingsSvc: SettingsService,
     private translate: TranslateService,
-    private uiDialog: UiDialogService,
+    private uiDialog: UiDialogService
   ) {
     this.draft = this.settingsSvc.defaults();
   }
@@ -83,7 +83,9 @@ export class SettingsModalComponent implements OnInit {
 
       this.dirty = false;
 
+      // ✅ Παράθυρο μπροστά + tick + OK
       await this.uiDialog.settingsSaved();
+
       this.modalCtrl.dismiss(this.value, 'save');
     } catch (e) {
       await this.uiDialog.error('DIALOG.ERROR_TITLE', 'DIALOG.ERROR_SAVE_SETTINGS');
@@ -103,6 +105,7 @@ export class SettingsModalComponent implements OnInit {
       this.dirty = false;
 
       await this.uiDialog.info('DIALOG.RESET_DONE_TITLE', 'DIALOG.RESET_DONE_MSG');
+
       this.modalCtrl.dismiss(this.value, 'reset');
     } catch (e) {
       await this.uiDialog.error('DIALOG.ERROR_TITLE', 'DIALOG.ERROR_RESET');

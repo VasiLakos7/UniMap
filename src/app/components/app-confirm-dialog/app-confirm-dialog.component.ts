@@ -27,7 +27,7 @@ import { TranslateModule } from '@ngx-translate/core';
       </div>
     </ion-content>
   `,
-  styleUrls: ['./app-confirm-dialog.component.scss']
+  styleUrls: ['./app-confirm-dialog.component.scss'],
 })
 export class AppConfirmDialogComponent {
   @Input() titleKey!: string;
@@ -39,6 +39,10 @@ export class AppConfirmDialogComponent {
 
   constructor(private modalCtrl: ModalController) {}
 
-  cancel() { this.modalCtrl.dismiss(false, 'cancel'); }
-  confirm() { this.modalCtrl.dismiss(true, 'confirm'); }
+  cancel() {
+    this.modalCtrl.dismiss(false, 'cancel');
+  }
+  confirm() {
+    this.modalCtrl.dismiss(true, 'confirm');
+  }
 }

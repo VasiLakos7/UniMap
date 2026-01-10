@@ -111,7 +111,6 @@ ion-item {
   margin: 0;
 }
 
-
 ion-popover.select-compact-popover {
   --max-height: 280px;
   --backdrop-opacity: 0.0;
@@ -120,9 +119,9 @@ ion-popover.select-compact-popover {
 /* Το πραγματικό κουτί */
 ion-popover.select-compact-popover::part(content) {
   width: fit-content !important;
-  min-width: 260px !important;  
-  max-width: 320px !important; 
-  max-height: 280px !important; 
+  min-width: 260px !important;
+  max-width: 320px !important;
+  max-height: 280px !important;
   overflow: auto !important;
   border-radius: 14px;
 }

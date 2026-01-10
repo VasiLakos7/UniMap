@@ -30,6 +30,7 @@
 </ion-header>
 
 <ion-content class="settings-content ion-padding">
+
   <!-- GENERAL -->
   <ng-container *ngIf="activeTab === 'general'">
     <div class="section-card">
@@ -48,15 +49,14 @@
             class="end-select"
             [(ngModel)]="draft.language"
             interface="popover"
-            [interfaceOptions]="selectPopoverOpts"
-            (ionChange)="markDirty()"
-          >
+            (ionChange)="markDirty()">
             <ion-select-option value="el">{{ 'LANG.EL' | translate }}</ion-select-option>
             <ion-select-option value="en">{{ 'LANG.EN' | translate }}</ion-select-option>
           </ion-select>
         </div>
       </ion-item>
 
+      <!-- ✅ Units row -->
       <div class="units-row">
         <div class="units-text">
           <div class="units-title">{{ 'SETTINGS.UNITS.TITLE' | translate }}</div>
@@ -68,8 +68,7 @@
             type="button"
             class="unit-btn"
             [class.active]="draft.units === 'm'"
-            (click)="draft.units='m'; markDirty()"
-          >
+            (click)="draft.units='m'; markDirty()">
             {{ 'SETTINGS.UNITS.M' | translate }}
           </button>
 
@@ -77,8 +76,7 @@
             type="button"
             class="unit-btn"
             [class.active]="draft.units === 'km'"
-            (click)="draft.units='km'; markDirty()"
-          >
+            (click)="draft.units='km'; markDirty()">
             {{ 'SETTINGS.UNITS.KM' | translate }}
           </button>
         </div>
@@ -120,7 +118,10 @@
         </ion-label>
 
         <div slot="end" class="end-control end-control--toggle">
-          <ion-toggle [(ngModel)]="draft.northLock" (ionChange)="markDirty()"></ion-toggle>
+          <ion-toggle
+            [(ngModel)]="draft.northLock"
+            (ionChange)="markDirty()">
+          </ion-toggle>
         </div>
       </ion-item>
 
@@ -135,9 +136,7 @@
             class="end-select"
             [(ngModel)]="draft.baseLayer"
             interface="popover"
-            [interfaceOptions]="selectPopoverOpts"
-            (ionChange)="markDirty()"
-          >
+            (ionChange)="markDirty()">
             <ion-select-option value="osm">{{ 'SETTINGS.MAP.OSM' | translate }}</ion-select-option>
             <ion-select-option value="maptiler">{{ 'SETTINGS.MAP.MAPTILER' | translate }}</ion-select-option>
           </ion-select>
@@ -204,4 +203,5 @@
       {{ 'COMMON.SAVE' | translate }}
     </ion-button>
   </div>
+
 </ion-content>
