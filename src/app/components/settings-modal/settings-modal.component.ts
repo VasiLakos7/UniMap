@@ -10,7 +10,6 @@ import { TranslateService, TranslateModule } from '@ngx-translate/core';
 import { firstValueFrom } from 'rxjs';
 import { UiDialogService } from '../../services/ui-dialog.service';
 
-
 @Component({
   standalone: true,
   selector: 'app-settings-modal',
@@ -73,61 +72,57 @@ export class SettingsModalComponent implements OnInit {
     this.modalCtrl.dismiss(null, 'cancel');
   }
 
-      async save() {
-      if (!this.value) return;
+  async save() {
+    if (!this.value) return;
 
-      try {
-        this.value = this.clone(this.draft);
+    try {
+      this.value = this.clone(this.draft);
 
-        await this.settingsSvc.save(this.value);
-        await firstValueFrom(this.translate.use(this.value.language));
+      await this.settingsSvc.save(this.value);
+      await firstValueFrom(this.translate.use(this.value.language));
 
-        this.dirty = false;
+      this.dirty = false;
 
-        // ✅ Παράθυρο μπροστά + tick + OK
-        await this.uiDialog.settingsSaved();
-
-        this.modalCtrl.dismiss(this.value, 'save');
-      } catch (e) {
-        await this.uiDialog.error('DIALOG.ERROR_TITLE', 'DIALOG.ERROR_SAVE_SETTINGS');
-      }
+      await this.uiDialog.settingsSaved();
+      this.modalCtrl.dismiss(this.value, 'save');
+    } catch (e) {
+      await this.uiDialog.error('DIALOG.ERROR_TITLE', 'DIALOG.ERROR_SAVE_SETTINGS');
     }
+  }
 
-    async reset() {
-      try {
-        const fresh = await this.settingsSvc.reset();
+  async reset() {
+    try {
+      const fresh = await this.settingsSvc.reset();
 
-        this.value = this.clone(fresh);
-        this.draft = this.clone(fresh);
+      this.value = this.clone(fresh);
+      this.draft = this.clone(fresh);
 
-        await this.settingsSvc.save(this.value);
-        await firstValueFrom(this.translate.use(this.value.language));
+      await this.settingsSvc.save(this.value);
+      await firstValueFrom(this.translate.use(this.value.language));
 
-        this.dirty = false;
+      this.dirty = false;
 
-        await this.uiDialog.info('DIALOG.RESET_DONE_TITLE', 'DIALOG.RESET_DONE_MSG');
-
-        this.modalCtrl.dismiss(this.value, 'reset');
-      } catch (e) {
-        await this.uiDialog.error('DIALOG.ERROR_TITLE', 'DIALOG.ERROR_RESET');
-      }
+      await this.uiDialog.info('DIALOG.RESET_DONE_TITLE', 'DIALOG.RESET_DONE_MSG');
+      this.modalCtrl.dismiss(this.value, 'reset');
+    } catch (e) {
+      await this.uiDialog.error('DIALOG.ERROR_TITLE', 'DIALOG.ERROR_RESET');
     }
-
+  }
 
   requestRefreshMap() {
     this.modalCtrl.dismiss(null, 'refreshMap');
   }
 
-    sendFeedback() {
-      const to = 'billrantzos@gmail.com';
+  sendFeedback() {
+    const to = 'billrantzos@gmail.com';
 
-      const subject = encodeURIComponent(this.translate.instant('SUPPORT.EMAIL_SUBJECT'));
-      const body = encodeURIComponent(
-        this.translate.instant('SUPPORT.EMAIL_BODY', { appVersion: this.appVersion })
-      );
+    const subject = encodeURIComponent(this.translate.instant('SUPPORT.EMAIL_SUBJECT'));
+    const body = encodeURIComponent(
+      this.translate.instant('SUPPORT.EMAIL_BODY', { appVersion: this.appVersion })
+    );
 
-      window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
-    }
+    window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
+  }
 
   async openPrivacy() {
     const modal = await this.modalCtrl.create({

@@ -117,8 +117,18 @@ body.unimap-large ion-toggle {
   transform: scale(1.08);
 }
 
-.app-dialog-modal {
+ion-modal.app-dialog-modal {
   --background: transparent;
+  --box-shadow: none;
+}
+
+ion-modal.app-dialog-modal::part(content) {
+  background: transparent;
+  box-shadow: none;
+}
+
+ion-modal.app-dialog-modal::part(backdrop) {
+  opacity: 0.35;
 }
 
 /* ------------------------------------

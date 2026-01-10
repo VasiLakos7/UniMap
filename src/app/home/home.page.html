@@ -27,7 +27,6 @@
 </ion-header>
 
 <ion-content [fullscreen]="true">
-
   <!-- MAP -->
   <div id="map"></div>
 
@@ -67,7 +66,6 @@
     [style.bottom]="'calc(' + recenterBottom + 'px + var(--ion-safe-area-bottom, 0px))'"
     [style.right.px]="12"
   >
-    <!-- SHOW FULL ROUTE -->
     <ion-button
       class="fab-btn"
       shape="round"
@@ -79,7 +77,6 @@
       <ion-icon name="git-network-outline"></ion-icon>
     </ion-button>
 
-    <!-- RECENTER -->
     <ion-button
       class="fab-btn"
       shape="round"
@@ -92,15 +89,14 @@
     </ion-button>
   </div>
 
-
   <!-- POPUP -->
   <div
     *ngIf="showModal && currentDestination"
     slot="fixed"
     class="popup-overlay"
-    #popupCard
   >
     <app-department-popup
+      #popupCard
       [destination]="currentDestination"
       [routeReady]="routeReady"
       [navigationActive]="navigationActive"
@@ -118,5 +114,4 @@
   <div *ngIf="showLockOverlay" class="lock-screen">
     <div class="lock-card">{{ 'HOME.OUT_OF_RANGE' | translate }}</div>
   </div>
-
 </ion-content>

@@ -30,7 +30,6 @@
 </ion-header>
 
 <ion-content class="settings-content ion-padding">
-
   <!-- GENERAL -->
   <ng-container *ngIf="activeTab === 'general'">
     <div class="section-card">
@@ -44,20 +43,20 @@
           <h2>{{ 'SETTINGS.LANGUAGE.TITLE' | translate }}</h2>
         </ion-label>
 
-        <!-- end-control wrapper για σωστό alignment -->
         <div slot="end" class="end-control end-control--select">
           <ion-select
             class="end-select"
             [(ngModel)]="draft.language"
             interface="popover"
-            (ionChange)="markDirty()">
+            [interfaceOptions]="selectPopoverOpts"
+            (ionChange)="markDirty()"
+          >
             <ion-select-option value="el">{{ 'LANG.EL' | translate }}</ion-select-option>
             <ion-select-option value="en">{{ 'LANG.EN' | translate }}</ion-select-option>
           </ion-select>
         </div>
       </ion-item>
 
-      <!-- ✅ Units row (Android-safe, new UI for μ/χλμ) -->
       <div class="units-row">
         <div class="units-text">
           <div class="units-title">{{ 'SETTINGS.UNITS.TITLE' | translate }}</div>
@@ -69,7 +68,8 @@
             type="button"
             class="unit-btn"
             [class.active]="draft.units === 'm'"
-            (click)="draft.units='m'; markDirty()">
+            (click)="draft.units='m'; markDirty()"
+          >
             {{ 'SETTINGS.UNITS.M' | translate }}
           </button>
 
@@ -77,12 +77,12 @@
             type="button"
             class="unit-btn"
             [class.active]="draft.units === 'km'"
-            (click)="draft.units='km'; markDirty()">
+            (click)="draft.units='km'; markDirty()"
+          >
             {{ 'SETTINGS.UNITS.KM' | translate }}
           </button>
         </div>
       </div>
-
     </div>
 
     <div class="section-card">
@@ -113,7 +113,6 @@
         <span>{{ 'SETTINGS.SECTIONS.MAP_VIEW' | translate }}</span>
       </div>
 
-      <!-- ✅ North lock με end-control ώστε να ΜΗΝ φαίνεται τέρμα δεξιά -->
       <ion-item class="north-lock-item" lines="full">
         <ion-label>
           <h2>{{ 'SETTINGS.MAP.NORTH_LOCK' | translate }}</h2>
@@ -121,10 +120,7 @@
         </ion-label>
 
         <div slot="end" class="end-control end-control--toggle">
-          <ion-toggle
-            [(ngModel)]="draft.northLock"
-            (ionChange)="markDirty()">
-          </ion-toggle>
+          <ion-toggle [(ngModel)]="draft.northLock" (ionChange)="markDirty()"></ion-toggle>
         </div>
       </ion-item>
 
@@ -139,10 +135,11 @@
             class="end-select"
             [(ngModel)]="draft.baseLayer"
             interface="popover"
-            (ionChange)="markDirty()">
+            [interfaceOptions]="selectPopoverOpts"
+            (ionChange)="markDirty()"
+          >
             <ion-select-option value="osm">{{ 'SETTINGS.MAP.OSM' | translate }}</ion-select-option>
             <ion-select-option value="maptiler">{{ 'SETTINGS.MAP.MAPTILER' | translate }}</ion-select-option>
-
           </ion-select>
         </div>
       </ion-item>
@@ -163,7 +160,6 @@
 
   <!-- SUPPORT -->
   <ng-container *ngIf="activeTab === 'support'">
-
     <div class="section-card">
       <div class="section-title">
         <ion-icon name="mail-outline"></ion-icon>
@@ -201,7 +197,6 @@
         </ion-label>
       </ion-item>
     </div>
-
   </ng-container>
 
   <div class="actions" *ngIf="activeTab !== 'support'">
@@ -209,5 +204,4 @@
       {{ 'COMMON.SAVE' | translate }}
     </ion-button>
   </div>
-
 </ion-content>
