@@ -196,3 +196,12 @@ ion-modal.app-dialog-modal::part(backdrop) {
   transition: transform 700ms ease-out, opacity 220ms ease;
   will-change: transform;
 }
+
+.leaflet-container,
+.leaflet-control,
+.leaflet-popup,
+.leaflet-popup-content,
+.leaflet-tooltip,
+.leaflet-control-container {
+  font-family: var(--ion-font-family) !important;
+}

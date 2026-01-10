@@ -20,6 +20,7 @@ export class MapService {
   private approachPolyline: L.Polyline | null = null;
 
   private baseLayer?: L.TileLayer;
+  private mapTilerKey: string | null = null;
   
   private lastUserLatLng: L.LatLng | null = null;
   private lastCamMoveAt = 0;
@@ -360,7 +361,10 @@ export class MapService {
       zoomDelta: 0.5,
     }).setView([lat, lng], 18);
 
-    this.setBaseLayer('maptiler-osm', 'fFUNZQgQLPQX2iZWUJ8w');
+    this.mapTilerKey = 'fFUNZQgQLPQX2iZWUJ8w';
+
+    // (προαιρετικό) ξεκίνα με osm ή με maptiler-osm, όπως θες default
+    this.setBaseLayer('maptiler-osm', this.mapTilerKey);
 
     this.setUserMarkerStyle(this.activeUserStyle);
     this.setupUserMarker(lat, lng);
@@ -369,6 +373,7 @@ export class MapService {
     this.setupMapClickEvent();
     this.setupFreePanHandlers();
   }
+
 
   private setupFreePanHandlers() {
     if (!this.map) return;
@@ -1098,6 +1103,28 @@ export class MapService {
     };
 
     this.baseLayer = L.tileLayer(layers[style].url, layers[style].opt).addTo(this.map);
+  }
+  public setBaseLayerFromSettings(mode: string) {
+    // mapping από settings -> πραγματικά styles του Leaflet layer
+    const style =
+      mode === 'osm' ? 'osm' :
+      mode === 'positron' ? 'positron' :
+      mode === 'dark' ? 'dark' :
+      mode === 'maptiler-outdoor' ? 'maptiler-outdoor' :
+      mode === 'maptiler-osm' ? 'maptiler-osm' :
+      // backward compatibility: αν έχεις αποθηκευμένο "maptiler"
+      mode === 'maptiler' ? 'maptiler-osm' :
+      'osm';
+
+    const needsKey = style === 'maptiler-outdoor' || style === 'maptiler-osm';
+
+    this.setBaseLayer(
+      style as any,
+      needsKey ? (this.mapTilerKey ?? undefined) : undefined
+    );
+
+    // μικρό redraw για να “πιάσει” άμεσα
+    this.refreshMap();
   }
 
   // -----------------------------

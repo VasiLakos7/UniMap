@@ -550,8 +550,9 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     const errSub = this.mapService.locationError.subscribe(() => {});
 
     const outSub = this.mapService.outsideCampusClick.subscribe(async () => {
-      await this.uiDialog.info('DIALOG.OUTSIDE_CAMPUS_TITLE', 'DIALOG.OUTSIDE_CAMPUS_ROUTE_FROM_BUSSTOP');
+      await this.uiDialog.info('DIALOG.OUTSIDE_CAMPUS_TITLE', 'DIALOG.OUTSIDE_CAMPUS_PICK_DEPT_MSG');
     });
+
 
     const clickSub = this.mapService.mapClicked.subscribe(async (data) => {
       if (this.showLockOverlay) return;
@@ -640,7 +641,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     this.setDistanceUiFromDirect(startLL, endLL);
 
     if (!inside) {
-      await this.uiDialog.info('DIALOG.OUTSIDE_CAMPUS_ROUTE_FROM_BUSSTOP');
+      await this.uiDialog.info('DIALOG.OUTSIDE_CAMPUS_TITLE', 'DIALOG.OUTSIDE_CAMPUS_ROUTE_FROM_BUSSTOP');
 
       this.navEnabled = true;
       this.navTheme = 'nav-go';
@@ -699,9 +700,10 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
       : this.mapService.isPointInsideCampus(this.userLat, this.userLng);
 
     if (!inside) {
-      await this.uiDialog.info('DIALOG.OUTSIDE_CAMPUS_TITLE', 'DIALOG.OUTSIDE_CAMPUS_ROUTE_FROM_BUSSTOP');
+      await this.uiDialog.info('DIALOG.OUTSIDE_CAMPUS_TITLE', 'DIALOG.OUTSIDE_CAMPUS_PICK_DEPT_MSG');
       return;
     }
+
 
     if (!this.routeReady) {
       await this.tryBuildRouteIfPossible();
