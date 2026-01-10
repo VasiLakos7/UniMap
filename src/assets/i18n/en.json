@@ -64,7 +64,8 @@
     "AMEA": "PwD",
     "SEARCH_PLACEHOLDER": "Destination...",
     "SEARCH_LOCKED": "🔒 Route active",
-    "OUT_OF_RANGE": "Out of range"
+    "OUT_OF_RANGE": "Out of range",
+    "RECENTER": "Recenter"
   },
 
   "NAV": {
@@ -73,7 +74,8 @@
     "ARRIVE_AHEAD": "Destination ahead",
     "GO_STRAIGHT_FOR": "Go straight for {{meters}} m",
     "TURN_LEFT_IN": "In {{meters}} m turn left",
-    "TURN_RIGHT_IN": "In {{meters}} m turn right"
+    "TURN_RIGHT_IN": "In {{meters}} m turn right",
+    "OUTSIDE_CAMPUS_BUSSTOP": "You are out of range. The route is shown from the bus stop."
   },
 
   "COMMON": {
@@ -236,8 +238,8 @@
     "ROUTE_ACTIVE_TITLE": "Route active",
     "ROUTE_ACTIVE_MSG": "A route is active. Do you want to cancel it to select a new destination?",
     "KEEP_ROUTE": "Keep route",
-    "CANCEL_ROUTE": "Cancel route"
-
+    "CANCEL_ROUTE": "Cancel route",
+    "OUTSIDE_CAMPUS_ROUTE_FROM_BUSSTOP": "You are out of range. The route will be shown from the bus stop once you enter the campus."
 
   }
 }

@@ -56,7 +56,6 @@ export class DepartmentPopupComponent implements AfterViewInit, OnChanges, OnDes
       this.maxUp = Math.min(Math.round(window.innerHeight * 0.42), 340);
       el.style.setProperty('--sheet-max', `${this.maxUp}px`);
 
-      // Gesture
       this.gesture = createGesture({
         el,
         gestureName: 'um-sheet',
@@ -100,7 +99,6 @@ export class DepartmentPopupComponent implements AfterViewInit, OnChanges, OnDes
       setTimeout(() => this.recalcSnapPoints(), 0);
     }
 
-    // auto-collapse όταν ξεκινήσει navigation
     if (changes['navigationActive'] && this.navigationActive && !this.hasArrived) {
       if (this.ready) this.snapTo(this.collapsedY);
       else this.pendingCollapse = true;
@@ -180,12 +178,13 @@ export class DepartmentPopupComponent implements AfterViewInit, OnChanges, OnDes
   formatDistance(meters: number | null): string {
     if (meters == null) return '';
 
-    const unitM = this.translate.instant('SETTINGS.UNITS.M');   
-    const unitKM = this.translate.instant('SETTINGS.UNITS.KM'); 
+    const unitM = this.translate.instant('SETTINGS.UNITS.M');
+    const unitKM = this.translate.instant('SETTINGS.UNITS.KM');
+
     if (this.units === 'km') {
       const km = meters / 1000;
       const decimals = km < 1 ? 2 : (km < 10 ? 1 : 0);
-      const txt = km.toFixed(decimals); 
+      const txt = km.toFixed(decimals);
       return `${txt} ${unitKM}`;
     }
 

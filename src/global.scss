@@ -1,8 +1,3 @@
-/*
- * App Global CSS
- * ----------------------------------------------------------------------------
- */
-
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800;900&display=swap');
 
 /* Ionic core */
@@ -100,17 +95,8 @@ html, body, ion-app, ion-content {
   --ion-color-light-shade: #d7d8da;
   --ion-color-light-tint: #f5f6f9;
 
-  /* UniMap tokens */
   --um-radius: 18px;
   --um-shadow: 0 12px 30px rgba(0,0,0,0.18);
-}
-
-/* User marker arrow */
-.user-marker .user-arrow{
-  width: 28px;
-  height: 28px;
-  transform-origin: 50% 50%;
-  display: block;
 }
 
 ion-header, ion-toolbar {
@@ -130,24 +116,73 @@ body.unimap-large ion-button {
 body.unimap-large ion-toggle {
   transform: scale(1.08);
 }
+
 .app-dialog-modal {
   --background: transparent;
 }
-.user-dot {
-  position: relative;
+
+/* ------------------------------------
+   User marker: Arrow
+------------------------------------ */
+.user-marker { position: relative; }
+.user-marker .user-arrow{
+  width: 28px;
+  height: 28px;
+  transform-origin: 50% 50%;
+  display: block;
 }
+
+/* ------------------------------------
+   User marker: Google-like dot + cone
+------------------------------------ */
+.user-dot { position: relative; }
 
 .user-dot .dot {
   position: absolute;
-  inset: 4px;
+  left: 50%;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  transform: translate(-50%, -50%);
   border-radius: 50%;
-  background: #2f80ed;
-  border: 2px solid #fff;
+  background: #1a73e8;
+  box-shadow: 0 0 0 3px #fff;
+  z-index: 3;
 }
 
 .user-dot .halo {
   position: absolute;
-  inset: -6px;
+  left: 50%;
+  top: 50%;
+  width: 26px;
+  height: 26px;
+  transform: translate(-50%, -50%);
   border-radius: 50%;
-  // background: rgba(47, 128, 237, 0.25);
+  background: rgba(26, 115, 232, 0.18);
+  z-index: 2;
+}
+
+.user-dot .cone {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 120px;
+  height: 120px;
+  transform: translate(-50%, -50%) rotate(0deg);
+  transform-origin: 50% 50%;
+  opacity: 0;
+  z-index: 1;
+
+  background: radial-gradient(
+    circle at 50% 35%,
+    rgba(26, 115, 232, 0.35) 0%,
+    rgba(26, 115, 232, 0.18) 35%,
+    rgba(26, 115, 232, 0.0) 70%
+  );
+
+  clip-path: polygon(50% 50%, 18% 0%, 82% 0%);
+}
+.user-dot .cone{
+  transition: transform 700ms ease-out, opacity 220ms ease;
+  will-change: transform;
 }

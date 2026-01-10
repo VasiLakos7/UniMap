@@ -346,7 +346,6 @@ const MANUAL_NODE_COORDS: Record<string, L.LatLng> = {
 
   // συνέχεια προς κάτω
   M_DOWN_1: L.latLng(40.656153, 22.802575),
-
   M_BOTTOM_MID: L.latLng(40.655737, 22.802588),
 
   // --- splits που είπες ---
@@ -355,9 +354,10 @@ const MANUAL_NODE_COORDS: Record<string, L.LatLng> = {
   M_60_TO_69_1: L.latLng(40.655726, 22.804071), // ανάμεσα N0060 και N0069
   M_0108_TO_0052_1: L.latLng(40.658673, 22.803712), // ανάμεσα N0108 και N0052
   M_58_TO_59_1: L.latLng(40.656482, 22.803623), // ανάμεσα N0058 και N0059
-  M_36_TO_67_1: L.latLng(40.657202, 22.804278), //ανάμεσα N0036 και N0067
-  M_36_TO_67_PRE_1: L.latLng(40.657211397739765, 22.803763058404975), // ανάμεσα N0036 και M_36_TO_67_1
-  M_CENTRAL_TO_DOWN_1: L.latLng(40.65650298153248, 22.802573043723065), // ανάμεσα M_CENTRAL και M_DOWN_1
+
+  M_36_TO_67_1: L.latLng(40.657202, 22.804278), // ανάμεσα N0036 και N0067
+  M_36_TO_67_PRE_1: L.latLng(40.65722217661241, 22.80376874180772), // extra ενδιάμεσο που ζήτησες
+  M_CENTRAL_TO_DOWN_1: L.latLng(40.65650055899734, 22.80256027049915),
 };
 
 const MANUAL_EDGES: Array<[string, string]> = [
@@ -365,7 +365,6 @@ const MANUAL_EDGES: Array<[string, string]> = [
   ['N0026', 'M_CENT_PRE_1'],
   ['M_CENT_PRE_1', 'M_CENTRAL'],
 
-  // N0075 -> (ενδιάμεσο) -> M_TOP_1 -> ... -> M_TOP_7 -> M_CENTRAL
   ['N0075', 'M_TOP1_TO_75_1'],
   ['M_TOP1_TO_75_1', 'M_TOP_1'],
   ['M_TOP_1', 'M_TOP_2'],
@@ -381,7 +380,7 @@ const MANUAL_EDGES: Array<[string, string]> = [
   ['M_CENTRAL_TO_DOWN_1', 'M_DOWN_1'],
   ['M_DOWN_1', 'M_BOTTOM_MID'],
 
-  // extra connections που είπες
+  // extra connections
   ['M_TOP_7', 'N0134'],
   ['M_TOP_6', 'N0020'],
 
@@ -399,7 +398,7 @@ function norm(s: string): string {
     .toUpperCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .replace(/&/g, 'ΚΑΙ')          // ✅ fix: & -> ΚΑΙ
+    .replace(/&/g, 'ΚΑΙ') // ✅ & -> ΚΑΙ
     .replace(/ΤΜΗΜΑ /g, '')
     .replace(/ΣΧΟΛΗ /g, '')
     .replace(/\s+/g, ' ')
@@ -416,7 +415,6 @@ const alias = new Map<string, string>([
   ['ΜΗΧΑΝΙΚΩΝ ΠΑΡΑΓΩΓΗΣ ΚΑΙ ΔΙΟΙΚΗΣΗΣ (ΠΑΡΑΡΤΗΜΑ ΟΧΗΜΑΤΩΝ)', 'MPD_OXIMATA_ENT'],
   ['ΜΗΧΑΝΙΚΩΝ ΠΛΗΡΟΦΟΡΙΚΗΣ (ΚΤΗΡΙΟ Η)', 'INF_H_ENT'],
   ['ΜΗΧΑΝΙΚΩΝ ΠΛΗΡΟΦΟΡΙΚΗΣ (ΚΤΗΡΙΟ Π)', 'INF_P_ENT'],
-  // ✅ extra alias αν το όνομα έρχεται "Η & Π" μαζί
   ['ΜΗΧΑΝΙΚΩΝ ΠΛΗΡΟΦΟΡΙΚΗΣ (ΚΤΗΡΙΟ Η ΚΑΙ Π)', 'INF_H_ENT'],
 
   ['ΔΙΟΙΚΗΣΗΣ ΟΡΓΑΝΙΣΜΩΝ, ΜΑΡΚΕΤΙΝΓΚ ΚΑΙ ΤΟΥΡΙΣΜΟΥ', 'SDO_ENT'],
@@ -560,7 +558,7 @@ function findNearestNodeIdInSet(
 type MergedGraph = {
   coords: Record<string, L.LatLng>;
   adjacency: Adjacency;
-  snapCandidates: string[]; // ✅ NEW
+  snapCandidates: string[];
 };
 
 function mergeOSMWithPOIs(): MergedGraph {
@@ -575,46 +573,40 @@ function mergeOSMWithPOIs(): MergedGraph {
     maxLng: bb0.maxLng + MARGIN,
   };
 
-  // 1) filter OSM nodes by bbox
+  // filter OSM nodes by bbox
   const keptOSM: Record<string, L.LatLng> = {};
   for (const [id, ll] of Object.entries(OSM_NODE_COORDS)) {
     if (inBBox(ll, bb)) keptOSM[id] = ll;
   }
   const keptOSMIds = Object.keys(keptOSM);
 
-  // 2) filter edges to kept nodes
+  // filter edges to kept nodes
   const keptEdges: Array<[string, string]> = [];
   for (const [u, v] of OSM_EDGES) {
     if (keptOSM[u] && keptOSM[v]) keptEdges.push([u, v]);
   }
 
-  // 3) merged coords
+  // merged coords
   const manualIds = Object.keys(MANUAL_NODE_COORDS);
   const ALL: Record<string, L.LatLng> = { ...keptOSM, ...MANUAL_NODE_COORDS, ...POI_NODE_COORDS };
 
-  // 4) base adjacency
+
   const g = buildAdjacencyFromEdges(keptEdges, ALL);
 
-  // 4.5) manual edges
   for (const [u, v] of MANUAL_EDGES) addUndirectedEdge(g, ALL, u, v);
-
-  // 4.6) splits
   splitEdgeWithChain(g, ALL, 'N0068', 'N0060', ['M_68_TO_BOTTOM_1', 'M_BOTTOM_MID', 'M_BOTTOM_TO_60_1']);
   splitEdgeWithChain(g, ALL, 'N0060', 'N0069', ['M_60_TO_69_1']);
   splitEdgeWithChain(g, ALL, 'N0108', 'N0052', ['M_0108_TO_0052_1']);
   splitEdgeWithChain(g, ALL, 'N0058', 'N0059', ['M_58_TO_59_1']);
   splitEdgeWithChain(g, ALL, 'N0036', 'N0067', ['M_36_TO_67_PRE_1', 'M_36_TO_67_1']);
 
-  // 5) heal gaps
   const baseNetworkIds = [...keptOSMIds, ...manualIds];
   const HEAL_DIST = 6;
   healCloseNodes(baseNetworkIds, ALL, g, HEAL_DIST);
 
-  // 6) largest component (σταθερό snapping)
   const largest = getLargestComponent(baseNetworkIds, g);
   const snapCandidates = baseNetworkIds.filter((id) => largest.has(id));
 
-  // 7) snap POIs to nearest node in largest component
   const SNAP_MAX_METERS = 60;
   for (const [poiId, poiLL] of Object.entries(POI_NODE_COORDS)) {
     const { id: nearId, distM } = findNearestNodeIdInSet(poiLL.lat, poiLL.lng, snapCandidates, ALL);
@@ -625,9 +617,7 @@ function mergeOSMWithPOIs(): MergedGraph {
     }
 
     if (distM > SNAP_MAX_METERS) {
-      console.warn(
-        `[CampusGraph] POI ${poiId} is ${Math.round(distM)}m away from nearest node ${nearId}.`
-      );
+      console.warn(`[CampusGraph] POI ${poiId} is ${Math.round(distM)}m away from nearest node ${nearId}.`);
     }
 
     addUndirectedEdge(g, ALL, poiId, nearId);
@@ -646,10 +636,8 @@ export class CampusGraphService {
   private readonly nodeCoords: Record<string, L.LatLng> = MERGED.coords;
   private readonly campusGraphData: Adjacency = MERGED.adjacency;
 
-  // ✅ NEW: μόνο αυτά επιτρέπονται για snapping start/end
   private readonly snapCandidates: string[] = MERGED.snapCandidates;
 
-  // ✅ tweak: πόσο μακριά επιτρέπουμε να "κουμπώσει" στο δίκτυο
   private readonly MAX_SNAP_METERS = 90;
 
   public getNodeIdForName(destinationName: string): string | null {
@@ -663,7 +651,6 @@ export class CampusGraphService {
     return id ? this.nodeCoords[id] : undefined;
   }
 
-  // ✅ FIX: nearest ΜΟΝΟ στο largest component + max distance
   public findNearestNodeId(lat: number, lng: number): string | null {
     const here = L.latLng(lat, lng);
 
@@ -706,7 +693,6 @@ export class CampusGraphService {
     return { points, lengthM: Math.round(len) };
   }
 
-  // ✅ FIX: μην ψάχνεις start candidates σε ΟΛΟΥΣ τους nodes (μόνο snapCandidates)
   public findBestStartNodeForDestination(lat: number, lng: number, endNodeId: string): string | null {
     const here = L.latLng(lat, lng);
 
