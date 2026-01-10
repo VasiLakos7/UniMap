@@ -27,7 +27,6 @@ import { SettingsModalComponent } from '../components/settings-modal/settings-mo
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { UiDialogService } from '../services/ui-dialog.service';
 
-
 @Component({
   standalone: true,
   selector: 'app-home',
@@ -56,16 +55,14 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
 
   popupHeightPx = 0;
 
-  // Settings
   settings: AppSettings = this.settingsSvc.defaults();
 
-  // AMEA state
   ameaEnabled = false;
 
   routeReady = false;
   navigationActive = false;
 
-  simulateMovement = true;
+  simulateMovement = false;
   simulationInterval: any = null;
   simulationStepMs = 1200;
 
@@ -82,7 +79,6 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
   hasArrived = false;
   selectionLocked = false;
 
-  // ✅ for recenter button
   hasUserFix = false;
 
   navEnabled = false;
@@ -100,6 +96,29 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
   private maneuvers: { i: number; type: 'left' | 'right' }[] = [];
   private mapSubscriptions: Subscription[] = [];
 
+  private prevFix: L.LatLng | null = null;
+  private lastRouteIndex = 0;
+
+  hasRoutePreview = false;
+  outsideCampus = false;
+
+  private buildingRoute = false;
+
+  private readonly BUS_STOP = L.latLng(40.657688, 22.801665);
+
+ 
+  private lastProgressAt = 0;
+  private lastNavAt = 0;
+  private lastHereForProgress: L.LatLng | null = null;
+
+  private readonly PROGRESS_MIN_INTERVAL_MS = 220;
+  private readonly NAV_MIN_INTERVAL_MS = 260;    
+  private readonly HERE_MIN_MOVE_M = 0.9;          
+
+  private readonly WINDOW_BACK = 25;
+  private readonly WINDOW_FWD = 90;
+  private readonly FULLSCAN_TRIGGER_M = 35;
+
   get recenterBottom(): number {
     const base = 14;
 
@@ -107,21 +126,14 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     if (!popupOpen) return base;
 
     const h = this.popupHeightPx || 120;
-
-    return base + h + 44; //
+    return base + h + 44;
   }
 
-
-
-  ngAfterViewInit() {
-  
-  }
+  ngAfterViewInit() {}
 
   ngAfterViewChecked() {
-    
     const el = this.popupCard?.nativeElement ?? null;
 
-    // popup κλειστό
     if (!el) {
       if (this.popupRO) this.popupRO.disconnect();
       this.popupRO = undefined;
@@ -158,13 +170,13 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
   ngOnDestroy() {
     this.popupRO?.disconnect();
 
-    this.mapSubscriptions.forEach(s => s.unsubscribe());
+    this.mapSubscriptions.forEach((s) => s.unsubscribe());
     if (this.simulationInterval) clearInterval(this.simulationInterval);
     this.mapService.stopGpsWatch();
   }
 
   async ionViewDidEnter() {
-    this.showLockOverlay = true; 
+    this.showLockOverlay = true;
 
     const st: any = history.state;
     if (st?.lat && st?.lng) {
@@ -178,21 +190,19 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
       this.userLng = first.lng;
       this.hasUserFix = true;
     } else {
-      this.hasUserFix = false; 
+      this.hasUserFix = false;
     }
+
     this.mapService.initializeMap(this.userLat, this.userLng, 'map');
-    //this.mapService.setUserMarkerStyle('arrow');
     this.mapService.setNavigationMode(false);
 
     this.applyMapSettings();
 
-    await this.mapService.startGpsWatch(false, 18);
+    await this.mapService.startGpsWatch(true, 18);
 
     this.showLockOverlay = false;
   }
 
-
-  // ✅ locate me
   onRecenter() {
     if (!this.hasUserFix) return;
 
@@ -201,7 +211,6 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
       this.mapService.focusOn(this.userLat, this.userLng, 19);
       this.mapService.setFollowUser(true, 19);
     }
-    
   }
 
   private async initSettings() {
@@ -242,7 +251,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     document.body.appendChild(loading);
     await loading.present();
 
-    await new Promise(res => setTimeout(res, durationMs));
+    await new Promise((res) => setTimeout(res, durationMs));
     await loading.dismiss();
   }
 
@@ -311,15 +320,27 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     return Math.max(1, Math.ceil(m / metersPerMinute));
   }
 
-  private bearing(a: L.LatLng, b: L.LatLng) {
-    const toRad = (x: number) => x * Math.PI / 180;
-    const toDeg = (x: number) => x * 180 / Math.PI;
+  private setDistanceUiFromDirect(start: L.LatLng, end: L.LatLng) {
+    const direct = Math.max(0, Math.ceil(start.distanceTo(end)));
+    this.routeTotalMeters = direct;
+    this.routeRemainingMeters = direct;
+    this.popupMeters = direct;
+    this.popupEtaMin = this.etaFromMeters(direct);
+  }
 
-    const lat1 = toRad(a.lat), lat2 = toRad(b.lat);
+  private bearing(a: L.LatLng, b: L.LatLng) {
+    const toRad = (x: number) => (x * Math.PI) / 180;
+    const toDeg = (x: number) => (x * 180) / Math.PI;
+
+    const lat1 = toRad(a.lat),
+      lat2 = toRad(b.lat);
     const dLng = toRad(b.lng - a.lng);
 
     const y = Math.sin(dLng) * Math.cos(lat2);
-    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+    const x =
+      Math.cos(lat1) * Math.sin(lat2) -
+      Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+
     return (toDeg(Math.atan2(y, x)) + 360) % 360;
   }
 
@@ -374,12 +395,8 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
       return;
     }
 
-    let closest = 0;
-    let best = Infinity;
-    for (let i = 0; i < points.length; i++) {
-      const d = currentPoint.distanceTo(points[i]);
-      if (d < best) { best = d; closest = i; }
-    }
+    const hintPoint = Math.min(points.length - 1, Math.max(0, this.lastRouteIndex + 1));
+    const { idx: closest } = this.findClosestIndexFast(currentPoint, points, hintPoint);
 
     const lastPoint = points[points.length - 1];
     const distToEnd = currentPoint.distanceTo(lastPoint);
@@ -393,7 +410,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
       return;
     }
 
-    const next = this.maneuvers.find(m => m.i > closest);
+    const next = this.maneuvers.find((m) => m.i > closest);
     const round10 = (m: number) => Math.max(10, Math.round(m / 10) * 10);
 
     if (!next) {
@@ -414,90 +431,129 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     this.navTheme = 'nav-turn';
   }
 
-  private getTestStartPoint(): L.LatLng {
-    const baseLat = 40.656115;
-    const baseLng = 22.803626;
+  private async tryBuildRouteIfPossible(): Promise<void> {
+    if (this.buildingRoute) return;
+    if (this.routeReady) return;
+    if (this.navigationActive) return;
+    if (!this.showModal || !this.currentDestination) return;
 
-    for (let k = 0; k < 15; k++) {
-      const lat = baseLat + (Math.random() - 0.5) * 0.0012;
-      const lng = baseLng + (Math.random() - 0.5) * 0.0012;
+    const inside = (this.mapService as any).isPointInsideCampusLoose
+      ? (this.mapService as any).isPointInsideCampusLoose(this.userLat, this.userLng, 45)
+      : this.mapService.isPointInsideCampus(this.userLat, this.userLng);
 
-      if (this.mapService.isPointInsideCampus(lat, lng)) {
-        return L.latLng(lat, lng);
+    if (!inside) return;
+
+    this.buildingRoute = true;
+    try {
+      this.outsideCampus = false;
+
+      const start = L.latLng(this.userLat, this.userLng);
+      await this.mapService.drawCustomRouteToDestination(this.currentDestination, start);
+
+      const routePts = this.mapService.getCurrentRoutePoints();
+      if (!routePts || routePts.length < 2) {
+        const destLat = this.currentDestination.entranceLat ?? this.currentDestination.lat;
+        const destLng = this.currentDestination.entranceLng ?? this.currentDestination.lng;
+        this.setDistanceUiFromDirect(start, L.latLng(destLat, destLng));
+        return;
       }
+
+      this.maneuvers = this.buildManeuvers(routePts);
+
+      const meters = Math.max(0, Math.ceil(this.mapService.getCurrentRouteDistanceMeters()));
+      if (meters > 0) {
+        this.routeTotalMeters = meters;
+        this.routeRemainingMeters = meters;
+        this.popupMeters = meters;
+        this.popupEtaMin = this.etaFromMeters(meters);
+      }
+
+      this.hasRoutePreview = false;
+      this.routeReady = true;
+      this.selectionLocked = true;
+
+      this.prevFix = null;
+      this.lastRouteIndex = 0;
+      this.lastProgressAt = 0;
+      this.lastNavAt = 0;
+      this.lastHereForProgress = null;
+
+      this.resetTopNav();
+    } finally {
+      this.buildingRoute = false;
     }
-    return L.latLng(baseLat, baseLng);
-  }
-
-  simulateUserWalk(points: L.LatLng[]) {
-    if (!points || points.length === 0) return;
-
-    let index = 0;
-    let prevPoint: L.LatLng | null = null;
-
-    if (this.simulationInterval) clearInterval(this.simulationInterval);
-
-    this.simulationInterval = setInterval(() => {
-      if (!this.navigationActive) {
-        clearInterval(this.simulationInterval);
-        return;
-      }
-
-      if (index >= points.length) {
-        this.mapService.updateRouteProgress(points, []);
-        clearInterval(this.simulationInterval);
-
-        this.navigationActive = false;
-        this.hasArrived = true;
-        this.mapService.setFollowUser(false);
-        this.mapService.setUserMarkerStyle('dot');
-
-        this.navEnabled = true;
-        this.navTheme = 'nav-arrive';
-        this.navIcon = 'flag-outline';
-        this.navInstructionKey = 'NAV.ARRIVE_AHEAD';
-        this.navInstructionParams = {};
-        return;
-      }
-
-      const point = points[index];
-
-      if (prevPoint) {
-        const heading = this.bearing(prevPoint, point);
-        this.mapService.setUserHeading(heading);
-      }
-      prevPoint = point;
-
-      this.userLat = point.lat;
-      this.userLng = point.lng;
-
-      this.mapService.updateUserPosition(point.lat, point.lng);
-
-      const passed = points.slice(0, index + 1);
-      const remaining = points.slice(index);
-      this.mapService.updateRouteProgress(passed, remaining);
-
-      this.updateNavInstruction(point, points);
-
-      index++;
-    }, this.simulationStepMs);
   }
 
   private subscribeToMapEvents() {
-    const locSub = this.mapService.locationFound.subscribe(pos => {
+    const locSub = this.mapService.locationFound.subscribe((pos) => {
       this.userLat = pos.lat;
       this.userLng = pos.lng;
       this.showLockOverlay = false;
       this.hasUserFix = true;
+
+      if (this.navigationActive) {
+        const route = this.mapService.getCurrentRoutePoints();
+        if (route && route.length >= 2) {
+          const here = L.latLng(pos.lat, pos.lng);
+
+          if (this.lastHereForProgress && here.distanceTo(this.lastHereForProgress) < this.HERE_MIN_MOVE_M) {
+            void this.tryBuildRouteIfPossible();
+            return;
+          }
+
+
+          if (this.prevFix) {
+            const heading = this.bearing(this.prevFix, here);
+            this.mapService.setUserHeading(heading);
+          }
+          this.prevFix = here;
+
+          const now = Date.now();
+          const canProgress = (now - this.lastProgressAt) >= this.PROGRESS_MIN_INTERVAL_MS;
+
+          if (canProgress) {
+            const split = this.buildProgressSplit(here, route);
+            if (split) {
+              this.mapService.updateRouteProgress(split.passed, split.remaining);
+
+              this.lastProgressAt = now;
+              this.lastHereForProgress = here;
+            }
+          }
+
+
+          if ((now - this.lastNavAt) >= this.NAV_MIN_INTERVAL_MS) {
+            this.updateNavInstruction(here, route);
+            this.lastNavAt = now;
+          }
+
+          const last = route[route.length - 1];
+          if (here.distanceTo(last) <= 25) {
+            this.navigationActive = false;
+            this.hasArrived = true;
+
+            this.mapService.setFollowUser(false);
+            this.mapService.setNavigationMode(false);
+
+            this.navEnabled = true;
+            this.navTheme = 'nav-arrive';
+            this.navIcon = 'flag-outline';
+            this.navInstructionKey = 'NAV.ARRIVE_AHEAD';
+            this.navInstructionParams = {};
+          }
+        }
+      }
+
+      void this.tryBuildRouteIfPossible();
     });
 
     const errSub = this.mapService.locationError.subscribe(() => {});
 
     const outSub = this.mapService.outsideCampusClick.subscribe(async () => {
-      await this.uiDialog.info('DIALOG.OUTSIDE_CAMPUS_TITLE', 'DIALOG.OUTSIDE_CAMPUS_MSG');
+      await this.uiDialog.info('DIALOG.OUTSIDE_CAMPUS_TITLE', 'DIALOG.OUTSIDE_CAMPUS_ROUTE_FROM_BUSSTOP');
     });
 
-    const clickSub = this.mapService.mapClicked.subscribe(async data => {
+    const clickSub = this.mapService.mapClicked.subscribe(async (data) => {
       if (this.showLockOverlay) return;
       if (this.isSearchOpen) return;
 
@@ -509,14 +565,14 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
       void this.handleMapClick(data.lat, data.lng, name);
     });
 
-    const progSub = this.mapService.routeProgress.subscribe(p => {
+    const progSub = this.mapService.routeProgress.subscribe((p) => {
       this.routeTotalMeters = Math.max(0, Math.ceil(p.totalMeters));
       this.routeRemainingMeters = Math.max(0, Math.ceil(p.remainingMeters));
 
       if (this.navigationActive) {
         this.popupMeters = this.routeRemainingMeters;
         this.popupEtaMin = this.etaFromMeters(this.routeRemainingMeters);
-      } else if (this.routeReady) {
+      } else if (this.routeReady || this.hasRoutePreview) {
         this.popupMeters = this.routeTotalMeters;
         this.popupEtaMin = this.etaFromMeters(this.routeTotalMeters);
       } else {
@@ -543,7 +599,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     const ok = await this.ensureUnlockedOrCancel();
     if (!ok) return;
 
-    const found = this.destinationList.find(d => d.name === name);
+    const found = this.destinationList.find((d) => d.name === name);
 
     this.hasArrived = false;
     this.resetTopNav();
@@ -556,43 +612,105 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     this.popupMeters = null;
     this.popupEtaMin = null;
 
+    this.prevFix = null;
+    this.lastRouteIndex = 0;
+    this.lastProgressAt = 0;
+    this.lastNavAt = 0;
+    this.lastHereForProgress = null;
+
+    this.mapService.removeRouting(true);
+
     const dest: Destination = found ? found : { id: 'CUSTOM', name, lat, lng };
     this.currentDestination = dest;
 
     const pinLat = dest.entranceLat ?? dest.lat;
     const pinLng = dest.entranceLng ?? dest.lng;
+    const endLL = L.latLng(pinLat, pinLng);
+
     this.mapService.pinDestination(pinLat, pinLng, dest.name);
 
-    const start = this.simulateMovement
-      ? this.getTestStartPoint()
-      : L.latLng(this.userLat, this.userLng);
+    const inside = (this.mapService as any).isPointInsideCampusLoose
+      ? (this.mapService as any).isPointInsideCampusLoose(this.userLat, this.userLng, 45)
+      : this.mapService.isPointInsideCampus(this.userLat, this.userLng);
 
-    await this.mapService.drawCustomRouteToDestination(dest, start);
+    this.outsideCampus = !inside;
+
+    const startLL = inside ? L.latLng(this.userLat, this.userLng) : this.BUS_STOP;
+
+    this.setDistanceUiFromDirect(startLL, endLL);
+
+    if (!inside) {
+      await this.uiDialog.info('DIALOG.OUTSIDE_CAMPUS_ROUTE_FROM_BUSSTOP');
+
+      this.navEnabled = true;
+      this.navTheme = 'nav-go';
+      this.navIcon = 'alert-circle-outline';
+      this.navInstructionKey = 'NAV.OUTSIDE_CAMPUS_BUSSTOP';
+      this.navInstructionParams = {};
+
+      await this.mapService.drawCustomRouteToDestination(dest, this.BUS_STOP);
+
+      const meters = Math.max(0, Math.ceil(this.mapService.getCurrentRouteDistanceMeters()));
+      if (meters > 0) {
+        this.routeTotalMeters = meters;
+        this.routeRemainingMeters = meters;
+        this.popupMeters = meters;
+        this.popupEtaMin = this.etaFromMeters(meters);
+      }
+
+      this.hasRoutePreview = true;
+      this.routeReady = false; 
+      this.selectionLocked = false;
+      this.showModal = true;
+      return;
+    }
+
+    this.outsideCampus = false;
+    this.hasRoutePreview = false;
+
+    await this.mapService.drawCustomRouteToDestination(dest, startLL);
 
     const routePts = this.mapService.getCurrentRoutePoints();
-    this.maneuvers = this.buildManeuvers(routePts);
+    if (routePts && routePts.length >= 2) {
+      this.maneuvers = this.buildManeuvers(routePts);
 
-    const totalMetersRaw = this.mapService.getCurrentRouteDistanceMeters();
-    const totalMeters = Math.max(0, Math.ceil(totalMetersRaw));
+      const meters = Math.max(0, Math.ceil(this.mapService.getCurrentRouteDistanceMeters()));
+      if (meters > 0) {
+        this.routeTotalMeters = meters;
+        this.routeRemainingMeters = meters;
+        this.popupMeters = meters;
+        this.popupEtaMin = this.etaFromMeters(meters);
+      }
 
-    this.routeTotalMeters = totalMeters;
-    this.routeRemainingMeters = totalMeters;
+      this.routeReady = true;
+      this.selectionLocked = true;
+    } else {
+      this.routeReady = false;
+      this.selectionLocked = false;
+    }
 
-    this.popupMeters = totalMeters;
-    this.popupEtaMin = this.etaFromMeters(totalMeters);
-
-    this.routeReady = true;
     this.showModal = true;
-    this.selectionLocked = true;
   }
 
   async startNavigation() {
-    if (!this.currentDestination || !this.routeReady) return;
+    if (!this.currentDestination) return;
+    const inside = (this.mapService as any).isPointInsideCampusLoose
+      ? (this.mapService as any).isPointInsideCampusLoose(this.userLat, this.userLng, 45)
+      : this.mapService.isPointInsideCampus(this.userLat, this.userLng);
+
+    if (!inside) {
+      await this.uiDialog.info('DIALOG.OUTSIDE_CAMPUS_TITLE', 'DIALOG.OUTSIDE_CAMPUS_ROUTE_FROM_BUSSTOP');
+      return;
+    }
+
+    if (!this.routeReady) {
+      await this.tryBuildRouteIfPossible();
+    }
+    if (!this.routeReady) return;
 
     await this.presentLoadingKey('LOADING.ROUTE_LOADING');
-    // this.mapService.setUserMarkerStyle('arrow');
-    this.mapService.setNavigationMode(true);
 
+    this.mapService.setNavigationMode(true);
     this.hasArrived = false;
 
     const destLat = this.currentDestination.entranceLat ?? this.currentDestination.lat;
@@ -600,25 +718,26 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     this.mapService.pinDestination(destLat, destLng, this.currentDestination.name);
 
     this.mapService.setFollowUser(true, 19);
-    this.mapService.focusOn(this.userLat, this.userLng, 19);
+    this.mapService.recenterToUser({ zoom: 19, follow: true, animate: true });
 
     this.navEnabled = true;
     this.navigationActive = true;
 
     const route = this.mapService.getCurrentRoutePoints();
+    this.prevFix = null;
+    this.lastRouteIndex = 0;
+    this.lastProgressAt = 0;
+    this.lastNavAt = 0;
+    this.lastHereForProgress = null;
+
     this.updateNavInstruction(L.latLng(this.userLat, this.userLng), route);
-
-    if (this.simulateMovement) {
-      this.simulateUserWalk(route);
-    }
   }
-
 
   cancelRouteKeepPopup() {
     this.navigationActive = false;
     this.hasArrived = false;
-    this.mapService.setUserMarkerStyle('dot');
 
+    this.mapService.setNavigationMode(false);
 
     if (this.simulationInterval) clearInterval(this.simulationInterval);
     this.mapService.setFollowUser(false);
@@ -634,6 +753,9 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     }
 
     this.routeReady = false;
+    this.hasRoutePreview = false;
+    this.outsideCampus = false;
+
     this.routeTotalMeters = 0;
     this.routeRemainingMeters = 0;
 
@@ -644,6 +766,12 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
 
     this.selectionLocked = false;
     this.showModal = true;
+
+    this.prevFix = null;
+    this.lastRouteIndex = 0;
+    this.lastProgressAt = 0;
+    this.lastNavAt = 0;
+    this.lastHereForProgress = null;
   }
 
   onPopupClose() {
@@ -657,15 +785,14 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     this.navigationActive = false;
     if (this.simulationInterval) clearInterval(this.simulationInterval);
 
-    // this.mapService.setUserMarkerStyle('dot');
     this.mapService.setNavigationMode(false);
-
-
-
     this.mapService.setFollowUser(false);
     this.mapService.removeRouting();
 
     this.routeReady = false;
+    this.hasRoutePreview = false;
+    this.outsideCampus = false;
+
     this.hasArrived = false;
     this.currentDestination = null;
 
@@ -680,6 +807,12 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     this.popupEtaMin = null;
 
     this.maneuvers = [];
+
+    this.prevFix = null;
+    this.lastRouteIndex = 0;
+    this.lastProgressAt = 0;
+    this.lastNavAt = 0;
+    this.lastHereForProgress = null;
   }
 
   async onSearchLockedAttempt() {
@@ -706,10 +839,182 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
       try { (anyMap.map ?? null)?.invalidateSize?.(true); } catch {}
     }
 
-    await new Promise(res => setTimeout(res, 900));
+    await new Promise((res) => setTimeout(res, 900));
     clearInterval(tick);
     loading.message = this.translate.instant('LOADING.MAP_REFRESHING', { pct: 100 });
-    await new Promise(res => setTimeout(res, 250));
+    await new Promise((res) => setTimeout(res, 250));
     await loading.dismiss();
   }
+
+  // -----------------------------
+  // PERF helper: closest index fast
+  // -----------------------------
+  private findClosestIndexFast(
+    here: L.LatLng,
+    route: L.LatLng[],
+    hintIndex: number
+  ): { idx: number; bestDistM: number } {
+    if (!route || route.length === 0) return { idx: 0, bestDistM: Infinity };
+
+    const n = route.length;
+    const hint = Math.max(0, Math.min(n - 1, hintIndex || 0));
+
+    const lo = Math.max(0, hint - this.WINDOW_BACK);
+    const hi = Math.min(n - 1, hint + this.WINDOW_FWD);
+
+    let bestIdx = hint;
+    let best = Infinity;
+
+    for (let i = lo; i <= hi; i++) {
+      const d = here.distanceTo(route[i]);
+      if (d < best) {
+        best = d;
+        bestIdx = i;
+      }
+    }
+
+    if (best > this.FULLSCAN_TRIGGER_M) {
+      let b2 = best;
+      let i2 = bestIdx;
+      for (let i = 0; i < n; i++) {
+        const d = here.distanceTo(route[i]);
+        if (d < b2) {
+          b2 = d;
+          i2 = i;
+        }
+      }
+      return { idx: i2, bestDistM: b2 };
+    }
+
+    return { idx: bestIdx, bestDistM: best };
+  }
+
+
+  private projectOnSegment(
+    here: L.LatLng,
+    a: L.LatLng,
+    b: L.LatLng
+  ): { pt: L.LatLng; t: number; distM: number } {
+    const P = L.CRS.EPSG3857.project(here);
+    const A = L.CRS.EPSG3857.project(a);
+    const B = L.CRS.EPSG3857.project(b);
+
+    const abx = B.x - A.x;
+    const aby = B.y - A.y;
+    const apx = P.x - A.x;
+    const apy = P.y - A.y;
+
+    const ab2 = abx * abx + aby * aby;
+    if (ab2 < 1e-9) {
+      const d = Math.hypot(P.x - A.x, P.y - A.y);
+      return { pt: a, t: 0, distM: d };
+    }
+
+    let t = (apx * abx + apy * aby) / ab2;
+    t = Math.max(0, Math.min(1, t));
+
+    const cx = A.x + t * abx;
+    const cy = A.y + t * aby;
+
+    const distM = Math.hypot(P.x - cx, P.y - cy);
+    const pt = L.CRS.EPSG3857.unproject(L.point(cx, cy));
+    return { pt, t, distM };
+  }
+
+  private pushOrReplaceClose(arr: L.LatLng[], p: L.LatLng, minM = 0.25) {
+    if (arr.length === 0) {
+      arr.push(p);
+      return;
+    }
+    const last = arr[arr.length - 1];
+    if (last.distanceTo(p) <= minM) {
+      arr[arr.length - 1] = p;
+    } else {
+      arr.push(p);
+    }
+  }
+
+  private buildProgressSplit(
+    here: L.LatLng,
+    route: L.LatLng[]
+  ): { passed: L.LatLng[]; remaining: L.LatLng[]; bestDistM: number } | null {
+    if (!route || route.length < 2) return null;
+
+    let seg = Math.max(0, Math.min(route.length - 2, this.lastRouteIndex || 0));
+
+    const MAX_OFFROUTE_M = 40;
+    const NODE_REACH_M = 6;
+
+    const SHORT_SEG_M = 12;   
+    const SHORT_T_REACH = 0.85; 
+
+    const projectSeg = (s: number) => this.projectOnSegment(here, route[s], route[s + 1]);
+
+    let pr = projectSeg(seg);
+
+    if (pr.distM > MAX_OFFROUTE_M) {
+      const hintPoint = Math.min(route.length - 1, Math.max(0, seg + 1));
+      const { idx, bestDistM } = this.findClosestIndexFast(here, route, hintPoint);
+      const newSeg = Math.max(0, Math.min(route.length - 2, idx - 1));
+      seg = Math.max(seg, newSeg);
+      pr = projectSeg(seg);
+
+      if (bestDistM > 80) return null;
+    }
+
+    while (seg < route.length - 2) {
+      const a = route[seg];
+      const b = route[seg + 1];
+      const segLen = a.distanceTo(b);
+
+      const reached =
+        segLen <= SHORT_SEG_M
+          ? pr.t >= SHORT_T_REACH
+          : here.distanceTo(b) <= NODE_REACH_M;
+
+      if (!reached) break;
+
+      seg += 1;
+      pr = projectSeg(seg);
+    }
+
+    this.lastRouteIndex = seg;
+
+    const passed: L.LatLng[] = [];
+    const remaining: L.LatLng[] = [];
+
+    passed.push(...route.slice(0, seg + 1));
+    this.pushOrReplaceClose(passed, pr.pt);
+
+    remaining.push(pr.pt);
+    const tail = route.slice(seg + 1);
+
+    if (tail.length > 0) {
+      if (remaining[0].distanceTo(tail[0]) <= 0.25) {
+        remaining[0] = tail[0];
+        remaining.push(...tail.slice(1));
+      } else {
+        remaining.push(...tail);
+      }
+    }
+
+    return { passed, remaining, bestDistM: pr.distM };
+  }
+
+  get canFitRoute(): boolean {
+  const pts = this.mapService.getCurrentRoutePoints();
+  return !!pts && pts.length >= 2;
+}
+
+onFitRoute() {
+  const bottomPad = 260 + (this.showModal ? (this.popupHeightPx || 0) : 0);
+
+  (this.mapService as any).fitRouteToView?.({
+    paddingTopLeft: [30, 140],
+    paddingBottomRight: [30, bottomPad],
+    maxZoom: 18,
+    animate: true,
+  });
+}
+
 }

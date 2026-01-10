@@ -60,24 +60,40 @@
     </ng-template>
   </div>
 
-    <!-- RECENTER -->
+  <!-- FIT ROUTE + RECENTER -->
   <div
-      slot="fixed"
-      class="recenter-wrap"
-      [style.bottom]="'calc(' + recenterBottom + 'px + var(--ion-safe-area-bottom, 0px))'"
-      [style.right.px]="12"
+    slot="fixed"
+    class="map-fabs"
+    [style.bottom]="'calc(' + recenterBottom + 'px + var(--ion-safe-area-bottom, 0px))'"
+    [style.right.px]="12"
+  >
+    <!-- SHOW FULL ROUTE -->
+    <ion-button
+      class="fab-btn"
+      shape="round"
+      fill="solid"
+      (click)="onFitRoute()"
+      [disabled]="!canFitRoute || showLockOverlay"
+      aria-label="Δείξε όλη τη διαδρομή"
     >
-      <ion-fab-button
-        size="small"
-        (click)="onRecenter()"
-        [disabled]="!hasUserFix || showLockOverlay"
-        aria-label="Επανεστίαση"
-      >
-        <ion-icon name="locate-outline"></ion-icon>
-      </ion-fab-button>
+      <ion-icon name="git-network-outline"></ion-icon>
+    </ion-button>
+
+    <!-- RECENTER -->
+    <ion-button
+      class="fab-btn"
+      shape="round"
+      fill="solid"
+      (click)="onRecenter()"
+      [disabled]="!hasUserFix || showLockOverlay"
+      aria-label="Επανεστίαση"
+    >
+      <ion-icon name="paper-plane-outline"></ion-icon>
+    </ion-button>
   </div>
-  
-   <!-- POPUP  -->
+
+
+  <!-- POPUP -->
   <div
     *ngIf="showModal && currentDestination"
     slot="fixed"
@@ -104,4 +120,3 @@
   </div>
 
 </ion-content>
-
