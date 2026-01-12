@@ -9,6 +9,7 @@ import { NativeSettings, AndroidSettings, IOSSettings } from 'capacitor-native-s
 import { TranslateService } from '@ngx-translate/core';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { SettingsService, AppLanguage } from '../services/settings.service';
+import { NavController } from '@ionic/angular';
 
 @Component({
   selector: 'app-splash',
@@ -25,18 +26,20 @@ export class SplashPage implements AfterViewInit, OnDestroy {
   private typingTimeout: any;
   private i = 0;
 
-  // ✅ bottom status UI
+
   statusKey: string | null = null;
   statusMode: 'none' | 'permission' | 'gps' | 'error' = 'none';
 
   private langSub?: Subscription;
+
 
   constructor(
     private router: Router,
     private alertCtrl: AlertController,
     private platform: Platform,
     private translate: TranslateService,
-    private settingsSvc: SettingsService
+    private settingsSvc: SettingsService,
+      private navCtrl: NavController
   ) {}
 
   ngAfterViewInit() {
@@ -109,7 +112,6 @@ export class SplashPage implements AfterViewInit, OnDestroy {
     return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
   }
 
-  // ✅ ανοίγει App settings (άδειες UniMap)
   async openAppSettings() {
     try {
       if (this.isAndroidNative()) {
@@ -123,7 +125,6 @@ export class SplashPage implements AfterViewInit, OnDestroy {
     } catch {}
   }
 
-  // ✅ ανοίγει Location settings (GPS toggle)
   async openLocationSettings() {
     try {
       if (this.isAndroidNative()) {
@@ -186,11 +187,10 @@ export class SplashPage implements AfterViewInit, OnDestroy {
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
 
-      this.router.navigate(['/home'], { state: { lat, lng } });
+      this.navCtrl.navigateRoot('/home', { animated: false });
     } catch (e: any) {
       const msg = String(e?.message ?? e ?? '').toLowerCase();
 
-      // GPS / Location services off
       if (
         msg.includes('location') &&
         (msg.includes('disabled') || msg.includes('off') || msg.includes('turned off'))

@@ -75,7 +75,10 @@
     "GO_STRAIGHT_FOR": "Go straight for {{meters}} m",
     "TURN_LEFT_IN": "In {{meters}} m turn left",
     "TURN_RIGHT_IN": "In {{meters}} m turn right",
-    "OUTSIDE_CAMPUS_BUSSTOP": "You are out of range. The route is shown from the bus stop."
+    "OUTSIDE_CAMPUS_BUSSTOP": "You are out of range. The route is shown from the bus stop.",
+    "PRESS_DIRECTIONS": "Tap “Directions” to view the route",
+    "OUTSIDE_PRESS_DIRECTIONS": "You are outside campus — tap “Directions”",
+    "ROUTE_READY_PRESS_START": "Ready — tap “Start”"
   },
 
   "COMMON": {
@@ -148,7 +151,8 @@
     "SHARE": "Share",
     "ARRIVED": "Arrived",
     "EXIT": "EXIT",
-    "MINUTES": "{{value}} min"
+    "MINUTES": "{{value}} min",
+    "DIRECTIONS": "Directions"
   },
 
   "SEARCH": {
@@ -240,7 +244,8 @@
     "KEEP_ROUTE": "Keep route",
     "CANCEL_ROUTE": "Cancel route",
     "OUTSIDE_CAMPUS_ROUTE_FROM_BUSSTOP": "You are out of range. The route will be shown from the bus stop once you enter the campus.",
-    "OUTSIDE_CAMPUS_PICK_DEPT_MSG": "You are outside campus. Please select a department inside campus."
-
+    "OUTSIDE_CAMPUS_PICK_DEPT_MSG": "You are outside campus. Please select a department inside campus.",
+    "ROUTE_FROM_BUSSTOP_TITLE": "Heads up",
+    "ROUTE_FROM_BUSSTOP_MSG": "You are outside campus. Directions will start from the bus stop."
   }
 }

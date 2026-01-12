@@ -59,8 +59,11 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
 
   ameaEnabled = false;
 
-  routeReady = false;
-  navigationActive = false;
+  // route states
+  routeReady = false;          // route built (after Directions)
+  navigationActive = false;    // actively navigating (after Start)
+  hasRoutePreview = false;     // keep for compatibility
+  outsideCampus = false;
 
   simulateMovement = false;
   simulationInterval: any = null;
@@ -77,10 +80,9 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
 
   isSearchOpen = false;
   hasArrived = false;
-  selectionLocked = false;
-
   hasUserFix = false;
 
+  // nav-box (μόνο όταν navigationActive)
   navEnabled = false;
   navInstructionKey = 'NAV.PLACEHOLDER';
   navInstructionParams: any = {};
@@ -99,25 +101,31 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
   private prevFix: L.LatLng | null = null;
   private lastRouteIndex = 0;
 
-  hasRoutePreview = false;
-  outsideCampus = false;
-
-  private buildingRoute = false;
-
   private readonly BUS_STOP = L.latLng(40.657688, 22.801665);
 
- 
   private lastProgressAt = 0;
   private lastNavAt = 0;
   private lastHereForProgress: L.LatLng | null = null;
 
   private readonly PROGRESS_MIN_INTERVAL_MS = 220;
-  private readonly NAV_MIN_INTERVAL_MS = 260;    
-  private readonly HERE_MIN_MOVE_M = 0.9;          
+  private readonly NAV_MIN_INTERVAL_MS = 260;
+  private readonly HERE_MIN_MOVE_M = 0.9;
 
   private readonly WINDOW_BACK = 25;
   private readonly WINDOW_FWD = 90;
   private readonly FULLSCAN_TRIGGER_M = 35;
+
+  // ✅ LOCK: όταν έχεις οδηγίες/route, δεν επιτρέπουμε νέα επιλογή
+  selectionLocked = false;
+  private lockIfHasDirections() {
+    this.selectionLocked = !!(this.routeReady || this.navigationActive || this.hasRoutePreview);
+  }
+  private async ensureUnlockedOrCancel(): Promise<boolean> {
+    return !this.selectionLocked; // ✅ ποτέ μηνύματα
+  }
+  async onSearchLockedAttempt() {
+    // ✅ τίποτα (κλειδωμένο χωρίς μηνύματα)
+  }
 
   get recenterBottom(): number {
     const base = 14;
@@ -198,7 +206,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
 
     this.applyMapSettings();
 
-    await this.mapService.startGpsWatch(true, 18);
+    await this.mapService.startGpsWatch(false, 18);
 
     this.showLockOverlay = false;
   }
@@ -255,21 +263,38 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     await loading.dismiss();
   }
 
-  private async ensureUnlockedOrCancel(): Promise<boolean> {
-    if (!this.selectionLocked) return true;
+  // ✅ reset state για νέο προορισμό
+  private resetForNewSelection() {
+    this.navigationActive = false;
+    this.hasArrived = false;
 
-    const cancelRoute = await this.uiDialog.confirmKeys({
-      titleKey: 'DIALOG.ROUTE_ACTIVE_TITLE',
-      messageKey: 'DIALOG.ROUTE_ACTIVE_MSG',
-      icon: 'warning',
-      cancelKey: 'DIALOG.KEEP_ROUTE',
-      confirmKey: 'DIALOG.CANCEL_ROUTE',
-    });
+    this.mapService.setNavigationMode(false);
+    this.mapService.setFollowUser(false);
 
-    if (!cancelRoute) return false;
+    if (this.simulationInterval) clearInterval(this.simulationInterval);
 
-    this.onPopupClose();
-    return true;
+    this.mapService.removeRouting(true);
+
+    this.routeReady = false;
+    this.hasRoutePreview = false;
+    this.outsideCampus = false;
+
+    this.routeTotalMeters = 0;
+    this.routeRemainingMeters = 0;
+    this.popupMeters = null;
+    this.popupEtaMin = null;
+
+    this.maneuvers = [];
+    this.prevFix = null;
+    this.lastRouteIndex = 0;
+    this.lastProgressAt = 0;
+    this.lastNavAt = 0;
+    this.lastHereForProgress = null;
+
+    this.resetTopNav();
+
+    // ✅ ξεκλείδωσε (θα ξανακλειδώσει όταν πατήσουν Directions/Start)
+    this.selectionLocked = false;
   }
 
   async toggleAmea() {
@@ -431,59 +456,6 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     this.navTheme = 'nav-turn';
   }
 
-  private async tryBuildRouteIfPossible(): Promise<void> {
-    if (this.buildingRoute) return;
-    if (this.routeReady) return;
-    if (this.navigationActive) return;
-    if (!this.showModal || !this.currentDestination) return;
-
-    const inside = (this.mapService as any).isPointInsideCampusLoose
-      ? (this.mapService as any).isPointInsideCampusLoose(this.userLat, this.userLng, 45)
-      : this.mapService.isPointInsideCampus(this.userLat, this.userLng);
-
-    if (!inside) return;
-
-    this.buildingRoute = true;
-    try {
-      this.outsideCampus = false;
-
-      const start = L.latLng(this.userLat, this.userLng);
-      await this.mapService.drawCustomRouteToDestination(this.currentDestination, start);
-
-      const routePts = this.mapService.getCurrentRoutePoints();
-      if (!routePts || routePts.length < 2) {
-        const destLat = this.currentDestination.entranceLat ?? this.currentDestination.lat;
-        const destLng = this.currentDestination.entranceLng ?? this.currentDestination.lng;
-        this.setDistanceUiFromDirect(start, L.latLng(destLat, destLng));
-        return;
-      }
-
-      this.maneuvers = this.buildManeuvers(routePts);
-
-      const meters = Math.max(0, Math.ceil(this.mapService.getCurrentRouteDistanceMeters()));
-      if (meters > 0) {
-        this.routeTotalMeters = meters;
-        this.routeRemainingMeters = meters;
-        this.popupMeters = meters;
-        this.popupEtaMin = this.etaFromMeters(meters);
-      }
-
-      this.hasRoutePreview = false;
-      this.routeReady = true;
-      this.selectionLocked = true;
-
-      this.prevFix = null;
-      this.lastRouteIndex = 0;
-      this.lastProgressAt = 0;
-      this.lastNavAt = 0;
-      this.lastHereForProgress = null;
-
-      this.resetTopNav();
-    } finally {
-      this.buildingRoute = false;
-    }
-  }
-
   private subscribeToMapEvents() {
     const locSub = this.mapService.locationFound.subscribe((pos) => {
       this.userLat = pos.lat;
@@ -491,94 +463,90 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
       this.showLockOverlay = false;
       this.hasUserFix = true;
 
-      if (this.navigationActive) {
-        const route = this.mapService.getCurrentRoutePoints();
-        if (route && route.length >= 2) {
-          const here = L.latLng(pos.lat, pos.lng);
+      // ✅ progress μόνο όταν navigationActive
+      if (!this.navigationActive) return;
 
-          if (this.lastHereForProgress && here.distanceTo(this.lastHereForProgress) < this.HERE_MIN_MOVE_M) {
-            void this.tryBuildRouteIfPossible();
-            return;
-          }
+      const route = this.mapService.getCurrentRoutePoints();
+      if (!route || route.length < 2) return;
 
+      const here = L.latLng(pos.lat, pos.lng);
 
-          if (this.prevFix) {
-            const heading = this.bearing(this.prevFix, here);
-            this.mapService.setUserHeading(heading);
-          }
-          this.prevFix = here;
+      if (this.lastHereForProgress && here.distanceTo(this.lastHereForProgress) < this.HERE_MIN_MOVE_M) {
+        return;
+      }
 
-          const now = Date.now();
-          const canProgress = (now - this.lastProgressAt) >= this.PROGRESS_MIN_INTERVAL_MS;
+      if (this.prevFix) {
+        const heading = this.bearing(this.prevFix, here);
+        this.mapService.setUserHeading(heading);
+      }
+      this.prevFix = here;
 
-          if (canProgress) {
-            const split = this.buildProgressSplit(here, route);
-            if (split) {
-              this.mapService.updateRouteProgress(split.passed, split.remaining);
+      const now = Date.now();
+      const canProgress = (now - this.lastProgressAt) >= this.PROGRESS_MIN_INTERVAL_MS;
 
-              this.lastProgressAt = now;
-              this.lastHereForProgress = here;
-            }
-          }
-
-
-          if ((now - this.lastNavAt) >= this.NAV_MIN_INTERVAL_MS) {
-            this.updateNavInstruction(here, route);
-            this.lastNavAt = now;
-          }
-
-          const last = route[route.length - 1];
-          if (here.distanceTo(last) <= 25) {
-            this.navigationActive = false;
-            this.hasArrived = true;
-
-            this.mapService.setFollowUser(false);
-            this.mapService.setNavigationMode(false);
-
-            this.navEnabled = true;
-            this.navTheme = 'nav-arrive';
-            this.navIcon = 'flag-outline';
-            this.navInstructionKey = 'NAV.ARRIVE_AHEAD';
-            this.navInstructionParams = {};
-          }
+      if (canProgress) {
+        const split = this.buildProgressSplit(here, route);
+        if (split) {
+          this.mapService.updateRouteProgress(split.passed, split.remaining);
+          this.lastProgressAt = now;
+          this.lastHereForProgress = here;
         }
       }
 
-      void this.tryBuildRouteIfPossible();
+      if ((now - this.lastNavAt) >= this.NAV_MIN_INTERVAL_MS) {
+        this.updateNavInstruction(here, route);
+        this.lastNavAt = now;
+      }
+
+      const last = route[route.length - 1];
+      if (here.distanceTo(last) <= 25) {
+        this.navigationActive = false;
+        this.hasArrived = true;
+
+        this.mapService.setFollowUser(false);
+        this.mapService.setNavigationMode(false);
+
+        this.resetTopNav();
+
+        // ✅ φτάσαμε => ξεκλείδωσε επιλογές
+        this.routeReady = false;
+        this.selectionLocked = false;
+      }
     });
 
     const errSub = this.mapService.locationError.subscribe(() => {});
 
+    // ✅ έξω campus: ΜΟΝΟ αν δεν είμαστε locked
     const outSub = this.mapService.outsideCampusClick.subscribe(async () => {
+      if (this.selectionLocked) return;
       await this.uiDialog.info('DIALOG.OUTSIDE_CAMPUS_TITLE', 'DIALOG.OUTSIDE_CAMPUS_PICK_DEPT_MSG');
     });
 
-
-    const clickSub = this.mapService.mapClicked.subscribe(async (data) => {
+    // ✅ click στον χάρτη: μπλοκ όταν locked
+    const clickSub = this.mapService.mapClicked.subscribe((data) => {
+      if (this.selectionLocked) return;
       if (this.showLockOverlay) return;
       if (this.isSearchOpen) return;
 
-      const ok = await this.ensureUnlockedOrCancel();
-      if (!ok) return;
-
       const fallbackName = this.translate.instant('DEST.CUSTOM.NAME') || 'Επιλεγμένος προορισμός';
       const name = data.name || fallbackName;
+
       void this.handleMapClick(data.lat, data.lng, name);
     });
 
+    // ✅ routeProgress: ενημέρωση UI μόνο όταν routeReady ή navigationActive
     const progSub = this.mapService.routeProgress.subscribe((p) => {
+      if (!this.navigationActive && !this.routeReady && !this.hasRoutePreview) return;
+
       this.routeTotalMeters = Math.max(0, Math.ceil(p.totalMeters));
       this.routeRemainingMeters = Math.max(0, Math.ceil(p.remainingMeters));
 
       if (this.navigationActive) {
         this.popupMeters = this.routeRemainingMeters;
         this.popupEtaMin = this.etaFromMeters(this.routeRemainingMeters);
-      } else if (this.routeReady || this.hasRoutePreview) {
+      } else {
         this.popupMeters = this.routeTotalMeters;
         this.popupEtaMin = this.etaFromMeters(this.routeTotalMeters);
-      } else {
-        this.popupMeters = null;
-        this.popupEtaMin = null;
       }
     });
 
@@ -586,9 +554,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
   }
 
   async onDestinationSelected(destination: Destination) {
-    const ok = await this.ensureUnlockedOrCancel();
-    if (!ok) return;
-
+    if (this.selectionLocked) return; // ✅ search κλειδωμένο χωρίς μηνύματα
     void this.handleMapClick(destination.lat, destination.lng, destination.name);
   }
 
@@ -596,39 +562,25 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     this.isSearchOpen = open;
   }
 
+  // ✅ επιλογή προορισμού: pin + zoom + popup (ΧΩΡΙΣ route)
   async handleMapClick(lat: number, lng: number, name: string = 'Επιλεγμένος προορισμός') {
     const ok = await this.ensureUnlockedOrCancel();
     if (!ok) return;
 
+    this.resetForNewSelection();
+
     const found = this.destinationList.find((d) => d.name === name);
-
-    this.hasArrived = false;
-    this.resetTopNav();
-
-    this.routeReady = false;
-    this.navigationActive = false;
-    this.routeTotalMeters = 0;
-    this.routeRemainingMeters = 0;
-
-    this.popupMeters = null;
-    this.popupEtaMin = null;
-
-    this.prevFix = null;
-    this.lastRouteIndex = 0;
-    this.lastProgressAt = 0;
-    this.lastNavAt = 0;
-    this.lastHereForProgress = null;
-
-    this.mapService.removeRouting(true);
-
     const dest: Destination = found ? found : { id: 'CUSTOM', name, lat, lng };
     this.currentDestination = dest;
+
+    this.hasArrived = false;
 
     const pinLat = dest.entranceLat ?? dest.lat;
     const pinLng = dest.entranceLng ?? dest.lng;
     const endLL = L.latLng(pinLat, pinLng);
 
     this.mapService.pinDestination(pinLat, pinLng, dest.name);
+    this.mapService.focusOn(pinLat, pinLng, 19);
 
     const inside = (this.mapService as any).isPointInsideCampusLoose
       ? (this.mapService as any).isPointInsideCampusLoose(this.userLat, this.userLng, 45)
@@ -637,39 +589,33 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     this.outsideCampus = !inside;
 
     const startLL = inside ? L.latLng(this.userLat, this.userLng) : this.BUS_STOP;
-
     this.setDistanceUiFromDirect(startLL, endLL);
 
-    if (!inside) {
-      await this.uiDialog.info('DIALOG.OUTSIDE_CAMPUS_TITLE', 'DIALOG.OUTSIDE_CAMPUS_ROUTE_FROM_BUSSTOP');
+    this.routeReady = false;
+    this.navigationActive = false;
+    this.lockIfHasDirections(); // (θα γίνει false)
 
-      this.navEnabled = true;
-      this.navTheme = 'nav-go';
-      this.navIcon = 'alert-circle-outline';
-      this.navInstructionKey = 'NAV.OUTSIDE_CAMPUS_BUSSTOP';
-      this.navInstructionParams = {};
+    this.showModal = true;
+  }
 
-      await this.mapService.drawCustomRouteToDestination(dest, this.BUS_STOP);
+  // ✅ Οδηγίες: χτίζει route και ΚΛΕΙΔΩΝΕΙ επιλογές
+  async onDirections() {
+    if (!this.currentDestination) return;
 
-      const meters = Math.max(0, Math.ceil(this.mapService.getCurrentRouteDistanceMeters()));
-      if (meters > 0) {
-        this.routeTotalMeters = meters;
-        this.routeRemainingMeters = meters;
-        this.popupMeters = meters;
-        this.popupEtaMin = this.etaFromMeters(meters);
-      }
+    const inside = (this.mapService as any).isPointInsideCampusLoose
+      ? (this.mapService as any).isPointInsideCampusLoose(this.userLat, this.userLng, 45)
+      : this.mapService.isPointInsideCampus(this.userLat, this.userLng);
 
-      this.hasRoutePreview = true;
-      this.routeReady = false; 
-      this.selectionLocked = false;
-      this.showModal = true;
-      return;
+    this.outsideCampus = !inside;
+    if (this.outsideCampus) {
+      await this.uiDialog.info('DIALOG.ROUTE_FROM_BUSSTOP_TITLE','DIALOG.ROUTE_FROM_BUSSTOP_MSG');
     }
 
-    this.outsideCampus = false;
-    this.hasRoutePreview = false;
+    const startLL = inside ? L.latLng(this.userLat, this.userLng) : this.BUS_STOP;
 
-    await this.mapService.drawCustomRouteToDestination(dest, startLL);
+    this.mapService.removeRouting(true);
+
+    await this.mapService.drawCustomRouteToDestination(this.currentDestination, startLL);
 
     const routePts = this.mapService.getCurrentRoutePoints();
     if (routePts && routePts.length >= 2) {
@@ -684,29 +630,33 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
       }
 
       this.routeReady = true;
-      this.selectionLocked = true;
+      this.hasRoutePreview = false;
+
+      // ✅ κλείδωσε εδώ
+      this.lockIfHasDirections();
+
+      // nav-box OFF μέχρι Start
+      this.resetTopNav();
+
+      this.onFitRoute();
     } else {
       this.routeReady = false;
-      this.selectionLocked = false;
+      this.lockIfHasDirections();
     }
-
-    this.showModal = true;
   }
 
   async startNavigation() {
     if (!this.currentDestination) return;
+    if (this.outsideCampus) return;
     const inside = (this.mapService as any).isPointInsideCampusLoose
-      ? (this.mapService as any).isPointInsideCampusLoose(this.userLat, this.userLng, 45)
-      : this.mapService.isPointInsideCampus(this.userLat, this.userLng);
+    ? (this.mapService as any).isPointInsideCampusLoose(this.userLat, this.userLng, 45)
+    : this.mapService.isPointInsideCampus(this.userLat, this.userLng);
 
-    if (!inside) {
-      await this.uiDialog.info('DIALOG.OUTSIDE_CAMPUS_TITLE', 'DIALOG.OUTSIDE_CAMPUS_PICK_DEPT_MSG');
-      return;
-    }
-
+  this.outsideCampus = !inside;
+  if (this.outsideCampus) return;
 
     if (!this.routeReady) {
-      await this.tryBuildRouteIfPossible();
+      await this.onDirections();
     }
     if (!this.routeReady) return;
 
@@ -725,6 +675,9 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     this.navEnabled = true;
     this.navigationActive = true;
 
+    // ✅ κλείδωσε
+    this.lockIfHasDirections();
+
     const route = this.mapService.getCurrentRoutePoints();
     this.prevFix = null;
     this.lastRouteIndex = 0;
@@ -735,14 +688,15 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     this.updateNavInstruction(L.latLng(this.userLat, this.userLng), route);
   }
 
+  // (αν έχεις κουμπί cancel μέσα στο popup)
   cancelRouteKeepPopup() {
     this.navigationActive = false;
     this.hasArrived = false;
 
     this.mapService.setNavigationMode(false);
+    this.mapService.setFollowUser(false);
 
     if (this.simulationInterval) clearInterval(this.simulationInterval);
-    this.mapService.setFollowUser(false);
 
     const dest = this.currentDestination;
     const pinLat = dest ? (dest.entranceLat ?? dest.lat) : null;
@@ -752,11 +706,11 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
 
     if (pinLat != null && pinLng != null && dest) {
       this.mapService.pinDestination(pinLat, pinLng, dest.name);
+      this.mapService.focusOn(pinLat, pinLng, 19);
     }
 
     this.routeReady = false;
     this.hasRoutePreview = false;
-    this.outsideCampus = false;
 
     this.routeTotalMeters = 0;
     this.routeRemainingMeters = 0;
@@ -765,17 +719,20 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     this.popupEtaMin = null;
 
     this.resetTopNav();
-
-    this.selectionLocked = false;
     this.showModal = true;
 
+    this.maneuvers = [];
     this.prevFix = null;
     this.lastRouteIndex = 0;
     this.lastProgressAt = 0;
     this.lastNavAt = 0;
     this.lastHereForProgress = null;
+
+    // ✅ ξεκλείδωσε
+    this.selectionLocked = false;
   }
 
+  // ✅ X: κλείνει ΟΛΑ χωρίς μηνύματα και ξεκλειδώνει
   onPopupClose() {
     this.showModal = false;
 
@@ -798,8 +755,6 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     this.hasArrived = false;
     this.currentDestination = null;
 
-    this.selectionLocked = false;
-
     this.resetTopNav();
 
     this.routeTotalMeters = 0;
@@ -815,10 +770,9 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     this.lastProgressAt = 0;
     this.lastNavAt = 0;
     this.lastHereForProgress = null;
-  }
 
-  async onSearchLockedAttempt() {
-    await this.ensureUnlockedOrCancel();
+    // ✅ ξεκλείδωσε επιλογές
+    this.selectionLocked = false;
   }
 
   private async refreshMapWithPercent() {
@@ -848,9 +802,6 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     await loading.dismiss();
   }
 
-  // -----------------------------
-  // PERF helper: closest index fast
-  // -----------------------------
   private findClosestIndexFast(
     here: L.LatLng,
     route: L.LatLng[],
@@ -890,7 +841,6 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
 
     return { idx: bestIdx, bestDistM: best };
   }
-
 
   private projectOnSegment(
     here: L.LatLng,
@@ -947,8 +897,8 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     const MAX_OFFROUTE_M = 40;
     const NODE_REACH_M = 6;
 
-    const SHORT_SEG_M = 12;   
-    const SHORT_T_REACH = 0.85; 
+    const SHORT_SEG_M = 12;
+    const SHORT_T_REACH = 0.85;
 
     const projectSeg = (s: number) => this.projectOnSegment(here, route[s], route[s + 1]);
 
@@ -1004,19 +954,18 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
   }
 
   get canFitRoute(): boolean {
-  const pts = this.mapService.getCurrentRoutePoints();
-  return !!pts && pts.length >= 2;
-}
+    const pts = this.mapService.getCurrentRoutePoints();
+    return !!pts && pts.length >= 2;
+  }
 
-onFitRoute() {
-  const bottomPad = 260 + (this.showModal ? (this.popupHeightPx || 0) : 0);
+  onFitRoute() {
+    const bottomPad = 260 + (this.showModal ? (this.popupHeightPx || 0) : 0);
 
-  (this.mapService as any).fitRouteToView?.({
-    paddingTopLeft: [30, 140],
-    paddingBottomRight: [30, bottomPad],
-    maxZoom: 18,
-    animate: true,
-  });
-}
-
+    (this.mapService as any).fitRouteToView?.({
+      paddingTopLeft: [30, 140],
+      paddingBottomRight: [30, bottomPad],
+      maxZoom: 18,
+      animate: true,
+    });
+  }
 }

@@ -1,20 +1,25 @@
 <div #sheet class="um-sheet" [class.is-expanded]="expanded">
-
   <div class="um-handle" (click)="toggleExpand()"></div>
 
   <!-- ✅ SELECT MODE (πριν ξεκινήσει) -->
   <ng-container *ngIf="!navigationActive || hasArrived; else navMode">
-
-    <!-- ✅ Χ ΜΟΝΟ εδώ -->
-    <button class="um-x-top" type="button" (click)="onClose()" [attr.aria-label]="'COMMON.CLOSE' | translate">
+    <button
+      class="um-x-top"
+      type="button"
+      (click)="onClose()"
+      [attr.aria-label]="'COMMON.CLOSE' | translate"
+    >
       <ion-icon name="close"></ion-icon>
     </button>
 
     <div class="um-head">
-      <img class="um-avatar" [src]="getImage()" [attr.alt]="'POPUP.IMAGE_ALT' | translate" />
+      <img
+        class="um-avatar"
+        [src]="getImage()"
+        [attr.alt]="'POPUP.IMAGE_ALT' | translate"
+      />
 
       <div class="um-title">
-        <!-- ✅ translated name -->
         <div class="um-name">
           {{ ('DEST.' + destination.id + '.NAME') | translate }}
         </div>
@@ -32,7 +37,25 @@
 
     <div class="um-actions" *ngIf="!hasArrived">
       <div class="um-actions-row">
-        <ion-button class="um-start" color="primary" [disabled]="!routeReady" (click)="onStart()">
+        <!-- ✅ ΠΡΩΤΟ CTA: Οδηγίες (χτίζει route) -->
+        <ion-button
+          class="um-start"
+          color="primary"
+          *ngIf="!routeReady"
+          (click)="onDirections()"
+        >
+          <ion-icon name="map-outline" slot="start"></ion-icon>
+          {{ 'POPUP.DIRECTIONS' | translate }}
+        </ion-button>
+
+        <!-- ✅ ΜΕΤΑ: Ξεκίνα (μόνο όταν υπάρχει route) -->
+        <ion-button
+          class="um-start"
+          color="primary"
+          *ngIf="routeReady"
+          (click)="onStart()"
+          [disabled]="startDisabled"
+        >
           <ion-icon name="navigate" slot="start"></ion-icon>
           {{ 'POPUP.START' | translate }}
         </ion-button>
@@ -43,7 +66,8 @@
           color="danger"
           *ngIf="getPhone()"
           (click)="callNumber()"
-          [attr.aria-label]="'POPUP.PHONE' | translate">
+          [attr.aria-label]="'POPUP.PHONE' | translate"
+        >
           <ion-icon name="call"></ion-icon>
         </ion-button>
 
@@ -52,23 +76,29 @@
           fill="outline"
           color="primary"
           (click)="shareLocation()"
-          [attr.aria-label]="'POPUP.SHARE' | translate">
+          [attr.aria-label]="'POPUP.SHARE' | translate"
+        >
           <ion-icon name="share-social"></ion-icon>
         </ion-button>
       </div>
     </div>
 
-    <ion-button class="um-arrived" expand="block" color="success" *ngIf="hasArrived" (click)="onClose()">
+    <ion-button
+      class="um-arrived"
+      expand="block"
+      color="success"
+      *ngIf="hasArrived"
+      (click)="onClose()"
+    >
       <ion-icon name="checkmark" slot="start"></ion-icon>
       {{ 'POPUP.ARRIVED' | translate }}
     </ion-button>
-
   </ng-container>
 
+  <!-- ✅ NAV MODE (κατά τη διάρκεια navigation) -->
   <ng-template #navMode>
     <div class="um-nav">
       <div class="um-nav-left">
-        <!-- ✅ translated name -->
         <div class="um-nav-title">
           {{ ('DEST.' + destination.id + '.NAME') | translate }}
         </div>
@@ -85,10 +115,16 @@
         </div>
       </div>
 
-      <ion-button class="um-exit" color="danger" (click)="onExit()">
-        {{ 'POPUP.EXIT' | translate }}
+      <ion-button
+        class="um-start"
+        color="primary"
+        *ngIf="routeReady"
+        (click)="onStart()"
+        [disabled]="startDisabled"
+      >
+        <ion-icon name="navigate" slot="start"></ion-icon>
+        {{ 'POPUP.START' | translate }}
       </ion-button>
     </div>
   </ng-template>
-
 </div>

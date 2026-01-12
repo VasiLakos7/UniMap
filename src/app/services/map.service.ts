@@ -1184,8 +1184,10 @@ export class MapService {
       });
     }
 
-    this.map.setView(to, Math.min(19, this.map.getZoom() || 19));
+    // shake
+    // this.map.setView(to, Math.min(19, this.map.getZoom() || 19));
   }
+
 
   // -----------------------------
   // ROUTING (custom graph)

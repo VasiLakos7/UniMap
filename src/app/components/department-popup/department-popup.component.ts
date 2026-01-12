@@ -21,11 +21,17 @@ export class DepartmentPopupComponent implements AfterViewInit, OnChanges, OnDes
   @Input() routeReady = false;
   @Input() navigationActive = false;
   @Input() hasArrived = false;
+  @Input() outsideCampus = false;
+  @Input() startDisabled = false;
+
 
   @Input() meters: number | null = null;
   @Input() etaMin: number | null = null;
 
   @Input() units: 'm' | 'km' = 'm';
+
+  // ✅ νέο: directions
+  @Output() directions = new EventEmitter<void>();
 
   @Output() navigate = new EventEmitter<void>();
   @Output() cancel = new EventEmitter<void>();
@@ -69,7 +75,6 @@ export class DepartmentPopupComponent implements AfterViewInit, OnChanges, OnDes
           const endY = this.clamp(this.currentY + detail.deltaY, 0, this.collapsedY);
           const snapToCollapsed = endY > this.collapsedY * 0.55 || detail.velocityY > 0.35;
           const target = snapToCollapsed ? this.collapsedY : 0;
-
           this.snapTo(target);
         },
       });
@@ -78,7 +83,6 @@ export class DepartmentPopupComponent implements AfterViewInit, OnChanges, OnDes
 
       requestAnimationFrame(() => {
         this.recalcSnapPoints();
-
         this.ready = true;
 
         if (this.pendingCollapse) {
@@ -143,7 +147,13 @@ export class DepartmentPopupComponent implements AfterViewInit, OnChanges, OnDes
   }
 
   onStart() {
+    if (this.startDisabled) return;
     this.navigate.emit();
+  }
+
+  // ✅ νέο: directions
+  onDirections() {
+    this.directions.emit();
   }
 
   getImage(): string {
@@ -196,7 +206,6 @@ export class DepartmentPopupComponent implements AfterViewInit, OnChanges, OnDes
     if (!el) return;
 
     const effectiveH = Math.min(el.scrollHeight, this.maxUp);
-
     const peek = (this.navigationActive && !this.hasArrived) ? 90 : 130;
 
     this.collapsedY = Math.max(0, effectiveH - peek);

@@ -74,7 +74,8 @@
     "GO_STRAIGHT_FOR": "Συνέχισε ευθεία για {{meters}} m",
     "TURN_LEFT_IN": "Σε {{meters}} m στρίψε αριστερά",
     "TURN_RIGHT_IN": "Σε {{meters}} m στρίψε δεξιά",
-    "OUTSIDE_CAMPUS_BUSSTOP": "Βρίσκεστε εκτός εμβέλειας. Η διαδρομή εμφανίζεται από τη στάση λεωφορείου."
+    "OUTSIDE_CAMPUS_BUSSTOP": "Βρίσκεστε εκτός εμβέλειας. Η διαδρομή εμφανίζεται από τη στάση λεωφορείου.",
+    "PRESS_DIRECTIONS": "Πάτησε «Οδηγίες» για να δεις διαδρομή", "OUTSIDE_PRESS_DIRECTIONS": "Είσαι εκτός campus — πάτησε «Οδηγίες»", "ROUTE_READY_PRESS_START": "Έτοιμο — πάτησε «Ξεκίνα»"
   },
 
   "COMMON": {
@@ -147,7 +148,8 @@
     "SHARE": "Κοινοποίηση",
     "ARRIVED": "Έφτασες",
     "EXIT": "ΕΞΟΔΟΣ",
-    "MINUTES": "{{value}} λεπτά"
+    "MINUTES": "{{value}} λεπτά",
+    "DIRECTIONS": "Οδηγίες"
   },
 
   "SEARCH": {
@@ -238,7 +240,9 @@
     "KEEP_ROUTE": "Συνέχεια",
     "CANCEL_ROUTE": "Ακύρωση διαδρομής",
     "OUTSIDE_CAMPUS_ROUTE_FROM_BUSSTOP": "Βρίσκεστε εκτός εμβέλειας. Η διαδρομή θα εμφανιστεί από τη στάση λεωφορείου όταν εισέλθετε στον χώρο.",
-    "OUTSIDE_CAMPUS_PICK_DEPT_MSG": "Βρίσκεστε εκτός campus. Παρακαλώ επιλέξτε ένα τμήμα εντός campus."
+    "OUTSIDE_CAMPUS_PICK_DEPT_MSG": "Βρίσκεστε εκτός campus. Παρακαλώ επιλέξτε ένα τμήμα εντός campus.",
+    "ROUTE_FROM_BUSSTOP_TITLE": "Προσοχή",
+    "ROUTE_FROM_BUSSTOP_MSG": "Είσαι εκτός campus. Οι οδηγίες θα ξεκινήσουν από τη στάση λεωφορείου."
   }
-
+  
 }

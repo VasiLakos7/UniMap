@@ -106,7 +106,9 @@
       [units]="settings.units"
       (navigate)="startNavigation()"
       (cancel)="cancelRouteKeepPopup()"
-      (close)="onPopupClose()">
+      (close)="onPopupClose()"
+      (directions)="onDirections()"
+       [startDisabled]="outsideCampus || !routeReady">
     </app-department-popup>
   </div>
 
