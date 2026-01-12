@@ -8,6 +8,7 @@ export interface Destination {
   image?: string;
   description?: string; 
   phone?: string;
+  website?: string; 
   bounds?: {
     north: number;
     south: number;
@@ -28,6 +29,7 @@ export const destinationList: Destination[] = [
     description:
       'Το Τμήμα Μαιευτικής προσφέρει υψηλού επιπέδου εκπαίδευση στη φροντίδα της γυναίκας και του νεογνού.',
     phone: '2310013843',
+    website : 'https://www.ihu.gr/tmima-maieftikis/',
     bounds: {
       north: 40.65777326555862,
       south: 40.65705680374365,
@@ -46,6 +48,7 @@ export const destinationList: Destination[] = [
     image: 'assets/images/departments/dipae_logo.png',
     description: 'Εκπαίδευση και πρακτική στη φροντίδα υγείας και τη νοσηλευτική επιστήμη.',
     phone: '2310013824',
+    website: 'https://www.nurse.ihu.gr/%CF%84%CE%BC%CE%AE%CE%BC%CE%B1-%CE%BD%CE%BF%CF%83%CE%B7%CE%BB%CE%B5%CF%85%CF%84%CE%B9%CE%BA%CE%AE%CF%82/',
     bounds: {
       north: 40.65777160324301,
       south: 40.65714490735149,
@@ -64,6 +67,7 @@ export const destinationList: Destination[] = [
     image: 'assets/images/departments/phyciotherapy.jpg',
     description: 'Σπουδές στην αποκατάσταση και θεραπεία κινητικών δυσλειτουργιών.',
     phone: '2310013802',
+    website: 'https://phys.ihu.gr/',
     bounds: {
       north: 40.65777160324365,
       south: 40.6571814786269,
@@ -82,6 +86,7 @@ export const destinationList: Destination[] = [
     image: 'assets/images/departments/diaitologia.jpg',
     description: 'Ασχολείται με τη διατροφή, την υγιεινή και την πρόληψη παθήσεων μέσω της δίαιτας.',
     phone: '2310013900',
+    website: 'https://nutr.ihu.gr/el/',
     bounds: {
       north: 40.65832332551336,
       south: 40.657902219448545,
@@ -100,6 +105,7 @@ export const destinationList: Destination[] = [
     image: 'assets/images/departments/geoponias.jpg',
     description: 'Σπουδές στη γεωπονία, διαχείριση φυσικών πόρων και αγροτική παραγωγή.',
     phone: '2310013862',
+    website: 'https://www.agro.ihu.gr/',
     bounds: {
       north: 40.658563211461626,
       south: 40.658381873851155,
@@ -118,6 +124,8 @@ export const destinationList: Destination[] = [
     image: 'assets/images/departments/texnologia_trofimwn.jpg',
     description: 'Μελέτη της παραγωγής και ελέγχου ποιότητας τροφίμων.',
     phone: '2310013908',
+    website: 'https://www.food.ihu.gr/',
+  
     bounds: {
       north: 40.65615312676459,
       south: 40.65580193437832,
@@ -136,6 +144,7 @@ export const destinationList: Destination[] = [
     image: 'assets/images/departments/oximatwn.jpg',
     description: 'Εξειδίκευση στη μελέτη και διαχείριση μηχανοκίνητων οχημάτων και παραγωγικών διαδικασιών.',
     phone: '2310013939',
+    website: 'https://www.iem.ihu.gr/',
     bounds: {
       north: 40.65558532912994,
       south: 40.65519112860029,
@@ -154,6 +163,7 @@ export const destinationList: Destination[] = [
     image: 'assets/images/departments/ilektronikis.jpg',
     description: 'Καινοτόμα έρευνα και εφαρμογές στον τομέα της πληροφορικής.',
     phone: '2310013621',
+    website : 'https://www.iee.ihu.gr/',
     bounds: {
       north: 40.655744513978334,
       south: 40.655155846219564,
@@ -172,6 +182,7 @@ export const destinationList: Destination[] = [
     image: 'assets/images/departments/Ktirio_pliroforikis.jpg',
     description: 'Προγραμματισμός, τεχνητή νοημοσύνη και σύγχρονες υπολογιστικές τεχνολογίες.',
     phone: '2310013621',
+    website: 'https://www.iee.ihu.gr/',
     bounds: {
       north: 40.65607925374713,
       south: 40.65589920105018,
@@ -190,6 +201,7 @@ export const destinationList: Destination[] = [
     image: 'assets/images/departments/sdo.jpg',
     description: 'Σπουδές στη διοίκηση οργανισμών, μάρκετινγκ και τουρισμού.',
     phone: '2310013756',
+    website: 'https://ommt.ihu.gr/',
     bounds: {
       north: 40.657191867988715,
       south: 40.656646544466795,
@@ -208,6 +220,7 @@ export const destinationList: Destination[] = [
     image: 'assets/images/departments/dipae_logo.png',
     description: 'Τμήμα Βιβλιοθηκονομίας και συστημάτων πληροφόρησης.',
     phone: '2310013185',
+    website: 'https://www.lisa.ihu.gr/',
     bounds: {
       north: 40.65764482920283,
       south: 40.657194828366016,
@@ -226,6 +239,7 @@ export const destinationList: Destination[] = [
     image: 'assets/images/departments/dipae_logo.png',
     description: 'Σπουδές στη μηχανική περιβάλλοντος.',
     phone: '2310013934',
+    website: 'https://env.ihu.gr/',
     bounds: {
       north: 40.65664102138373,
       south: 40.65628077985187,
@@ -244,6 +258,7 @@ export const destinationList: Destination[] = [
     image: 'assets/images/departments/dipae_logo.png',
     description: 'Σπουδές στη λογιστική και τα πληροφοριακά συστήματα.',
     phone: '2310013192',
+    website: 'https://www.accis.ihu.gr/',
     bounds: {
       north: 40.65661190413269,
       south: 40.656384742896115,

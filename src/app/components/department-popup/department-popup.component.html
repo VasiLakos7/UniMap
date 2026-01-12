@@ -36,8 +36,8 @@
     </div>
 
     <div class="um-actions" *ngIf="!hasArrived">
-      <div class="um-actions-row">
-        <!-- ✅ ΠΡΩΤΟ CTA: Οδηγίες (χτίζει route) -->
+      <div class="um-row um-row-1">
+        <!-- Οδηγίες ή Ξεκίνα -->
         <ion-button
           class="um-start"
           color="primary"
@@ -48,7 +48,6 @@
           {{ 'POPUP.DIRECTIONS' | translate }}
         </ion-button>
 
-        <!-- ✅ ΜΕΤΑ: Ξεκίνα (μόνο όταν υπάρχει route) -->
         <ion-button
           class="um-start"
           color="primary"
@@ -60,8 +59,9 @@
           {{ 'POPUP.START' | translate }}
         </ion-button>
 
+        <!-- Phone -->
         <ion-button
-          class="um-mini"
+          class="um-mini um-mini--phone"
           fill="outline"
           color="danger"
           *ngIf="getPhone()"
@@ -71,6 +71,7 @@
           <ion-icon name="call"></ion-icon>
         </ion-button>
 
+        <!-- Share -->
         <ion-button
           class="um-mini"
           fill="outline"
@@ -80,8 +81,21 @@
         >
           <ion-icon name="share-social"></ion-icon>
         </ion-button>
+
+        <!-- Website -->
+        <ion-button
+          class="um-mini"
+          fill="outline"
+          color="primary"
+          *ngIf="destination?.website"
+          (click)="openWebsite()"
+          [attr.aria-label]="'POPUP.WEBSITE' | translate"
+        >
+          <ion-icon name="link-outline"></ion-icon>
+        </ion-button>
       </div>
     </div>
+
 
     <ion-button
       class="um-arrived"

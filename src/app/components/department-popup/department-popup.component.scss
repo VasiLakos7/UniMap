@@ -109,32 +109,50 @@
   gap: 10px;
 }
 
-.um-actions-row{
+.um-row{
   display: flex;
+  align-items: center;
   gap: 10px;
-  align-items: stretch;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.um-row-1{
+  justify-content: flex-start;
 }
 
 .um-start{
   flex: 1 1 auto;
-  height: 54px;
-  --border-radius: 18px;
-  font-weight: 800;
+  min-width: 0;
+
+  height: 46px;
+  --border-radius: 16px;
+
+  font-weight: 900;
+  font-size: 14px;
   letter-spacing: .2px;
+
+  max-width: 250px;
 }
 
+/* Mini buttons */
 .um-mini{
-  flex: 0 0 54px;
-  width: 54px;
-  height: 54px;
-  --border-radius: 18px;
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  --border-radius: 16px;
   --padding-start: 0;
   --padding-end: 0;
   --border-color: rgba(0,0,0,0.12);
 }
 
-.um-mini ion-icon{ font-size: 22px; }
+.um-mini ion-icon{ font-size: 20px; }
 
+.um-mini--phone{
+  --border-color: rgba(220, 38, 38, 0.45);
+}
+
+/* Arrived */
 .um-arrived{
   --border-radius: 16px;
   height: 40px;
@@ -178,16 +196,20 @@
   gap: 6px;
 }
 
-.um-exit{
-  height: 46px;
-  --border-radius: 16px;
-  font-weight: 900;
+/* μικρές οθόνες */
+@media (max-width: 360px){
+  .um-start{
+    height: 44px;
+    font-size: 13px;
+    max-width: 220px;
+  }
+  .um-mini{
+    width: 46px;
+    height: 46px;
+  }
 }
 
-@media (max-width: 360px){
-  .um-start{ height: 50px; }
-  .um-mini{ width: 50px; height: 50px; }
-}
+/* Expanded */
 .um-sheet.is-expanded{
-  overflow: visible;  
+  overflow: visible;
 }

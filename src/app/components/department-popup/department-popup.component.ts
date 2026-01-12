@@ -8,6 +8,7 @@ import { IonicModule } from '@ionic/angular';
 import { createGesture, Gesture } from '@ionic/core';
 import { Destination } from '../../models/destination.model';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { Browser } from '@capacitor/browser';
 
 @Component({
   standalone: true,
@@ -213,4 +214,11 @@ export class DepartmentPopupComponent implements AfterViewInit, OnChanges, OnDes
     this.currentY = this.clamp(this.currentY, 0, this.collapsedY);
     el.style.transform = `translateY(${this.currentY}px)`;
   }
+
+  async openWebsite(): Promise<void> {
+    const url = this.destination?.website;
+    if (!url) return;
+    await Browser.open({ url });
+  } 
+
 }
