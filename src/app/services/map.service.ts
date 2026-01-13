@@ -21,7 +21,7 @@ export class MapService {
 
   private baseLayer?: L.TileLayer;
   private mapTilerKey: string | null = null;
-  
+
   private lastUserLatLng: L.LatLng | null = null;
   private lastCamMoveAt = 0;
   private lastCamLL: L.LatLng | null = null;
@@ -36,12 +36,12 @@ export class MapService {
   private lastSnapLL: L.LatLng | null = null;
   private snapEngaged = false;
 
-  private readonly SNAP_ENTER_M = 18;
-  private readonly SNAP_EXIT_M = 28;
+  private readonly SNAP_ENTER_M = 12;
+  private readonly SNAP_EXIT_M = 20;
 
-  private readonly SNAP_FULL_M = 6; 
-  private readonly SNAP_BLEND_M = 22; 
-  private readonly SNAP_MIN_SPEED_MPS = 0.55;
+  private readonly SNAP_FULL_M = 3;
+  private readonly SNAP_BLEND_M = 14;
+  private readonly SNAP_MIN_SPEED_MPS = 0.25;
 
   private lastRouteBounds: L.LatLngBounds | null = null;
 
@@ -93,7 +93,7 @@ export class MapService {
     return Capacitor.isNativePlatform() ? this.ACC_MAX_NATIVE_M : this.ACC_MAX_WEB_M;
   }
 
-  private readonly SPEED_USE_GPS_HEADING_MPS = 0.8; 
+  private readonly SPEED_USE_GPS_HEADING_MPS = 0.8;
 
   private readonly MIN_MOVE_FOR_BEARING_M = 2.5;
   private readonly SPEED_TRUST_BEARING_MPS = 0.45;
@@ -146,12 +146,12 @@ export class MapService {
   private rawFixAt = 0;
   private rawFixLL: L.LatLng | null = null;
 
-  private readonly EMIT_MIN_INTERVAL_MS = 180; 
+  private readonly EMIT_MIN_INTERVAL_MS = 180;
   private readonly EMIT_MIN_MOVE_M = 0.8;
 
   private readonly JUMP_MIN_DT_S = 1.1;
-  private readonly JUMP_MAX_DIST_M = 35;      
-  private readonly JUMP_MAX_WALK_MPS = 6.5;    
+  private readonly JUMP_MAX_DIST_M = 35;
+  private readonly JUMP_MAX_WALK_MPS = 6.5;
 
   public setUserMarkerStyle(style: 'arrow' | 'dot') {
     this.activeUserStyle = style;
@@ -186,7 +186,7 @@ export class MapService {
 
   constructor(
     private graphService: CampusGraphService,
-    private routingService: RoutingService,
+    private routingService: RoutingService
   ) {}
 
   // -----------------------------
@@ -196,7 +196,7 @@ export class MapService {
     [40.659484, 22.801706],
     [40.659338, 22.806507],
     [40.654901, 22.806625],
-    [40.655500, 22.801840],
+    [40.6555, 22.80184],
   ]);
 
   private isInsideCampus(lat: number, lng: number): boolean {
@@ -206,13 +206,12 @@ export class MapService {
     let inside = false;
 
     for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-      const xi = polygon[i].lng, yi = polygon[i].lat;
-      const xj = polygon[j].lng, yj = polygon[j].lat;
+      const xi = polygon[i].lng,
+        yi = polygon[i].lat;
+      const xj = polygon[j].lng,
+        yj = polygon[j].lat;
 
-      const intersect =
-        ((yi > y) !== (yj > y)) &&
-        (x < ((xj - xi) * (y - yi)) / (yj - yi) + xi);
-
+      const intersect = (yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi;
       if (intersect) inside = !inside;
     }
     return inside;
@@ -363,7 +362,7 @@ export class MapService {
 
     this.mapTilerKey = 'fFUNZQgQLPQX2iZWUJ8w';
 
-    // (προαιρετικό) ξεκίνα με osm ή με maptiler-osm, όπως θες default
+    // default
     this.setBaseLayer('maptiler-osm', this.mapTilerKey);
 
     this.setUserMarkerStyle(this.activeUserStyle);
@@ -373,7 +372,6 @@ export class MapService {
     this.setupMapClickEvent();
     this.setupFreePanHandlers();
   }
-
 
   private setupFreePanHandlers() {
     if (!this.map) return;
@@ -406,7 +404,9 @@ export class MapService {
     if (!this.map) return;
     setTimeout(() => {
       this.map.invalidateSize(true);
-      try { this.baseLayer?.redraw?.(); } catch {}
+      try {
+        this.baseLayer?.redraw?.();
+      } catch {}
     }, 60);
   }
 
@@ -424,7 +424,9 @@ export class MapService {
 
     const req = (DeviceOrientationEvent as any)?.requestPermission;
     if (typeof req === 'function') {
-      try { req().catch(() => {}); } catch {}
+      try {
+        req().catch(() => {});
+      } catch {}
     }
 
     const computeHeading = (ev: DeviceOrientationEvent, isAbs: boolean): number | null => {
@@ -434,9 +436,11 @@ export class MapService {
       let heading = (360 - alpha) % 360;
 
       const angle =
-        (screen.orientation && typeof screen.orientation.angle === 'number')
+        screen.orientation && typeof screen.orientation.angle === 'number'
           ? screen.orientation.angle
-          : (typeof (window as any).orientation === 'number' ? (window as any).orientation : 0);
+          : typeof (window as any).orientation === 'number'
+            ? (window as any).orientation
+            : 0;
 
       heading = (heading + angle + 360) % 360;
 
@@ -529,29 +533,31 @@ export class MapService {
       };
 
       navigator.geolocation.getCurrentPosition(
-        (pos) => this.handleFix(
-          pos.coords.latitude,
-          pos.coords.longitude,
-          pos.coords.accuracy,
-          (pos.coords as any).heading ?? null,
-          (pos.coords as any).speed ?? null,
-          centerOnFirstFix,
-          zoomOnFirstFix
-        ),
+        (pos) =>
+          this.handleFix(
+            pos.coords.latitude,
+            pos.coords.longitude,
+            pos.coords.accuracy,
+            (pos.coords as any).heading ?? null,
+            (pos.coords as any).speed ?? null,
+            centerOnFirstFix,
+            zoomOnFirstFix
+          ),
         () => this.locationError.emit(),
         webOpts
       );
 
       this.webWatchId = navigator.geolocation.watchPosition(
-        (pos) => this.handleFix(
-          pos.coords.latitude,
-          pos.coords.longitude,
-          pos.coords.accuracy,
-          (pos.coords as any).heading ?? null,
-          (pos.coords as any).speed ?? null,
-          centerOnFirstFix,
-          zoomOnFirstFix
-        ),
+        (pos) =>
+          this.handleFix(
+            pos.coords.latitude,
+            pos.coords.longitude,
+            pos.coords.accuracy,
+            (pos.coords as any).heading ?? null,
+            (pos.coords as any).speed ?? null,
+            centerOnFirstFix,
+            zoomOnFirstFix
+          ),
         () => this.locationError.emit(),
         webOpts
       );
@@ -613,12 +619,16 @@ export class MapService {
 
   public async stopGpsWatch() {
     if (this.webWatchId != null) {
-      try { navigator.geolocation.clearWatch(this.webWatchId); } catch {}
+      try {
+        navigator.geolocation.clearWatch(this.webWatchId);
+      } catch {}
       this.webWatchId = null;
     }
 
     if (this.watchId) {
-      try { await Geolocation.clearWatch({ id: this.watchId }); } catch {}
+      try {
+        await Geolocation.clearWatch({ id: this.watchId });
+      } catch {}
       this.watchId = null;
     }
 
@@ -675,7 +685,7 @@ export class MapService {
   }
 
   private angleDiffDeg(a: number, b: number): number {
-    return ((b - a + 540) % 360) - 180; 
+    return ((b - a + 540) % 360) - 180;
   }
 
   private applyMaxStep(prev: number, next: number, maxStep: number): number {
@@ -831,7 +841,9 @@ export class MapService {
     let chosen = rawNow;
 
     if (this.mapMatchEnabled && this.currentRoutePoints.length >= 2) {
-      if (spd >= this.SNAP_MIN_SPEED_MPS) {
+      const canSnap = spd >= this.SNAP_MIN_SPEED_MPS || acc <= 20;
+
+      if (canSnap) {
         const snap = this.snapToCurrentRoute(rawNow);
 
         if (snap) {
@@ -850,24 +862,35 @@ export class MapService {
           }
 
           if (this.snapEngaged) {
+            const prevSnap = this.lastSnapLL;
+
             let target = snap.snapped;
-            if (this.lastSnapLL) {
-              const a = 0.35; 
+            if (prevSnap) {
+              const a = 0.35;
               target = L.latLng(
-                this.lastSnapLL.lat + (target.lat - this.lastSnapLL.lat) * a,
-                this.lastSnapLL.lng + (target.lng - this.lastSnapLL.lng) * a
+                prevSnap.lat + (target.lat - prevSnap.lat) * a,
+                prevSnap.lng + (target.lng - prevSnap.lng) * a
               );
             }
-            this.lastSnapLL = target;
-            const w =
-              d <= this.SNAP_FULL_M ? 0.95 :
-              d >= this.SNAP_BLEND_M ? 0.35 :
-              0.95 - (d - this.SNAP_FULL_M) * (0.60 / (this.SNAP_BLEND_M - this.SNAP_FULL_M));
+            if (prevSnap) {
+              const moved = prevSnap.distanceTo(target);
+              if (moved >= 0.8) {
+                const deg = this.bearingDeg(prevSnap, target);
+                const sm = this.smoothAngle(this.lastHeadingDeg, deg, 0.25);
+                this.applyHeading(sm);
+              }
+            }
 
-            chosen = L.latLng(
-              rawNow.lat + (target.lat - rawNow.lat) * w,
-              rawNow.lng + (target.lng - rawNow.lng) * w
-            );
+            this.lastSnapLL = target;
+
+            const w =
+              d <= this.SNAP_FULL_M
+                ? 0.97
+                : d >= this.SNAP_BLEND_M
+                  ? 0.45
+                  : 0.97 - (d - this.SNAP_FULL_M) * (0.52 / (this.SNAP_BLEND_M - this.SNAP_FULL_M));
+
+            chosen = L.latLng(rawNow.lat + (target.lat - rawNow.lat) * w, rawNow.lng + (target.lng - rawNow.lng) * w);
 
             if (!this.smoothLL || this.smoothLL.distanceTo(chosen) > 5) {
               this.smoothLL = chosen;
@@ -885,7 +908,7 @@ export class MapService {
       this.locationFound.emit({ lat: chosen.lat, lng: chosen.lng, accuracy: acc });
     }
 
-    const compassFresh = (Date.now() - this.lastCompassAt) < this.COMPASS_FRESH_MS;
+    const compassFresh = Date.now() - this.lastCompassAt < this.COMPASS_FRESH_MS;
 
     if (!compassFresh && typeof heading === 'number' && isFinite(heading) && spd > this.SPEED_USE_GPS_HEADING_MPS) {
       const sm = this.smoothAngle(this.lastHeadingDeg, heading, 0.22);
@@ -893,14 +916,18 @@ export class MapService {
     }
 
     if (!compassFresh) {
-      const hLL = (this.mapMatchEnabled && this.snapEngaged) ? chosen : rawNow;
+      const hLL = this.mapMatchEnabled && this.snapEngaged ? chosen : rawNow;
       this.updateHeadingFromMovement(hLL);
     }
 
     if (centerOnFirstFix && !this.hasInitialFix && this.map) {
       this.hasInitialFix = true;
-      try { this.map.setView([lat, lng], zoomOnFirstFix, { animate: true }); } catch {}
-      try { this.locationFound.emit({ lat, lng, accuracy: acc }); } catch {}
+      try {
+        this.map.setView([lat, lng], zoomOnFirstFix, { animate: true });
+      } catch {}
+      try {
+        this.locationFound.emit({ lat, lng, accuracy: acc });
+      } catch {}
     }
   }
 
@@ -933,10 +960,7 @@ export class MapService {
       return next;
     }
     const a = this.getSmoothAlpha();
-    this.smoothLL = L.latLng(
-      this.smoothLL.lat + (next.lat - this.smoothLL.lat) * a,
-      this.smoothLL.lng + (next.lng - this.smoothLL.lng) * a
-    );
+    this.smoothLL = L.latLng(this.smoothLL.lat + (next.lat - this.smoothLL.lat) * a, this.smoothLL.lng + (next.lng - this.smoothLL.lng) * a);
     return this.smoothLL;
   }
 
@@ -950,7 +974,7 @@ export class MapService {
     }
 
     const now = performance.now();
-    const dt = this.lastFixAt ? (now - this.lastFixAt) : 450;
+    const dt = this.lastFixAt ? now - this.lastFixAt : 450;
     this.lastFixAt = now;
 
     const durationMs = Math.max(140, Math.min(420, dt * 0.55));
@@ -958,6 +982,7 @@ export class MapService {
     this.animFrom = this.userMarker.getLatLng();
     this.animTo = next;
     const distM = this.animFrom.distanceTo(next);
+
     if (distM > 6) {
       this.userMarker.setLatLng(next);
 
@@ -973,7 +998,6 @@ export class MapService {
     }
 
     this.animStart = now;
-
     if (this.animReq) cancelAnimationFrame(this.animReq);
 
     const step = (t: number) => {
@@ -990,7 +1014,7 @@ export class MapService {
         const nowMs = Date.now();
         const movedM = this.lastCamLL ? this.lastCamLL.distanceTo(cur) : Infinity;
 
-        const tooSoon = (nowMs - this.lastCamMoveAt) < this.CAM_MIN_INTERVAL_MS;
+        const tooSoon = nowMs - this.lastCamMoveAt < this.CAM_MIN_INTERVAL_MS;
         const tooSmall = movedM < this.CAM_MIN_MOVE_M;
 
         if (!(tooSoon && tooSmall)) {
@@ -1043,9 +1067,7 @@ export class MapService {
     const dLng = ((to.lng - from.lng) * Math.PI) / 180;
 
     const y = Math.sin(dLng) * Math.cos(lat2);
-    const x =
-      Math.cos(lat1) * Math.sin(lat2) -
-      Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
 
     const brng = Math.atan2(y, x);
     const deg = (brng * 180) / Math.PI;
@@ -1055,10 +1077,7 @@ export class MapService {
   // -----------------------------
   // BASE LAYER
   // -----------------------------
-  private setBaseLayer(
-    style: 'osm' | 'positron' | 'dark' | 'maptiler-outdoor' | 'maptiler-osm',
-    apiKey?: string
-  ) {
+  private setBaseLayer(style: 'osm' | 'positron' | 'dark' | 'maptiler-outdoor' | 'maptiler-osm', apiKey?: string) {
     if (!this.map) return;
 
     if (this.baseLayer) this.map.removeLayer(this.baseLayer);
@@ -1104,27 +1123,48 @@ export class MapService {
 
     this.baseLayer = L.tileLayer(layers[style].url, layers[style].opt).addTo(this.map);
   }
+
   public setBaseLayerFromSettings(mode: string) {
-    // mapping από settings -> πραγματικά styles του Leaflet layer
     const style =
-      mode === 'osm' ? 'osm' :
-      mode === 'positron' ? 'positron' :
-      mode === 'dark' ? 'dark' :
-      mode === 'maptiler-outdoor' ? 'maptiler-outdoor' :
-      mode === 'maptiler-osm' ? 'maptiler-osm' :
-      // backward compatibility: αν έχεις αποθηκευμένο "maptiler"
-      mode === 'maptiler' ? 'maptiler-osm' :
-      'osm';
+      mode === 'osm'
+        ? 'osm'
+        : mode === 'positron'
+          ? 'positron'
+          : mode === 'dark'
+            ? 'dark'
+            : mode === 'maptiler-outdoor'
+              ? 'maptiler-outdoor'
+              : mode === 'maptiler-osm'
+                ? 'maptiler-osm'
+                : mode === 'maptiler'
+                  ? 'maptiler-osm'
+                  : 'osm';
 
     const needsKey = style === 'maptiler-outdoor' || style === 'maptiler-osm';
 
-    this.setBaseLayer(
-      style as any,
-      needsKey ? (this.mapTilerKey ?? undefined) : undefined
-    );
-
-    // μικρό redraw για να “πιάσει” άμεσα
+    this.setBaseLayer(style as any, needsKey ? this.mapTilerKey ?? undefined : undefined);
     this.refreshMap();
+  }
+
+  // -----------------------------
+  // CLICK SNAP TO NEAR DESTINATION
+  // -----------------------------
+  private findNearestDestinationWithin(lat: number, lng: number, maxMeters = 50): Destination | undefined {
+    const here = L.latLng(lat, lng);
+
+    let best: { d: number; dest: Destination } | undefined;
+
+    for (const dest of this.destinationList) {
+      const dLat = dest.entranceLat ?? dest.lat;
+      const dLng = dest.entranceLng ?? dest.lng;
+
+      const dist = here.distanceTo(L.latLng(dLat, dLng));
+      if (dist <= maxMeters && (!best || dist < best.d)) {
+        best = { d: dist, dest };
+      }
+    }
+
+    return best?.dest;
   }
 
   // -----------------------------
@@ -1142,16 +1182,15 @@ export class MapService {
         return;
       }
 
-      const found = this.destinationList.find((dest: Destination) => {
+      let found = this.destinationList.find((dest: Destination) => {
         const b = dest.bounds;
         if (!b) return false;
-        return (
-          clickedLat >= b.south &&
-          clickedLat <= b.north &&
-          clickedLng >= b.west &&
-          clickedLng <= b.east
-        );
+        return clickedLat >= b.south && clickedLat <= b.north && clickedLng >= b.west && clickedLng <= b.east;
       });
+
+      if (!found) {
+        found = this.findNearestDestinationWithin(clickedLat, clickedLng, 50);
+      }
 
       this.mapClicked.emit({
         lat: clickedLat,
@@ -1183,11 +1222,7 @@ export class MapService {
         opacity: 0.95,
       });
     }
-
-    // shake
-    // this.map.setView(to, Math.min(19, this.map.getZoom() || 19));
   }
-
 
   // -----------------------------
   // ROUTING (custom graph)
@@ -1206,10 +1241,22 @@ export class MapService {
   public async drawCustomRouteToDestination(dest: Destination, startPoint: L.LatLng) {
     if (!this.map) return;
 
-    if (this.currentPolyline) { this.map.removeLayer(this.currentPolyline); this.currentPolyline = null; }
-    if (this.passedPolyline) { this.map.removeLayer(this.passedPolyline); this.passedPolyline = null; }
-    if (this.approachPolyline) { this.map.removeLayer(this.approachPolyline); this.approachPolyline = null; }
-    if (this.endApproachPolyline) { this.map.removeLayer(this.endApproachPolyline); this.endApproachPolyline = null; }
+    if (this.currentPolyline) {
+      this.map.removeLayer(this.currentPolyline);
+      this.currentPolyline = null;
+    }
+    if (this.passedPolyline) {
+      this.map.removeLayer(this.passedPolyline);
+      this.passedPolyline = null;
+    }
+    if (this.approachPolyline) {
+      this.map.removeLayer(this.approachPolyline);
+      this.approachPolyline = null;
+    }
+    if (this.endApproachPolyline) {
+      this.map.removeLayer(this.endApproachPolyline);
+      this.endApproachPolyline = null;
+    }
     this.routingService.removeRouting(this.map);
 
     const destLat = dest.entranceLat ?? dest.lat;
@@ -1218,21 +1265,13 @@ export class MapService {
 
     this.pinDestination(destLat, destLng, dest.name);
 
-    let endNodeId =
-      this.graphService.getNodeIdForName(dest.name) ||
-      this.graphService.findNearestNodeId(destLat, destLng);
-
+    let endNodeId = this.graphService.getNodeIdForName(dest.name) || this.graphService.findNearestNodeId(destLat, destLng);
     if (!endNodeId) return;
 
-    let startNodeId: string | null =
-      this.graphService.findNearestNodeId(startPoint.lat, startPoint.lng);
+    let startNodeId: string | null = this.graphService.findNearestNodeId(startPoint.lat, startPoint.lng);
 
     if (!startNodeId) {
-      startNodeId = this.graphService.findBestStartNodeForDestination(
-        startPoint.lat,
-        startPoint.lng,
-        endNodeId
-      );
+      startNodeId = this.graphService.findBestStartNodeForDestination(startPoint.lat, startPoint.lng, endNodeId);
     }
     if (!startNodeId) return;
 
@@ -1242,14 +1281,28 @@ export class MapService {
     const startNodeCoords = this.graphService.getDestinationCoords(startNodeId);
     if (!startNodeCoords) return;
 
+    // -----------------------------
+    // ✅ main (continuous) route points
+    // -----------------------------
     const mainRoutePoints: L.LatLng[] = [...pathNodes];
 
-    const lastNode = mainRoutePoints[mainRoutePoints.length - 1];
-    const endGap = lastNode ? lastNode.distanceTo(endPoint) : Infinity;
+    // ✅ “κόψε 1 πριν” αν ο τελευταίος κόμβος είναι ουσιαστικά πάνω στην είσοδο
+    const FORCE_DASH_IF_WITHIN_M = 2.5; // αν last node <= 2.5m από είσοδο => θεωρούμε ίδιο σημείο
+    const DASH_SHOW_IF_OVER_M = 1.0;    // δείξε διακεκομμένη αν gap > 1m
 
+    let lastNode: L.LatLng | null = mainRoutePoints.length ? mainRoutePoints[mainRoutePoints.length - 1] : null;
+    let endGap = lastNode ? lastNode.distanceTo(endPoint) : Infinity;
+
+    if (lastNode && isFinite(endGap) && endGap <= FORCE_DASH_IF_WITHIN_M && mainRoutePoints.length >= 2) {
+      mainRoutePoints.pop();
+      lastNode = mainRoutePoints.length ? mainRoutePoints[mainRoutePoints.length - 1] : null;
+      endGap = lastNode ? lastNode.distanceTo(endPoint) : Infinity;
+    }
+
+    // ✅ ΚΡΙΣΙΜΟ: currentRoutePoints = ΜΟΝΟ η συνεχόμενη διαδρομή (ΧΩΡΙΣ την είσοδο)
     this.currentRoutePoints = [startPoint, startNodeCoords, ...mainRoutePoints];
-    if (isFinite(endGap) && endGap > 1) this.currentRoutePoints.push(endPoint);
 
+    // start -> first node (grey dashed)
     if (startPoint.distanceTo(startNodeCoords) > 1) {
       this.approachPolyline = L.polyline([startPoint, startNodeCoords], {
         color: '#666666',
@@ -1259,13 +1312,15 @@ export class MapService {
       }).addTo(this.map);
     }
 
+    // main blue route
     this.currentPolyline = L.polyline(mainRoutePoints, {
       color: '#007bff',
       weight: 6,
       opacity: 0.9,
     }).addTo(this.map);
 
-    if (isFinite(endGap) && endGap > 1) {
+    // end dashed (blue) from last node -> entrance
+    if (lastNode && isFinite(endGap) && endGap > DASH_SHOW_IF_OVER_M) {
       this.endApproachPolyline = L.polyline([lastNode, endPoint], {
         color: '#007bff',
         weight: 5,
@@ -1274,8 +1329,9 @@ export class MapService {
       }).addTo(this.map);
     }
 
+    // bounds (include entrance so camera frames the pin)
     const boundsPoints = [startPoint, startNodeCoords, ...mainRoutePoints];
-    if (isFinite(endGap) && endGap > 1) boundsPoints.push(endPoint);
+    if (lastNode && isFinite(endGap) && endGap > DASH_SHOW_IF_OVER_M) boundsPoints.push(endPoint);
     const bounds = L.latLngBounds(boundsPoints);
     this.lastRouteBounds = bounds;
 
@@ -1286,7 +1342,6 @@ export class MapService {
       animate: true,
       duration: 0.7,
     });
-
 
     const totalMeters = this.getCurrentRouteDistanceMeters();
     this.routeProgress.emit({
@@ -1322,9 +1377,10 @@ export class MapService {
     return true;
   }
 
-
   public updateRouteProgress(passedPoints: L.LatLng[], remainingPoints: L.LatLng[]) {
     if (!this.map) return;
+
+    // keep approach/end-approach stable (your HomePage handles progress split)
     if (this.approachPolyline) {
       this.map.removeLayer(this.approachPolyline);
       this.approachPolyline = null;
@@ -1366,13 +1422,28 @@ export class MapService {
   public removeRouting(keepDestinationPin: boolean = false) {
     if (!this.map) return;
 
-    if (this.currentPolyline) { this.map.removeLayer(this.currentPolyline); this.currentPolyline = null; }
-    if (this.passedPolyline) { this.map.removeLayer(this.passedPolyline); this.passedPolyline = null; }
-    if (this.approachPolyline) { this.map.removeLayer(this.approachPolyline); this.approachPolyline = null; }
-    if (this.endApproachPolyline) { this.map.removeLayer(this.endApproachPolyline); this.endApproachPolyline = null; }
+    if (this.currentPolyline) {
+      this.map.removeLayer(this.currentPolyline);
+      this.currentPolyline = null;
+    }
+    if (this.passedPolyline) {
+      this.map.removeLayer(this.passedPolyline);
+      this.passedPolyline = null;
+    }
+    if (this.approachPolyline) {
+      this.map.removeLayer(this.approachPolyline);
+      this.approachPolyline = null;
+    }
+    if (this.endApproachPolyline) {
+      this.map.removeLayer(this.endApproachPolyline);
+      this.endApproachPolyline = null;
+    }
 
     if (!keepDestinationPin) {
-      if (this.destinationMarker) { this.map.removeLayer(this.destinationMarker); this.destinationMarker = null; }
+      if (this.destinationMarker) {
+        this.map.removeLayer(this.destinationMarker);
+        this.destinationMarker = null;
+      }
     }
 
     this.routingService.removeRouting(this.map);
@@ -1383,7 +1454,6 @@ export class MapService {
 
     this.routeProgress.emit({ passedMeters: 0, remainingMeters: 0, totalMeters: 0, progress: 0 });
     this.lastRouteBounds = null;
-
   }
 
   public getCurrentRoutePoints(): L.LatLng[] {
