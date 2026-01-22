@@ -56,3 +56,14 @@ ion-content.appDialog::part(scroll) {
     grid-template-columns: 1fr;
   }
 }
+
+.card,
+.card * {
+  font-family: var(--ion-font-family) !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+}
+
+.btnRow ion-button {
+  --text-transform: none;
+}

@@ -1,4 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800;900&display=swap');
+/* Google Font: Manrope (real weights 200..800) */
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap');
 
 /* Ionic core */
 @import "@ionic/angular/css/core.css";
@@ -27,6 +28,7 @@ html, body, ion-app, ion-content {
   height: 100%;
 }
 
+/* App font */
 :root{
   --ion-font-family: "Manrope", -apple-system, BlinkMacSystemFont, "SF Pro Display",
     "Segoe UI", Roboto, Arial, sans-serif;
@@ -132,7 +134,7 @@ ion-modal.app-dialog-modal::part(backdrop) {
 }
 
 /* ------------------------------------
-   User marker: Arrow
+   Leaflet marker styles (your existing)
 ------------------------------------ */
 .user-marker { position: relative; }
 .user-marker .user-arrow{
@@ -142,10 +144,18 @@ ion-modal.app-dialog-modal::part(backdrop) {
   display: block;
 }
 
-/* ------------------------------------
-   User marker: Google-like dot + cone
------------------------------------- */
-.user-dot { position: relative; }
+.leaflet-marker-icon,
+.leaflet-marker-pane .leaflet-marker-icon,
+.leaflet-marker-pane .leaflet-marker-icon > div,
+.user-dot {
+  overflow: visible !important;
+}
+
+.user-dot{
+  position: relative;
+  width: 28px;
+  height: 28px;
+}
 
 .user-dot .dot {
   position: absolute;
@@ -178,10 +188,13 @@ ion-modal.app-dialog-modal::part(backdrop) {
   top: 50%;
   width: 120px;
   height: 120px;
+
   transform: translate(-50%, -50%) rotate(0deg);
   transform-origin: 50% 50%;
-  opacity: 0;
+  opacity: 0.24;
+
   z-index: 1;
+  pointer-events: none;
 
   background: radial-gradient(
     circle at 50% 35%,
@@ -191,10 +204,15 @@ ion-modal.app-dialog-modal::part(backdrop) {
   );
 
   clip-path: polygon(50% 50%, 18% 0%, 82% 0%);
+
+  transition: transform 80ms linear, opacity 160ms ease;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
 }
-.user-dot .cone{
-  transition: transform 700ms ease-out, opacity 220ms ease;
-  will-change: transform;
+
+.leaflet-marker-icon.user-dot .cone{
+  transition: none !important;
 }
 
 .leaflet-container,
@@ -203,5 +221,48 @@ ion-modal.app-dialog-modal::part(backdrop) {
 .leaflet-popup-content,
 .leaflet-tooltip,
 .leaflet-control-container {
+  font-family: var(--ion-font-family) !important;
+}
+
+/* =========================================
+   GLOBAL TYPOGRAPHY FIXES
+========================================= */
+
+html, body, ion-app, ion-content,
+ion-title, ion-label, ion-text, ion-item, ion-button,
+button, input, textarea, select {
+  font-family: var(--ion-font-family) !important;
+}
+
+ion-searchbar::part(input) {
+  font-family: var(--ion-font-family) !important;
+  font-weight: 600;
+}
+
+* {
+  text-transform: none !important;
+}
+
+ion-button {
+  --text-transform: none;
+}
+
+* {
+  font-synthesis: none;
+}
+
+.settings-content,
+.settings-content * {
+  font-family: var(--ion-font-family) !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+}
+
+.settings-tabs ion-segment-button {
+  --text-transform: none;
+}
+
+ion-popover.select-compact-popover,
+ion-popover.select-compact-popover * {
   font-family: var(--ion-font-family) !important;
 }

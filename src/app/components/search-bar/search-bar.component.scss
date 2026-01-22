@@ -22,7 +22,7 @@ ion-searchbar {
 }
 
 .results {
-  max-height: 180px; /* 3 items */
+  max-height: 180px; 
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -32,7 +32,6 @@ ion-searchbar {
   --min-height: 44px;
 }
 
-/* Πρόσφατα: διαφορετικό look + accent αριστερά */
 .results.recents {
   background: rgba(0, 0, 0, 0.02);
 }
@@ -51,4 +50,18 @@ ion-searchbar {
   padding-left: 10px;
   border-top-left-radius: 10px;
   border-bottom-left-radius: 10px;
+}
+
+ion-searchbar::part(input) {
+  text-align: center;
+  padding-inline-start: 44px;
+  padding-inline-end: 44px;
+}
+
+ion-searchbar::part(search-icon) {
+  left: 14px;
+}
+
+ion-searchbar::part(clear-button) {
+  right: 12px;
 }

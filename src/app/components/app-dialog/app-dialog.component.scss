@@ -41,3 +41,9 @@ ion-content.appDialog::part(scroll) {
 .okBtn {
   margin-top: 6px;
 }
+.card,
+.title,
+.msg,
+.okBtn {
+  font-family: var(--ion-font-family) !important;
+}
