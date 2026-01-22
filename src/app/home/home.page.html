@@ -10,6 +10,7 @@
         [fill]="ameaEnabled ? 'solid' : 'outline'"
         [attr.aria-label]="'A11Y.AMEA_MODE' | translate"
         [attr.aria-pressed]="ameaEnabled"
+        [disabled]="mapLoadingVisible"
       >
         <ion-icon name="accessibility-outline" slot="start"></ion-icon>
         <ion-label class="amea-label">{{ 'A11Y.AMEA_MODE' | translate }}</ion-label>
@@ -19,6 +20,7 @@
         class="settings-btn"
         (click)="openSettings()"
         [attr.aria-label]="'SETTINGS.TITLE' | translate"
+        [disabled]="mapLoadingVisible"
       >
         <ion-icon name="settings-outline" slot="icon-only"></ion-icon>
       </ion-button>
@@ -30,18 +32,44 @@
   <!-- MAP -->
   <div id="map"></div>
 
+  <!-- MAP LOADING OVERLAY (center + blocks interaction) -->
+  <div
+    class="map-loading-overlay"
+    *ngIf="mapLoadingVisible"
+    [class.is-leaving]="mapLoadingLeaving"
+  >
+    <div class="ml-card" role="status" aria-live="polite">
+      <ion-spinner name="crescent"></ion-spinner>
+
+      <div class="ml-title">
+        {{ 'HOME.MAP_LOADING' | translate }}
+      </div>
+
+      <ion-progress-bar [value]="(mapLoadingPct || 0) / 100"></ion-progress-bar>
+
+      <div class="ml-percent">
+        {{ mapLoadingPct || 0 }}%
+      </div>
+
+      <div class="ml-sub">
+        {{ 'HOME.MAP_LOADING_SUB' | translate }}
+      </div>
+    </div>
+  </div>
+
   <!-- TOP: Search / Nav -->
   <div slot="fixed" class="search-host">
     <ng-container *ngIf="!navEnabled; else navBox">
-      <app-search-bar
-        [locked]="selectionLocked"
-        [placeholderText]="selectionLocked
-          ? ('HOME.SEARCH_LOCKED' | translate)
-          : ('HOME.SEARCH_PLACEHOLDER' | translate)"
-        (destinationSelected)="onDestinationSelected($event)"
-        (searchOpenChange)="onSearchOpenChange($event)"
-        (lockedAttempt)="onSearchLockedAttempt()">
-      </app-search-bar>
+      <div class="search-stack">
+        <app-search-bar
+          [locked]="selectionLocked || mapLoadingVisible"
+          [placeholderText]="'HOME.SEARCH_PLACEHOLDER' | translate"
+          (destinationSelected)="onDestinationSelected($event)"
+          (searchOpenChange)="onSearchOpenChange($event)"
+          (lockedAttempt)="onSearchLockedAttempt()"
+        >
+        </app-search-bar>
+      </div>
     </ng-container>
 
     <ng-template #navBox>
@@ -71,7 +99,7 @@
       shape="round"
       fill="solid"
       (click)="onFitRoute()"
-      [disabled]="!canFitRoute || showLockOverlay"
+      [disabled]="!canFitRoute || mapLoadingVisible"
       aria-label="Δείξε όλη τη διαδρομή"
     >
       <ion-icon name="git-network-outline"></ion-icon>
@@ -82,7 +110,7 @@
       shape="round"
       fill="solid"
       (click)="onRecenter()"
-      [disabled]="!hasUserFix || showLockOverlay"
+      [disabled]="!hasUserFix || mapLoadingVisible"
       aria-label="Επανεστίαση"
     >
       <ion-icon name="paper-plane-outline"></ion-icon>
@@ -90,11 +118,7 @@
   </div>
 
   <!-- POPUP -->
-  <div
-    *ngIf="showModal && currentDestination"
-    slot="fixed"
-    class="popup-overlay"
-  >
+  <div *ngIf="showModal && currentDestination" slot="fixed" class="popup-overlay">
     <app-department-popup
       #popupCard
       [destination]="currentDestination"
@@ -108,12 +132,8 @@
       (cancel)="cancelRouteKeepPopup()"
       (close)="onPopupClose()"
       (directions)="onDirections()"
-       [startDisabled]="outsideCampus || !routeReady">
+      [startDisabled]="mapLoadingVisible || outsideCampus || !routeReady"
+    >
     </app-department-popup>
-  </div>
-
-  <!-- LOCK OVERLAY -->
-  <div *ngIf="showLockOverlay" class="lock-screen">
-    <div class="lock-card">{{ 'HOME.OUT_OF_RANGE' | translate }}</div>
   </div>
 </ion-content>

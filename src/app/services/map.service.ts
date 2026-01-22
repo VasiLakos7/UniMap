@@ -57,6 +57,100 @@ export class MapService {
     progress: number;
   }>();
 
+  // -----------------------------
+  // ✅ MAP LOADING OVERLAY + %
+  // -----------------------------
+  public mapLoadingProgress = new EventEmitter<{ loading: boolean; progress: number }>();
+
+  private isMapLoading = false;
+  private tileInflight = 0;
+  private tileLoaded = 0;
+  private bootLoadSessionActive = false;
+
+  private readonly BOOT_OVERLAY_MIN_MS = 650;
+  private bootLoadingStartedAt = 0;
+  private bootOffTimer: any = null;
+
+  private bootFailsafeTimer: any = null;
+
+  private setMapLoading(loading: boolean, progress: number) {
+    const p = Math.max(0, Math.min(100, Math.round(progress)));
+
+    if (loading) {
+      if (!this.isMapLoading) {
+        this.bootLoadingStartedAt = Date.now();
+      }
+      if (this.bootOffTimer) {
+        clearTimeout(this.bootOffTimer);
+        this.bootOffTimer = null;
+      }
+
+      this.isMapLoading = true;
+      this.mapLoadingProgress.emit({ loading: true, progress: p });
+      return;
+    }
+
+    const shouldHold = this.bootLoadSessionActive && this.bootLoadingStartedAt > 0;
+
+    if (shouldHold) {
+      const elapsed = Date.now() - this.bootLoadingStartedAt;
+      const wait = this.BOOT_OVERLAY_MIN_MS - elapsed;
+
+      if (wait > 0) {
+        if (this.bootOffTimer) clearTimeout(this.bootOffTimer);
+
+        this.bootOffTimer = setTimeout(() => {
+          this.bootOffTimer = null;
+          this.isMapLoading = false;
+          this.mapLoadingProgress.emit({ loading: false, progress: 100 });
+        }, wait);
+
+        return;
+      }
+    }
+
+    if (this.bootOffTimer) {
+      clearTimeout(this.bootOffTimer);
+      this.bootOffTimer = null;
+    }
+
+    this.isMapLoading = false;
+    this.mapLoadingProgress.emit({ loading: false, progress: 100 });
+  }
+
+  public getMapLoading(): boolean {
+    return this.isMapLoading;
+  }
+
+  public firstTilesLoaded = new EventEmitter<void>();
+  private firstTilesLoadedFired = false;
+
+  private hookFirstTilesLoaded(layer?: L.TileLayer) {
+    if (!layer || this.firstTilesLoadedFired) return;
+
+    try {
+      layer.once('load', () => {
+        if (this.firstTilesLoadedFired) return;
+        this.firstTilesLoadedFired = true;
+        this.firstTilesLoaded.emit();
+      });
+    } catch {
+    }
+  }
+
+  public whenFirstTilesLoaded(timeoutMs = 9000): Promise<boolean> {
+    if (this.firstTilesLoadedFired) return Promise.resolve(true);
+
+    return new Promise<boolean>((resolve) => {
+      const t = setTimeout(() => resolve(false), Math.max(600, timeoutMs));
+      const sub = this.firstTilesLoaded.subscribe(() => {
+        clearTimeout(t);
+        sub.unsubscribe();
+        resolve(true);
+      });
+    });
+  }
+
   private destinationList = destinationList;
   public currentRoutePoints: L.LatLng[] = [];
 
@@ -110,9 +204,14 @@ export class MapService {
   private readonly COMPASS_FRESH_MS = 900;
 
   private readonly COMPASS_DEADBAND_DEG = 2.2;
-  private readonly COMPASS_MAX_STEP_DEG = 10.0;
-  private readonly COMPASS_SMOOTH_ALPHA_ABS = 0.18;
-  private readonly COMPASS_SMOOTH_ALPHA_REL = 0.12;
+
+  private readonly COMPASS_SMOOTH_ALPHA_ABS = 0.3;
+  private readonly COMPASS_SMOOTH_ALPHA_REL = 0.24;
+  private readonly COMPASS_MAX_TURN_DPS = 360;
+  private readonly COMPASS_REJECT_SPIKE_DEG = 95;
+
+  private compassHeadingDeg: number | null = null;
+  private compassHeadingAt = 0;
 
   private onDeviceOrientationAbs?: (e: DeviceOrientationEvent) => void;
   private onDeviceOrientation?: (e: DeviceOrientationEvent) => void;
@@ -153,6 +252,27 @@ export class MapService {
   private readonly JUMP_MAX_DIST_M = 35;
   private readonly JUMP_MAX_WALK_MPS = 6.5;
 
+  // -----------------------------
+  // REROUTE (nearest snap, partial)
+  // -----------------------------
+  private activeDestination: Destination | null = null;
+  private activeEndPoint: L.LatLng | null = null;
+  private rerouteEnabled = false;
+
+  private offRouteStreak = 0;
+  private lastRerouteAt = 0;
+
+  private readonly REROUTE_COOLDOWN_MS = 4000;
+  private readonly REROUTE_CONFIRM_FIXES = 4;
+
+  private readonly REROUTE_OFF_M = 24;
+  private readonly REROUTE_ON_M = 12;
+  private readonly REROUTE_MAX_ACC_M = 25;
+  private readonly REROUTE_MIN_SPEED_MPS = 0.35;
+
+  private readonly REROUTE_SKIP_NEAR_DEST_M = 45;
+  private readonly REROUTE_FULL_REBUILD_M = 9999;
+
   public setUserMarkerStyle(style: 'arrow' | 'dot') {
     this.activeUserStyle = style;
 
@@ -169,6 +289,12 @@ export class MapService {
     this.setUserMarkerStyle(active ? 'arrow' : 'dot');
     this.mapMatchEnabled = active;
 
+    this.rerouteEnabled = active;
+    if (!active) {
+      this.offRouteStreak = 0;
+      this.lastRerouteAt = 0;
+    }
+
     if (!active) {
       this.snapEngaged = false;
       this.lastSnapLL = null;
@@ -184,10 +310,7 @@ export class MapService {
     iconAnchor: [22, 45],
   });
 
-  constructor(
-    private graphService: CampusGraphService,
-    private routingService: RoutingService
-  ) {}
+  constructor(private graphService: CampusGraphService, private routingService: RoutingService) {}
 
   // -----------------------------
   // Campus polygon
@@ -233,7 +356,7 @@ export class MapService {
       const apy = p.y - a.y;
 
       const ab2 = abx * abx + aby * aby;
-      if (ab2 <= 0.0000001) {
+      if (ab2 <= 1e-7) {
         const dx = p.x - a.x;
         const dy = p.y - a.y;
         return Math.sqrt(dx * dx + dy * dy);
@@ -343,6 +466,69 @@ export class MapService {
     }
   }
 
+  // ----------------------------
+  // Tile loading progress hook
+  // -----------------------------
+  private hookTileLoadingProgress(layer?: L.TileLayer) {
+    if (!layer) return;
+
+    // reset state
+    this.tileInflight = 0;
+    this.tileLoaded = 0;
+
+    const emit = () => {
+      if (!this.bootLoadSessionActive) return;
+
+      const denom = this.tileLoaded + this.tileInflight;
+      const ratio = denom > 0 ? this.tileLoaded / denom : 0;
+
+      const prog = this.isMapLoading ? Math.max(2, Math.round(ratio * 100)) : 100;
+      this.setMapLoading(this.isMapLoading, prog);
+    };
+
+    layer.on('loading', () => {
+      if (!this.bootLoadSessionActive) return;
+
+      this.tileInflight = 0;
+      this.tileLoaded = 0;
+      this.setMapLoading(true, 2);
+    });
+
+    layer.on('tileloadstart', () => {
+      if (!this.bootLoadSessionActive) return;
+
+      this.tileInflight++;
+      emit();
+    });
+
+    const onTileDone = () => {
+      if (!this.bootLoadSessionActive) return;
+
+      this.tileInflight = Math.max(0, this.tileInflight - 1);
+      this.tileLoaded++;
+      emit();
+    };
+
+    layer.on('tileload', onTileDone);
+    layer.on('tileerror', onTileDone);
+
+    layer.on('load', () => {
+      if (!this.bootLoadSessionActive) return;
+
+      this.tileInflight = 0;
+      this.setMapLoading(false, 100);
+
+      if (this.bootFailsafeTimer) {
+        clearTimeout(this.bootFailsafeTimer);
+        this.bootFailsafeTimer = null;
+      }
+
+      setTimeout(() => {
+        this.bootLoadSessionActive = false;
+      }, 150);
+    });
+  }
+
   // -----------------------------
   // MAP INIT
   // -----------------------------
@@ -351,6 +537,27 @@ export class MapService {
       this.map.off();
       this.map.remove();
     }
+
+    this.firstTilesLoadedFired = false;
+
+    this.bootLoadSessionActive = true;
+    this.bootLoadingStartedAt = 0;
+
+    if (this.bootOffTimer) {
+      clearTimeout(this.bootOffTimer);
+      this.bootOffTimer = null;
+    }
+
+    this.setMapLoading(true, 2);
+
+    if (this.bootFailsafeTimer) clearTimeout(this.bootFailsafeTimer);
+    this.bootFailsafeTimer = setTimeout(() => {
+      if (this.bootLoadSessionActive) {
+        this.tileInflight = 0;
+        this.setMapLoading(false, 100);
+        this.bootLoadSessionActive = false;
+      }
+    }, 12000);
 
     this.map = L.map(elementId, {
       zoomControl: false,
@@ -429,31 +636,43 @@ export class MapService {
       } catch {}
     }
 
-    const computeHeading = (ev: DeviceOrientationEvent, isAbs: boolean): number | null => {
+    const computeHeading = (ev: DeviceOrientationEvent): number | null => {
       const alpha = (ev as any).alpha;
       if (typeof alpha !== 'number' || !isFinite(alpha)) return null;
 
       let heading = (360 - alpha) % 360;
 
       const angle =
-        screen.orientation && typeof screen.orientation.angle === 'number'
-          ? screen.orientation.angle
+        (screen.orientation && typeof (screen.orientation as any).angle === 'number'
+          ? (screen.orientation as any).angle
           : typeof (window as any).orientation === 'number'
             ? (window as any).orientation
-            : 0;
+            : 0) ?? 0;
 
       heading = (heading + angle + 360) % 360;
 
-      const prev = this.lastHeadingDeg;
+      const prev = this.compassHeadingDeg ?? this.lastHeadingDeg ?? null;
+
       if (prev != null) {
         const diff = this.angleDiffDeg(prev, heading);
         if (Math.abs(diff) < this.COMPASS_DEADBAND_DEG) return null;
-        heading = this.applyMaxStep(prev, heading, this.COMPASS_MAX_STEP_DEG);
+
+        const slow = (this.lastSpeedMps ?? 0) < 0.8;
+        if (slow && Math.abs(diff) >= this.COMPASS_REJECT_SPIKE_DEG) return null;
+
+        const dtS = Math.max(0.016, (Date.now() - (this.compassHeadingAt || Date.now())) / 1000);
+        const maxStep = this.COMPASS_MAX_TURN_DPS * dtS;
+        heading = this.applyMaxStep(prev, heading, maxStep);
       }
 
+      const isAbs = (ev as any).absolute === true;
       const alphaSmooth = isAbs ? this.COMPASS_SMOOTH_ALPHA_ABS : this.COMPASS_SMOOTH_ALPHA_REL;
-      const sm = this.smoothAngle(this.lastHeadingDeg, heading, alphaSmooth);
-      return sm;
+      return this.smoothAngle(prev, heading, alphaSmooth);
+    };
+
+    const applyIfDot = (sm: number) => {
+      if (this.activeUserStyle !== 'dot') return;
+      requestAnimationFrame(() => this.applyHeading(sm));
     };
 
     this.onDeviceOrientationAbs = (ev: DeviceOrientationEvent) => {
@@ -463,10 +682,13 @@ export class MapService {
       if (now - this.lastCompassAt < this.COMPASS_MIN_INTERVAL_MS) return;
       this.lastCompassAt = now;
 
-      const sm = computeHeading(ev, true);
+      const sm = computeHeading(ev);
       if (sm == null) return;
 
-      this.applyHeading(sm);
+      this.compassHeadingDeg = sm;
+      this.compassHeadingAt = now;
+
+      applyIfDot(sm);
     };
 
     this.onDeviceOrientation = (ev: DeviceOrientationEvent) => {
@@ -476,10 +698,13 @@ export class MapService {
       if (now - this.lastCompassAt < this.COMPASS_MIN_INTERVAL_MS) return;
       this.lastCompassAt = now;
 
-      const sm = computeHeading(ev, (ev as any).absolute === true);
+      const sm = computeHeading(ev);
       if (sm == null) return;
 
-      this.applyHeading(sm);
+      this.compassHeadingDeg = sm;
+      this.compassHeadingAt = now;
+
+      applyIfDot(sm);
     };
 
     window.addEventListener('deviceorientationabsolute' as any, this.onDeviceOrientationAbs as any, true);
@@ -500,6 +725,8 @@ export class MapService {
     }
 
     this.lastCompassAt = 0;
+    this.compassHeadingDeg = null;
+    this.compassHeadingAt = 0;
   }
 
   // -----------------------------
@@ -517,6 +744,8 @@ export class MapService {
     this.snapEngaged = false;
     this.lastSnapLL = null;
 
+    this.compassHeadingDeg = null;
+    this.compassHeadingAt = 0;
     this.startCompass();
 
     // -------- WEB --------
@@ -588,9 +817,7 @@ export class MapService {
         centerOnFirstFix,
         zoomOnFirstFix
       );
-    } catch {
-      // ignore
-    }
+    } catch {}
 
     try {
       this.watchId = await Geolocation.watchPosition(
@@ -657,6 +884,12 @@ export class MapService {
 
     this.snapEngaged = false;
     this.lastSnapLL = null;
+
+    this.compassHeadingDeg = null;
+    this.compassHeadingAt = 0;
+
+    this.offRouteStreak = 0;
+    this.lastRerouteAt = 0;
   }
 
   public setUserHeading(deg: number) {
@@ -805,6 +1038,138 @@ export class MapService {
     return { snapped: snappedLL, distM: bestD };
   }
 
+  private snapToRouteWithIndex(raw: L.LatLng): { snap: L.LatLng; segStartIndex: number; distM: number } | null {
+    const pts = this.currentRoutePoints;
+    if (!pts || pts.length < 2) return null;
+
+    const P = L.CRS.EPSG3857.project(raw);
+
+    let bestD = Infinity;
+    let bestPt: L.Point | null = null;
+    let bestI = -1;
+
+    for (let i = 0; i < pts.length - 1; i++) {
+      const A = L.CRS.EPSG3857.project(pts[i]);
+      const B = L.CRS.EPSG3857.project(pts[i + 1]);
+
+      const res = this.closestPointOnSegmentMeters(P, A, B);
+      if (res.dist < bestD) {
+        bestD = res.dist;
+        bestPt = res.pt;
+        bestI = i;
+      }
+    }
+
+    if (!bestPt || bestI < 0) return null;
+
+    return { snap: L.CRS.EPSG3857.unproject(bestPt), segStartIndex: bestI, distM: bestD };
+  }
+
+  // -----------------------------
+  // REROUTE logic
+  // -----------------------------
+  private async maybeReroute(rawNow: L.LatLng, accM: number, spdMps: number) {
+    if (!this.rerouteEnabled) return;
+    if (!this.mapMatchEnabled) return;
+    if (!this.activeDestination) return;
+    if (!this.currentRoutePoints || this.currentRoutePoints.length < 2) return;
+
+    const now = Date.now();
+    if (now - this.lastRerouteAt < this.REROUTE_COOLDOWN_MS) return;
+
+    if (!isFinite(accM) || accM > this.REROUTE_MAX_ACC_M) return;
+    if ((spdMps ?? 0) < this.REROUTE_MIN_SPEED_MPS) return;
+
+    const dLat = this.activeDestination.entranceLat ?? this.activeDestination.lat;
+    const dLng = this.activeDestination.entranceLng ?? this.activeDestination.lng;
+    const endLL = L.latLng(dLat, dLng);
+    const distToEnd = rawNow.distanceTo(endLL);
+    if (isFinite(distToEnd) && distToEnd <= this.REROUTE_SKIP_NEAR_DEST_M) {
+      this.offRouteStreak = 0;
+      return;
+    }
+
+    const snap = this.snapToRouteWithIndex(rawNow);
+    if (!snap) return;
+
+    const offM = snap.distM;
+
+    if (offM <= this.REROUTE_ON_M) {
+      this.offRouteStreak = 0;
+      return;
+    }
+
+    if (offM >= this.REROUTE_OFF_M) {
+      this.offRouteStreak++;
+    } else {
+      // stay
+    }
+
+    if (this.offRouteStreak < this.REROUTE_CONFIRM_FIXES) return;
+
+    this.offRouteStreak = 0;
+    this.lastRerouteAt = now;
+
+    if (offM >= this.REROUTE_FULL_REBUILD_M) {
+      await this.drawCustomRouteToDestination(this.activeDestination, rawNow, { fit: false });
+      return;
+    }
+
+    this.applyPartialRerouteFromSnap(rawNow, snap.snap, snap.segStartIndex);
+  }
+
+  private applyPartialRerouteFromSnap(rawNow: L.LatLng, snapPoint: L.LatLng, segStartIndex: number) {
+    if (!this.map) return;
+
+    this.clearRouteLayers();
+
+    const rest: L.LatLng[] = [];
+    rest.push(snapPoint);
+
+    const tail = this.currentRoutePoints.slice(segStartIndex + 1);
+    for (const p of tail) {
+      if (rest.length === 0 || !this.almostSame(rest[rest.length - 1], p)) rest.push(p);
+    }
+
+    const newPts: L.LatLng[] = [];
+    newPts.push(rawNow);
+    for (const p of rest) {
+      if (newPts.length === 0 || !this.almostSame(newPts[newPts.length - 1], p)) newPts.push(p);
+    }
+    this.currentRoutePoints = newPts;
+
+    if (rawNow.distanceTo(snapPoint) > 1) {
+      this.approachPolyline = L.polyline([rawNow, snapPoint], {
+        color: '#666666',
+        weight: 3,
+        opacity: 0.75,
+        dashArray: '4 8',
+      }).addTo(this.map);
+    }
+
+    if (rest.length >= 3) {
+      const solid = rest.slice(0, -1);
+      this.currentPolyline = L.polyline(solid, {
+        color: '#007bff',
+        weight: 6,
+        opacity: 0.9,
+      }).addTo(this.map);
+
+      this.drawEndApproach(rest[rest.length - 2], rest[rest.length - 1]);
+    } else if (rest.length === 2) {
+
+      this.drawEndApproach(rest[0], rest[1]);
+    }
+
+    const totalMeters = this.getCurrentRouteDistanceMeters();
+    this.routeProgress.emit({
+      passedMeters: 0,
+      remainingMeters: totalMeters,
+      totalMeters,
+      progress: 0,
+    });
+  }
+
   // -----------------------------
   // Fix handler (live + heading)
   // -----------------------------
@@ -872,6 +1237,7 @@ export class MapService {
                 prevSnap.lng + (target.lng - prevSnap.lng) * a
               );
             }
+
             if (prevSnap) {
               const moved = prevSnap.distanceTo(target);
               if (moved >= 0.8) {
@@ -890,7 +1256,10 @@ export class MapService {
                   ? 0.45
                   : 0.97 - (d - this.SNAP_FULL_M) * (0.52 / (this.SNAP_BLEND_M - this.SNAP_FULL_M));
 
-            chosen = L.latLng(rawNow.lat + (target.lat - rawNow.lat) * w, rawNow.lng + (target.lng - rawNow.lng) * w);
+            chosen = L.latLng(
+              rawNow.lat + (target.lat - rawNow.lat) * w,
+              rawNow.lng + (target.lng - rawNow.lng) * w
+            );
 
             if (!this.smoothLL || this.smoothLL.distanceTo(chosen) > 5) {
               this.smoothLL = chosen;
@@ -903,21 +1272,34 @@ export class MapService {
       }
     }
 
+    // θέση
     this.updateUserPosition(chosen.lat, chosen.lng);
     if (this.shouldEmitToUI(chosen, nowMs)) {
       this.locationFound.emit({ lat: chosen.lat, lng: chosen.lng, accuracy: acc });
     }
 
-    const compassFresh = Date.now() - this.lastCompassAt < this.COMPASS_FRESH_MS;
+    void this.maybeReroute(rawNow, acc, spd);
 
-    if (!compassFresh && typeof heading === 'number' && isFinite(heading) && spd > this.SPEED_USE_GPS_HEADING_MPS) {
-      const sm = this.smoothAngle(this.lastHeadingDeg, heading, 0.22);
-      this.applyHeading(sm);
-    }
+    // -----------------------------
+    // HEADING επιλογή
+    // -----------------------------
+    const hLL = this.mapMatchEnabled && this.snapEngaged ? chosen : rawNow;
 
-    if (!compassFresh) {
-      const hLL = this.mapMatchEnabled && this.snapEngaged ? chosen : rawNow;
-      this.updateHeadingFromMovement(hLL);
+    const usedMovement = this.updateHeadingFromMovement(hLL);
+
+    if (!usedMovement) {
+      if (typeof heading === 'number' && isFinite(heading) && spd > this.SPEED_USE_GPS_HEADING_MPS) {
+        const sm = this.smoothAngle(this.lastHeadingDeg, heading, 0.18);
+        this.applyHeading(sm);
+      } else {
+        const compassFresh = Date.now() - (this.compassHeadingAt || 0) < this.COMPASS_FRESH_MS;
+        if (compassFresh && this.compassHeadingDeg != null) {
+          const slow = (this.lastSpeedMps ?? 0) < 0.8;
+          const a = slow ? 0.08 : 0.12;
+          const sm = this.smoothAngle(this.lastHeadingDeg, this.compassHeadingDeg, a);
+          this.applyHeading(sm);
+        }
+      }
     }
 
     if (centerOnFirstFix && !this.hasInitialFix && this.map) {
@@ -960,7 +1342,10 @@ export class MapService {
       return next;
     }
     const a = this.getSmoothAlpha();
-    this.smoothLL = L.latLng(this.smoothLL.lat + (next.lat - this.smoothLL.lat) * a, this.smoothLL.lng + (next.lng - this.smoothLL.lng) * a);
+    this.smoothLL = L.latLng(
+      this.smoothLL.lat + (next.lat - this.smoothLL.lat) * a,
+      this.smoothLL.lng + (next.lng - this.smoothLL.lng) * a
+    );
     return this.smoothLL;
   }
 
@@ -1033,32 +1418,33 @@ export class MapService {
     this.animReq = requestAnimationFrame(step);
   }
 
-  private updateHeadingFromMovement(rawNow: L.LatLng) {
+  private updateHeadingFromMovement(rawNow: L.LatLng): boolean {
     if (!this.lastRawLL) {
       this.lastRawLL = rawNow;
-      return;
+      return false;
     }
 
-    if (this.lastAccM > this.ACC_TRUST_BEARING_M) return;
-    if (this.lastSpeedMps < this.SPEED_TRUST_BEARING_MPS) return;
+    if (this.lastAccM > this.ACC_TRUST_BEARING_M) return false;
+    if (this.lastSpeedMps < this.SPEED_TRUST_BEARING_MPS) return false;
 
     const d = this.lastRawLL.distanceTo(rawNow);
-    if (d < this.MIN_MOVE_FOR_BEARING_M) return;
+    if (d < this.MIN_MOVE_FOR_BEARING_M) return false;
 
     const deg = this.bearingDeg(this.lastRawLL, rawNow);
     this.lastRawLL = rawNow;
 
-    if (!isFinite(deg)) return;
+    if (!isFinite(deg)) return false;
 
     if (this.lastHeadingDeg != null) {
       const diff = this.angleDiffDeg(this.lastHeadingDeg, deg);
       if (Math.abs(diff) > this.MAX_JUMP_DEG_WHEN_SLOW && this.lastSpeedMps < 1.2) {
-        return;
+        return false;
       }
     }
 
-    const sm = this.smoothAngle(this.lastHeadingDeg, deg, 0.22);
+    const sm = this.smoothAngle(this.lastHeadingDeg, deg, 0.18);
     this.applyHeading(sm);
+    return true;
   }
 
   private bearingDeg(from: L.LatLng, to: L.LatLng): number {
@@ -1122,6 +1508,14 @@ export class MapService {
     };
 
     this.baseLayer = L.tileLayer(layers[style].url, layers[style].opt).addTo(this.map);
+
+    this.hookFirstTilesLoaded(this.baseLayer);
+
+    this.hookTileLoadingProgress(this.baseLayer);
+
+    if (this.bootLoadSessionActive) {
+      this.setMapLoading(true, 2);
+    }
   }
 
   public setBaseLayerFromSettings(mode: string) {
@@ -1146,19 +1540,35 @@ export class MapService {
     this.refreshMap();
   }
 
+  private getDestPoint(dest: Destination, mode: 'center' | 'entrance' = 'center'): L.LatLng {
+    if (mode === 'entrance' && dest.entranceLat != null && dest.entranceLng != null) {
+      return L.latLng(dest.entranceLat, dest.entranceLng);
+    }
+    return L.latLng(dest.lat, dest.lng);
+  }
+
+  public pinDestinationByMode(dest: Destination, mode: 'center' | 'entrance' = 'center', label?: string) {
+    const ll = this.getDestPoint(dest, mode);
+    this.pinDestination(ll.lat, ll.lng, label ?? dest.name);
+  }
+
   // -----------------------------
   // CLICK SNAP TO NEAR DESTINATION
   // -----------------------------
-  private findNearestDestinationWithin(lat: number, lng: number, maxMeters = 50): Destination | undefined {
+  private findNearestDestinationWithin(
+    lat: number,
+    lng: number,
+    maxMeters = 40,
+    mode: 'center' | 'entrance' = 'center'
+  ): Destination | undefined {
     const here = L.latLng(lat, lng);
 
     let best: { d: number; dest: Destination } | undefined;
 
     for (const dest of this.destinationList) {
-      const dLat = dest.entranceLat ?? dest.lat;
-      const dLng = dest.entranceLng ?? dest.lng;
+      const ll = this.getDestPoint(dest, mode);
+      const dist = here.distanceTo(ll);
 
-      const dist = here.distanceTo(L.latLng(dLat, dLng));
       if (dist <= maxMeters && (!best || dist < best.d)) {
         best = { d: dist, dest };
       }
@@ -1177,7 +1587,12 @@ export class MapService {
       const clickedLat = e.latlng.lat;
       const clickedLng = e.latlng.lng;
 
-      if (!this.isInsideCampus(clickedLat, clickedLng)) {
+      if (this.isMapLoading) return;
+
+      const insideStrict = this.isInsideCampus(clickedLat, clickedLng);
+      if (!insideStrict) {
+        const insideLoose = this.isPointInsideCampusLoose(clickedLat, clickedLng, 45);
+        if (insideLoose) return;
         this.outsideCampusClick.emit();
         return;
       }
@@ -1189,7 +1604,7 @@ export class MapService {
       });
 
       if (!found) {
-        found = this.findNearestDestinationWithin(clickedLat, clickedLng, 50);
+        found = this.findNearestDestinationWithin(clickedLat, clickedLng, 40, 'center');
       }
 
       this.mapClicked.emit({
@@ -1224,6 +1639,29 @@ export class MapService {
     }
   }
 
+  private drawEndApproach(from: L.LatLng, to: L.LatLng) {
+    if (!this.map) return;
+
+    if (this.endApproachPolyline) {
+      try {
+        this.map.removeLayer(this.endApproachPolyline);
+      } catch {}
+      this.endApproachPolyline = null;
+    }
+
+    if (!from || !to) return;
+    if (from.distanceTo(to) < 0.6) return;
+
+    this.endApproachPolyline = L.polyline([from, to], {
+      color: '#007bff',
+      weight: 6,
+      opacity: 0.9,
+      dashArray: '10 14',
+      lineCap: 'round',
+      lineJoin: 'round',
+    }).addTo(this.map);
+  }
+
   // -----------------------------
   // ROUTING (custom graph)
   // -----------------------------
@@ -1238,7 +1676,7 @@ export class MapService {
     return this.sumDistanceMeters(this.currentRoutePoints);
   }
 
-  public async drawCustomRouteToDestination(dest: Destination, startPoint: L.LatLng) {
+  private clearRouteLayers() {
     if (!this.map) return;
 
     if (this.currentPolyline) {
@@ -1257,14 +1695,64 @@ export class MapService {
       this.map.removeLayer(this.endApproachPolyline);
       this.endApproachPolyline = null;
     }
+
     this.routingService.removeRouting(this.map);
+  }
+
+  private almostSame(a: L.LatLng, b: L.LatLng, epsM: number = 0.7): boolean {
+    return a.distanceTo(b) <= epsM;
+  }
+
+  public async drawCustomRouteToDestination(dest: Destination, startPoint: L.LatLng, opts?: { fit?: boolean }) {
+    if (!this.map) return;
+
+    this.activeDestination = dest;
+    this.rerouteEnabled = true;
+    this.offRouteStreak = 0;
+
+    this.clearRouteLayers();
 
     const destLat = dest.entranceLat ?? dest.lat;
     const destLng = dest.entranceLng ?? dest.lng;
     const endPoint = L.latLng(destLat, destLng);
+    this.activeEndPoint = endPoint; // ✅
 
     this.pinDestination(destLat, destLng, dest.name);
 
+    const APPROACH_START_M = 38;
+    const distToDestNow = startPoint.distanceTo(endPoint);
+
+    if (isFinite(distToDestNow) && distToDestNow <= APPROACH_START_M) {
+      this.currentRoutePoints = [startPoint, endPoint];
+
+      this.drawEndApproach(startPoint, endPoint);
+
+      const bounds = L.latLngBounds([startPoint, endPoint]);
+      this.lastRouteBounds = bounds;
+
+      if (opts?.fit !== false) {
+        this.map.fitBounds(bounds, {
+          paddingTopLeft: [30, 140],
+          paddingBottomRight: [30, 260],
+          maxZoom: 19,
+          animate: true,
+          duration: 0.7,
+        });
+      }
+
+      const totalMeters = this.getCurrentRouteDistanceMeters();
+      this.routeProgress.emit({
+        passedMeters: 0,
+        remainingMeters: totalMeters,
+        totalMeters,
+        progress: 0,
+      });
+      return;
+    }
+
+    // =============================
+    //  GRAPH ROUTE
+    // =============================
     let endNodeId = this.graphService.getNodeIdForName(dest.name) || this.graphService.findNearestNodeId(destLat, destLng);
     if (!endNodeId) return;
 
@@ -1281,28 +1769,34 @@ export class MapService {
     const startNodeCoords = this.graphService.getDestinationCoords(startNodeId);
     if (!startNodeCoords) return;
 
-    // -----------------------------
-    // ✅ main (continuous) route points
-    // -----------------------------
     const mainRoutePoints: L.LatLng[] = [...pathNodes];
+    const END_TRIM_TOL_M = 2.0;
+    const dist = (p: L.LatLng) => p.distanceTo(endPoint);
 
-    // ✅ “κόψε 1 πριν” αν ο τελευταίος κόμβος είναι ουσιαστικά πάνω στην είσοδο
-    const FORCE_DASH_IF_WITHIN_M = 2.5; // αν last node <= 2.5m από είσοδο => θεωρούμε ίδιο σημείο
-    const DASH_SHOW_IF_OVER_M = 1.0;    // δείξε διακεκομμένη αν gap > 1m
+    while (mainRoutePoints.length >= 3) {
+      const last = mainRoutePoints[mainRoutePoints.length - 1];
+      const prev = mainRoutePoints[mainRoutePoints.length - 2];
 
-    let lastNode: L.LatLng | null = mainRoutePoints.length ? mainRoutePoints[mainRoutePoints.length - 1] : null;
-    let endGap = lastNode ? lastNode.distanceTo(endPoint) : Infinity;
-
-    if (lastNode && isFinite(endGap) && endGap <= FORCE_DASH_IF_WITHIN_M && mainRoutePoints.length >= 2) {
-      mainRoutePoints.pop();
-      lastNode = mainRoutePoints.length ? mainRoutePoints[mainRoutePoints.length - 1] : null;
-      endGap = lastNode ? lastNode.distanceTo(endPoint) : Infinity;
+      if (dist(last) > dist(prev) + END_TRIM_TOL_M) {
+        mainRoutePoints.pop();
+      } else {
+        break;
+      }
     }
 
-    // ✅ ΚΡΙΣΙΜΟ: currentRoutePoints = ΜΟΝΟ η συνεχόμενη διαδρομή (ΧΩΡΙΣ την είσοδο)
-    this.currentRoutePoints = [startPoint, startNodeCoords, ...mainRoutePoints];
+    const pts: L.LatLng[] = [];
+    pts.push(startPoint);
 
-    // start -> first node (grey dashed)
+    if (!this.almostSame(startPoint, startNodeCoords)) pts.push(startNodeCoords);
+
+    for (const p of mainRoutePoints) {
+      if (pts.length === 0 || !this.almostSame(pts[pts.length - 1], p)) pts.push(p);
+    }
+
+    if (!this.almostSame(pts[pts.length - 1], endPoint)) pts.push(endPoint);
+
+    this.currentRoutePoints = pts;
+
     if (startPoint.distanceTo(startNodeCoords) > 1) {
       this.approachPolyline = L.polyline([startPoint, startNodeCoords], {
         color: '#666666',
@@ -1312,36 +1806,32 @@ export class MapService {
       }).addTo(this.map);
     }
 
-    // main blue route
-    this.currentPolyline = L.polyline(mainRoutePoints, {
-      color: '#007bff',
-      weight: 6,
-      opacity: 0.9,
-    }).addTo(this.map);
-
-    // end dashed (blue) from last node -> entrance
-    if (lastNode && isFinite(endGap) && endGap > DASH_SHOW_IF_OVER_M) {
-      this.endApproachPolyline = L.polyline([lastNode, endPoint], {
+    if (pts.length >= 3) {
+      const solidPts = pts.slice(0, -1);
+      this.currentPolyline = L.polyline(solidPts, {
         color: '#007bff',
-        weight: 5,
-        opacity: 0.7,
-        dashArray: '6 10',
+        weight: 6,
+        opacity: 0.9,
       }).addTo(this.map);
+
+      this.drawEndApproach(pts[pts.length - 2], pts[pts.length - 1]);
+    } else if (pts.length === 2) {
+      // only dashed segment
+      this.drawEndApproach(pts[0], pts[1]);
     }
 
-    // bounds (include entrance so camera frames the pin)
-    const boundsPoints = [startPoint, startNodeCoords, ...mainRoutePoints];
-    if (lastNode && isFinite(endGap) && endGap > DASH_SHOW_IF_OVER_M) boundsPoints.push(endPoint);
-    const bounds = L.latLngBounds(boundsPoints);
+    const bounds = L.latLngBounds(pts);
     this.lastRouteBounds = bounds;
 
-    this.map.fitBounds(bounds, {
-      paddingTopLeft: [30, 140],
-      paddingBottomRight: [30, 260],
-      maxZoom: 18,
-      animate: true,
-      duration: 0.7,
-    });
+    if (opts?.fit !== false) {
+      this.map.fitBounds(bounds, {
+        paddingTopLeft: [30, 140],
+        paddingBottomRight: [30, 260],
+        maxZoom: 18,
+        animate: true,
+        duration: 0.7,
+      });
+    }
 
     const totalMeters = this.getCurrentRouteDistanceMeters();
     this.routeProgress.emit({
@@ -1380,14 +1870,9 @@ export class MapService {
   public updateRouteProgress(passedPoints: L.LatLng[], remainingPoints: L.LatLng[]) {
     if (!this.map) return;
 
-    // keep approach/end-approach stable (your HomePage handles progress split)
     if (this.approachPolyline) {
       this.map.removeLayer(this.approachPolyline);
       this.approachPolyline = null;
-    }
-    if (this.endApproachPolyline) {
-      this.map.removeLayer(this.endApproachPolyline);
-      this.endApproachPolyline = null;
     }
 
     if (passedPoints && passedPoints.length >= 2) {
@@ -1399,15 +1884,34 @@ export class MapService {
     }
 
     if (remainingPoints && remainingPoints.length >= 2) {
-      if (!this.currentPolyline) {
-        this.currentPolyline = L.polyline(remainingPoints, { color: '#007bff', weight: 6, opacity: 0.9 }).addTo(this.map);
+      const n = remainingPoints.length;
+      const a = remainingPoints[n - 2];
+      const b = remainingPoints[n - 1];
+
+      if (n >= 3) {
+        const solid = remainingPoints.slice(0, -1);
+
+        if (!this.currentPolyline) {
+          this.currentPolyline = L.polyline(solid, { color: '#007bff', weight: 6, opacity: 0.9 }).addTo(this.map);
+        } else {
+          this.currentPolyline.setLatLngs(solid);
+        }
       } else {
-        this.currentPolyline.setLatLngs(remainingPoints);
+        if (this.currentPolyline) {
+          this.map.removeLayer(this.currentPolyline);
+          this.currentPolyline = null;
+        }
       }
+
+      this.drawEndApproach(a, b);
     } else {
       if (this.currentPolyline) {
         this.map.removeLayer(this.currentPolyline);
         this.currentPolyline = null;
+      }
+      if (this.endApproachPolyline) {
+        this.map.removeLayer(this.endApproachPolyline);
+        this.endApproachPolyline = null;
       }
     }
 
@@ -1454,6 +1958,13 @@ export class MapService {
 
     this.routeProgress.emit({ passedMeters: 0, remainingMeters: 0, totalMeters: 0, progress: 0 });
     this.lastRouteBounds = null;
+
+    // reroute reset
+    this.activeDestination = null;
+    this.activeEndPoint = null;
+    this.rerouteEnabled = false;
+    this.offRouteStreak = 0;
+    this.lastRerouteAt = 0;
   }
 
   public getCurrentRoutePoints(): L.LatLng[] {

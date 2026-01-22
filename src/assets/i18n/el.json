@@ -64,7 +64,12 @@
     "SEARCH_PLACEHOLDER": "Προορισμός...",
     "SEARCH_LOCKED": "🔒 Διαδρομή ενεργή",
     "OUT_OF_RANGE": "Εκτός εμβέλειας",
-    "RECENTER": "Επανεστίαση"
+    "RECENTER": "Επανεστίαση",
+    "MAP_LOADING": "Φόρτωση χάρτη…",
+    "OUTSIDE_CAMPUS": "Είσαι εκτός campus",
+    "CAMPUS_CHECK": "Έλεγχος εμβέλειας campus…",
+    "MAP_LOADING_SUB": "Παρακαλώ περιμένετε..."
+
   },
 
   "NAV": {
@@ -242,7 +247,9 @@
     "OUTSIDE_CAMPUS_ROUTE_FROM_BUSSTOP": "Βρίσκεστε εκτός εμβέλειας. Η διαδρομή θα εμφανιστεί από τη στάση λεωφορείου όταν εισέλθετε στον χώρο.",
     "OUTSIDE_CAMPUS_PICK_DEPT_MSG": "Βρίσκεστε εκτός campus. Παρακαλώ επιλέξτε ένα τμήμα εντός campus.",
     "ROUTE_FROM_BUSSTOP_TITLE": "Προσοχή",
-    "ROUTE_FROM_BUSSTOP_MSG": "Είσαι εκτός campus. Οι οδηγίες θα ξεκινήσουν από τη στάση λεωφορείου."
+    "ROUTE_FROM_BUSSTOP_MSG": "Είσαι εκτός campus. Οι οδηγίες θα ξεκινήσουν από τη στάση λεωφορείου.",
+    "OUTSIDE_CAMPUS_ON_START_MSG": "Είσαι εκτός εμβέλειας campus. Μπορείς να χρησιμοποιήσεις την εφαρμογή απομακρυσμένα."
+
   }
   
 }

@@ -65,7 +65,14 @@
     "SEARCH_PLACEHOLDER": "Destination...",
     "SEARCH_LOCKED": "🔒 Route active",
     "OUT_OF_RANGE": "Out of range",
-    "RECENTER": "Recenter"
+    "RECENTER": "Recenter",
+    "MAP_LOADING": "Loading map…",
+    "OUTSIDE_CAMPUS": "You are outside campus",
+    "CAMPUS_CHECK": "Checking campus range…",
+    "MAP_LOADING_SUB": "Please wait..."
+
+
+
   },
 
   "NAV": {
@@ -246,6 +253,8 @@
     "OUTSIDE_CAMPUS_ROUTE_FROM_BUSSTOP": "You are out of range. The route will be shown from the bus stop once you enter the campus.",
     "OUTSIDE_CAMPUS_PICK_DEPT_MSG": "You are outside campus. Please select a department inside campus.",
     "ROUTE_FROM_BUSSTOP_TITLE": "Heads up",
-    "ROUTE_FROM_BUSSTOP_MSG": "You are outside campus. Directions will start from the bus stop."
+    "ROUTE_FROM_BUSSTOP_MSG": "You are outside campus. Directions will start from the bus stop.",
+    "OUTSIDE_CAMPUS_ON_START_MSG": "You are outside campus range. You can still use the app remotely."
+
   }
 }

@@ -56,13 +56,12 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
   popupHeightPx = 0;
 
   settings: AppSettings = this.settingsSvc.defaults();
-
   ameaEnabled = false;
 
   // route states
-  routeReady = false;          // route built (after Directions)
-  navigationActive = false;    // actively navigating (after Start)
-  hasRoutePreview = false;     // keep for compatibility
+  routeReady = false;
+  navigationActive = false;
+  hasRoutePreview = false;
   outsideCampus = false;
 
   simulateMovement = false;
@@ -74,7 +73,27 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
 
   currentDestination: Destination | null = null;
   showModal = false;
-  showLockOverlay = false;
+
+  //  MAP LOADING (overlay)
+  mapLoading = false;
+  mapLoadingPct = 0;
+  mapLoadingVisible = false; 
+  mapLoadingLeaving = false; 
+
+  private mapLoadingOffTimer: any = null;
+  private mapLoadingMinTimer: any = null;
+
+  private mapLoadingShownAt = 0;
+  private mapLoadingMinUntil = 0;
+
+  private readonly OVERLAY_FADE_MS = 240;
+  private readonly OVERLAY_MIN_SHOW_MS = 5500;
+
+  outsideCampusKnown = false;
+  outsideCampusOverlay = false;
+
+  private startOutsideDialogShown = false;
+  private bootCheckRunning = false;
 
   destinationList = destinationList;
 
@@ -82,7 +101,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
   hasArrived = false;
   hasUserFix = false;
 
-  // nav-box (μόνο όταν navigationActive)
+  // nav-box
   navEnabled = false;
   navInstructionKey = 'NAV.PLACEHOLDER';
   navInstructionParams: any = {};
@@ -115,24 +134,25 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
   private readonly WINDOW_FWD = 90;
   private readonly FULLSCAN_TRIGGER_M = 35;
 
-  // ✅ LOCK: όταν έχεις οδηγίες/route, δεν επιτρέπουμε νέα επιλογή
   selectionLocked = false;
   private lockIfHasDirections() {
-    this.selectionLocked = !!(this.routeReady || this.navigationActive || this.hasRoutePreview);
+    this.selectionLocked = !!(
+      this.mapLoadingVisible ||
+      this.showModal ||
+      this.routeReady ||
+      this.navigationActive ||
+      this.hasRoutePreview
+    );
   }
   private async ensureUnlockedOrCancel(): Promise<boolean> {
-    return !this.selectionLocked; // ✅ ποτέ μηνύματα
+    return !this.selectionLocked;
   }
-  async onSearchLockedAttempt() {
-    // ✅ τίποτα (κλειδωμένο χωρίς μηνύματα)
-  }
+  async onSearchLockedAttempt() {}
 
   get recenterBottom(): number {
     const base = 14;
-
     const popupOpen = this.showModal && !!this.currentDestination;
     if (!popupOpen) return base;
-
     const h = this.popupHeightPx || 120;
     return base + h + 44;
   }
@@ -180,11 +200,85 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
 
     this.mapSubscriptions.forEach((s) => s.unsubscribe());
     if (this.simulationInterval) clearInterval(this.simulationInterval);
+
+    if (this.mapLoadingOffTimer) clearTimeout(this.mapLoadingOffTimer);
+    if (this.mapLoadingMinTimer) clearTimeout(this.mapLoadingMinTimer);
+
     this.mapService.stopGpsWatch();
   }
 
+  private async checkOutsideAfterTiles(tilesTimeoutMs = 9000) {
+    if (this.bootCheckRunning) return;
+    if (this.startOutsideDialogShown) return;
+
+    this.bootCheckRunning = true;
+
+    const tilesOk = (this.mapService as any).whenFirstTilesLoaded
+      ? await (this.mapService as any).whenFirstTilesLoaded(tilesTimeoutMs)
+      : true;
+
+    if (!tilesOk) {
+      this.bootCheckRunning = false;
+      return;
+    }
+
+    if (!this.hasUserFix) {
+      const sub = this.mapService.locationFound.subscribe(async (pos) => {
+        sub.unsubscribe();
+        this.userLat = pos.lat;
+        this.userLng = pos.lng;
+        this.hasUserFix = true;
+
+        await this.runOutsideCheckOnce();
+        this.bootCheckRunning = false;
+      });
+      return;
+    }
+
+    await this.runOutsideCheckOnce();
+    this.bootCheckRunning = false;
+  }
+
+  private async runOutsideCheckOnce() {
+    if (this.startOutsideDialogShown) return;
+
+    const lat = this.userLat;
+    const lng = this.userLng;
+
+    const inside = (this.mapService as any).isPointInsideCampusLoose
+      ? (this.mapService as any).isPointInsideCampusLoose(lat, lng, 45)
+      : this.mapService.isPointInsideCampus(lat, lng);
+
+    this.outsideCampusKnown = true;
+    this.outsideCampusOverlay = !inside;
+
+    if (!inside) {
+      this.startOutsideDialogShown = true;
+      //akuro dialog isws balw kati allo
+      //await this.uiDialog.info('DIALOG.OUTSIDE_CAMPUS_TITLE', 'DIALOG.OUTSIDE_CAMPUS_ON_START_MSG');
+    }
+  }
+
   async ionViewDidEnter() {
-    this.showLockOverlay = true;
+    //  reset “εκκίνησης”
+    this.startOutsideDialogShown = false;
+    this.bootCheckRunning = false;
+
+    this.outsideCampusKnown = false;
+    this.outsideCampusOverlay = false;
+
+    // αρχικό loading μέχρι να έρθει event από MapService
+    this.mapLoading = true;
+    this.mapLoadingPct = 0;
+    this.mapLoadingVisible = true;
+    this.mapLoadingLeaving = false;
+
+    // start minimum window
+    const now = Date.now();
+    this.mapLoadingShownAt = now;
+    this.mapLoadingMinUntil = now + this.OVERLAY_MIN_SHOW_MS;
+
+    this.lockIfHasDirections();
 
     const st: any = history.state;
     if (st?.lat && st?.lng) {
@@ -203,12 +297,9 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
 
     this.mapService.initializeMap(this.userLat, this.userLng, 'map');
     this.mapService.setNavigationMode(false);
-
     this.applyMapSettings();
-
-    await this.mapService.startGpsWatch(false, 18);
-
-    this.showLockOverlay = false;
+    await this.mapService.startGpsWatch(true, 18);
+    void this.checkOutsideAfterTiles(9000);
   }
 
   onRecenter() {
@@ -263,7 +354,6 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     await loading.dismiss();
   }
 
-  // ✅ reset state για νέο προορισμό
   private resetForNewSelection() {
     this.navigationActive = false;
     this.hasArrived = false;
@@ -293,8 +383,8 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
 
     this.resetTopNav();
 
-    // ✅ ξεκλείδωσε (θα ξανακλειδώσει όταν πατήσουν Directions/Start)
     this.selectionLocked = false;
+    this.lockIfHasDirections();
   }
 
   async toggleAmea() {
@@ -457,13 +547,85 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
   }
 
   private subscribeToMapEvents() {
+    const loadSub = (this.mapService as any).mapLoadingProgress?.subscribe?.(
+      ({ loading, progress }: { loading: boolean; progress: number }) => {
+        const isLoading = !!loading;
+
+        this.mapLoading = isLoading;
+        this.mapLoadingPct = Math.max(0, Math.min(100, Math.round(progress ?? 0)));
+
+        if (isLoading) {
+          if (this.mapLoadingOffTimer) {
+            clearTimeout(this.mapLoadingOffTimer);
+            this.mapLoadingOffTimer = null;
+          }
+          if (this.mapLoadingMinTimer) {
+            clearTimeout(this.mapLoadingMinTimer);
+            this.mapLoadingMinTimer = null;
+          }
+          const now = Date.now();
+          if (!this.mapLoadingVisible) {
+            this.mapLoadingShownAt = now;
+            this.mapLoadingMinUntil = now + this.OVERLAY_MIN_SHOW_MS;
+          }
+
+          this.mapLoadingVisible = true;
+          this.mapLoadingLeaving = false;
+          this.lockIfHasDirections();
+          return;
+        }
+
+        const now = Date.now();
+        const waitMin = Math.max(0, this.mapLoadingMinUntil - now);
+
+        if (waitMin > 0) {
+          if (this.mapLoadingMinTimer) clearTimeout(this.mapLoadingMinTimer);
+          this.mapLoadingMinTimer = setTimeout(() => {
+            this.mapLoadingMinTimer = null;
+
+            this.mapLoadingLeaving = true;
+            this.lockIfHasDirections();
+
+            if (this.mapLoadingOffTimer) clearTimeout(this.mapLoadingOffTimer);
+            this.mapLoadingOffTimer = setTimeout(() => {
+              this.mapLoadingOffTimer = null;
+              this.mapLoadingVisible = false;
+              this.mapLoadingLeaving = false;
+              this.lockIfHasDirections();
+            }, this.OVERLAY_FADE_MS);
+          }, waitMin);
+
+          this.mapLoadingVisible = true;
+          this.mapLoadingLeaving = false;
+          this.lockIfHasDirections();
+          return;
+        }
+        
+        this.mapLoadingLeaving = true;
+        this.lockIfHasDirections();
+
+        if (this.mapLoadingOffTimer) clearTimeout(this.mapLoadingOffTimer);
+        this.mapLoadingOffTimer = setTimeout(() => {
+          this.mapLoadingOffTimer = null;
+          this.mapLoadingVisible = false;
+          this.mapLoadingLeaving = false;
+          this.lockIfHasDirections();
+        }, this.OVERLAY_FADE_MS);
+      }
+    );
+
     const locSub = this.mapService.locationFound.subscribe((pos) => {
       this.userLat = pos.lat;
       this.userLng = pos.lng;
-      this.showLockOverlay = false;
       this.hasUserFix = true;
 
-      // ✅ progress μόνο όταν navigationActive
+      const inside = (this.mapService as any).isPointInsideCampusLoose
+        ? (this.mapService as any).isPointInsideCampusLoose(pos.lat, pos.lng, 45)
+        : this.mapService.isPointInsideCampus(pos.lat, pos.lng);
+
+      this.outsideCampusKnown = true;
+      this.outsideCampusOverlay = !inside;
+
       if (!this.navigationActive) return;
 
       const route = this.mapService.getCurrentRoutePoints();
@@ -482,7 +644,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
       this.prevFix = here;
 
       const now = Date.now();
-      const canProgress = (now - this.lastProgressAt) >= this.PROGRESS_MIN_INTERVAL_MS;
+      const canProgress = now - this.lastProgressAt >= this.PROGRESS_MIN_INTERVAL_MS;
 
       if (canProgress) {
         const split = this.buildProgressSplit(here, route);
@@ -493,7 +655,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
         }
       }
 
-      if ((now - this.lastNavAt) >= this.NAV_MIN_INTERVAL_MS) {
+      if (now - this.lastNavAt >= this.NAV_MIN_INTERVAL_MS) {
         this.updateNavInstruction(here, route);
         this.lastNavAt = now;
       }
@@ -508,24 +670,23 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
 
         this.resetTopNav();
 
-        // ✅ φτάσαμε => ξεκλείδωσε επιλογές
         this.routeReady = false;
         this.selectionLocked = false;
+        this.lockIfHasDirections();
       }
     });
 
     const errSub = this.mapService.locationError.subscribe(() => {});
 
-    // ✅ έξω campus: ΜΟΝΟ αν δεν είμαστε locked
     const outSub = this.mapService.outsideCampusClick.subscribe(async () => {
       if (this.selectionLocked) return;
+      if (this.mapLoadingVisible) return;
       await this.uiDialog.info('DIALOG.OUTSIDE_CAMPUS_TITLE', 'DIALOG.OUTSIDE_CAMPUS_PICK_DEPT_MSG');
     });
 
-    // ✅ click στον χάρτη: μπλοκ όταν locked
     const clickSub = this.mapService.mapClicked.subscribe((data) => {
       if (this.selectionLocked) return;
-      if (this.showLockOverlay) return;
+      if (this.mapLoadingVisible) return;
       if (this.isSearchOpen) return;
 
       const fallbackName = this.translate.instant('DEST.CUSTOM.NAME') || 'Επιλεγμένος προορισμός';
@@ -534,7 +695,6 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
       void this.handleMapClick(data.lat, data.lng, name);
     });
 
-    // ✅ routeProgress: ενημέρωση UI μόνο όταν routeReady ή navigationActive
     const progSub = this.mapService.routeProgress.subscribe((p) => {
       if (!this.navigationActive && !this.routeReady && !this.hasRoutePreview) return;
 
@@ -550,11 +710,13 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
       }
     });
 
+    if (loadSub) this.mapSubscriptions.push(loadSub);
     this.mapSubscriptions.push(locSub, errSub, outSub, clickSub, progSub);
   }
 
   async onDestinationSelected(destination: Destination) {
-    if (this.selectionLocked) return; // ✅ search κλειδωμένο χωρίς μηνύματα
+    if (this.selectionLocked) return;
+    if (this.mapLoadingVisible) return;
     void this.handleMapClick(destination.lat, destination.lng, destination.name);
   }
 
@@ -562,7 +724,6 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     this.isSearchOpen = open;
   }
 
-  // ✅ επιλογή προορισμού: pin + zoom + popup (ΧΩΡΙΣ route)
   async handleMapClick(lat: number, lng: number, name: string = 'Επιλεγμένος προορισμός') {
     const ok = await this.ensureUnlockedOrCancel();
     if (!ok) return;
@@ -575,13 +736,6 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
 
     this.hasArrived = false;
 
-    const pinLat = dest.entranceLat ?? dest.lat;
-    const pinLng = dest.entranceLng ?? dest.lng;
-    const endLL = L.latLng(pinLat, pinLng);
-
-    this.mapService.pinDestination(pinLat, pinLng, dest.name);
-    this.mapService.focusOn(pinLat, pinLng, 19);
-
     const inside = (this.mapService as any).isPointInsideCampusLoose
       ? (this.mapService as any).isPointInsideCampusLoose(this.userLat, this.userLng, 45)
       : this.mapService.isPointInsideCampus(this.userLat, this.userLng);
@@ -589,16 +743,20 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     this.outsideCampus = !inside;
 
     const startLL = inside ? L.latLng(this.userLat, this.userLng) : this.BUS_STOP;
-    this.setDistanceUiFromDirect(startLL, endLL);
+    const centerLL = L.latLng(dest.lat, dest.lng);
+
+    this.mapService.pinDestination(centerLL.lat, centerLL.lng, dest.name);
+    this.mapService.focusOn(centerLL.lat, centerLL.lng, 19);
+
+    this.setDistanceUiFromDirect(startLL, centerLL);
 
     this.routeReady = false;
     this.navigationActive = false;
-    this.lockIfHasDirections(); // (θα γίνει false)
+    this.lockIfHasDirections();
 
     this.showModal = true;
   }
 
-  // ✅ Οδηγίες: χτίζει route και ΚΛΕΙΔΩΝΕΙ επιλογές
   async onDirections() {
     if (!this.currentDestination) return;
 
@@ -608,13 +766,12 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
 
     this.outsideCampus = !inside;
     if (this.outsideCampus) {
-      await this.uiDialog.info('DIALOG.ROUTE_FROM_BUSSTOP_TITLE','DIALOG.ROUTE_FROM_BUSSTOP_MSG');
+      await this.uiDialog.info('DIALOG.ROUTE_FROM_BUSSTOP_TITLE', 'DIALOG.ROUTE_FROM_BUSSTOP_MSG');
     }
 
     const startLL = inside ? L.latLng(this.userLat, this.userLng) : this.BUS_STOP;
 
     this.mapService.removeRouting(true);
-
     await this.mapService.drawCustomRouteToDestination(this.currentDestination, startLL);
 
     const routePts = this.mapService.getCurrentRoutePoints();
@@ -632,12 +789,8 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
       this.routeReady = true;
       this.hasRoutePreview = false;
 
-      // ✅ κλείδωσε εδώ
       this.lockIfHasDirections();
-
-      // nav-box OFF μέχρι Start
       this.resetTopNav();
-
       this.onFitRoute();
     } else {
       this.routeReady = false;
@@ -647,13 +800,13 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
 
   async startNavigation() {
     if (!this.currentDestination) return;
-    if (this.outsideCampus) return;
-    const inside = (this.mapService as any).isPointInsideCampusLoose
-    ? (this.mapService as any).isPointInsideCampusLoose(this.userLat, this.userLng, 45)
-    : this.mapService.isPointInsideCampus(this.userLat, this.userLng);
 
-  this.outsideCampus = !inside;
-  if (this.outsideCampus) return;
+    const inside = (this.mapService as any).isPointInsideCampusLoose
+      ? (this.mapService as any).isPointInsideCampusLoose(this.userLat, this.userLng, 45)
+      : this.mapService.isPointInsideCampus(this.userLat, this.userLng);
+
+    this.outsideCampus = !inside;
+    if (this.outsideCampus) return;
 
     if (!this.routeReady) {
       await this.onDirections();
@@ -675,7 +828,6 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     this.navEnabled = true;
     this.navigationActive = true;
 
-    // ✅ κλείδωσε
     this.lockIfHasDirections();
 
     const route = this.mapService.getCurrentRoutePoints();
@@ -688,7 +840,6 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     this.updateNavInstruction(L.latLng(this.userLat, this.userLng), route);
   }
 
-  // (αν έχεις κουμπί cancel μέσα στο popup)
   cancelRouteKeepPopup() {
     this.navigationActive = false;
     this.hasArrived = false;
@@ -699,14 +850,13 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     if (this.simulationInterval) clearInterval(this.simulationInterval);
 
     const dest = this.currentDestination;
-    const pinLat = dest ? (dest.entranceLat ?? dest.lat) : null;
-    const pinLng = dest ? (dest.entranceLng ?? dest.lng) : null;
 
     this.mapService.removeRouting(true);
 
-    if (pinLat != null && pinLng != null && dest) {
-      this.mapService.pinDestination(pinLat, pinLng, dest.name);
-      this.mapService.focusOn(pinLat, pinLng, 19);
+    if (dest) {
+      const centerLL = L.latLng(dest.lat, dest.lng);
+      this.mapService.pinDestination(centerLL.lat, centerLL.lng, dest.name);
+      this.mapService.focusOn(centerLL.lat, centerLL.lng, 19);
     }
 
     this.routeReady = false;
@@ -728,11 +878,10 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     this.lastNavAt = 0;
     this.lastHereForProgress = null;
 
-    // ✅ ξεκλείδωσε
     this.selectionLocked = false;
+    this.lockIfHasDirections();
   }
 
-  // ✅ X: κλείνει ΟΛΑ χωρίς μηνύματα και ξεκλειδώνει
   onPopupClose() {
     this.showModal = false;
 
@@ -771,8 +920,8 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     this.lastNavAt = 0;
     this.lastHereForProgress = null;
 
-    // ✅ ξεκλείδωσε επιλογές
     this.selectionLocked = false;
+    this.lockIfHasDirections();
   }
 
   private async refreshMapWithPercent() {
@@ -790,9 +939,13 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
 
     const anyMap: any = this.mapService as any;
     if (typeof anyMap.refreshMap === 'function') {
-      try { anyMap.refreshMap(); } catch {}
+      try {
+        anyMap.refreshMap();
+      } catch {}
     } else {
-      try { (anyMap.map ?? null)?.invalidateSize?.(true); } catch {}
+      try {
+        (anyMap.map ?? null)?.invalidateSize?.(true);
+      } catch {}
     }
 
     await new Promise((res) => setTimeout(res, 900));
@@ -920,9 +1073,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
       const segLen = a.distanceTo(b);
 
       const reached =
-        segLen <= SHORT_SEG_M
-          ? pr.t >= SHORT_T_REACH
-          : here.distanceTo(b) <= NODE_REACH_M;
+        segLen <= SHORT_SEG_M ? pr.t >= SHORT_T_REACH : here.distanceTo(b) <= NODE_REACH_M;
 
       if (!reached) break;
 
@@ -959,7 +1110,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
   }
 
   onFitRoute() {
-    const bottomPad = 260 + (this.showModal ? (this.popupHeightPx || 0) : 0);
+    const bottomPad = 260 + (this.showModal ? this.popupHeightPx || 0 : 0);
 
     (this.mapService as any).fitRouteToView?.({
       paddingTopLeft: [30, 140],

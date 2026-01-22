@@ -47,20 +47,36 @@ ion-content {
 /* ------------------------------
    SEARCH / NAV HOST (πάνω από map)
 ------------------------------ */
-.search-host {
-  padding-top: calc(env(safe-area-inset-top) + 10px);
-  display: flex;
-  justify-content: center;
-  width: 100%;
+.search-host{
+  position: fixed;           
+  top: calc(56px + env(safe-area-inset-top) + 10px); 
+  left: 50%;
+  transform: translateX(-50%);
+
+  width: min(520px, calc(100vw - 24px)); 
   z-index: 1500;
+
   pointer-events: none;
 }
 
-.search-host app-search-bar {
-  width: min(520px, calc(100% - 24px));
+.search-stack{
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   pointer-events: auto;
 }
 
+/* για σιγουριά */
+.search-host app-search-bar{
+  display: block;
+  width: 100%;
+}
+
+
+/* ------------------------------
+   POPUP (bottom sheet container)
+------------------------------ */
 .popup-overlay {
   position: fixed;
   left: 0;
@@ -100,9 +116,10 @@ ion-content {
   color: #fff;
   font-weight: 800;
   font-size: 12px;
-  letter-spacing: 0.4px;
-  text-transform: uppercase;
+  letter-spacing: 0.2px; 
+  text-transform: none;  
 }
+
 
 .nav-body {
   background: rgba(255, 255, 255, 0.95);
@@ -130,19 +147,31 @@ ion-content {
 
 .nav-text {
   font-size: 16px;
-  font-weight: 900;
+  font-weight: 800;      
   line-height: 1.1;
   letter-spacing: -0.2px;
 }
 
 /* themes */
-.nav-go .nav-top { background: #1e3a8a; }
-.nav-turn .nav-top { background: #5b21b6; }
-.nav-arrive .nav-top { background: #0f766e; }
+.nav-go .nav-top {
+  background: #1e3a8a;
+}
+.nav-turn .nav-top {
+  background: #5b21b6;
+}
+.nav-arrive .nav-top {
+  background: #0f766e;
+}
 
-.nav-go .nav-icon { background: #1e3a8a; }
-.nav-turn .nav-icon { background: #5b21b6; }
-.nav-arrive .nav-icon { background: #0f766e; }
+.nav-go .nav-icon {
+  background: #1e3a8a;
+}
+.nav-turn .nav-icon {
+  background: #5b21b6;
+}
+.nav-arrive .nav-icon {
+  background: #0f766e;
+}
 
 /* ------------------------------
    RIGHT STACKED FABs (route + recenter)
@@ -167,25 +196,6 @@ ion-content {
   border: none;
   box-shadow: none;
 
-  --background: rgba(255, 255, 255, 0.92);
-  --background-activated: rgba(255, 255, 255, 0.92);
-  --background-focused: rgba(255, 255, 255, 0.92);
-  --color: #111827;
-
-  --ripple-color: transparent;
-}
-
-.fab-btn {
-  width: 46px;
-  height: 46px;
-
-  --padding-start: 0;
-  --padding-end: 0;
-  --border-radius: 999px;
-
-  border: none;
-  box-shadow: none;
-
   --background: var(--ion-color-primary);
   --background-activated: var(--ion-color-primary);
   --background-focused: var(--ion-color-primary);
@@ -193,7 +203,6 @@ ion-content {
 
   --ripple-color: rgba(255, 255, 255, 0.25);
 }
-
 
 .fab-btn::part(native) {
   width: 46px;
@@ -204,7 +213,7 @@ ion-content {
   overflow: hidden;
 
   border: 1px solid rgba(255, 255, 255, 0.22);
-  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.30);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.3);
 
   outline: none;
 }
@@ -220,28 +229,128 @@ ion-content {
 .fab-btn.button-disabled {
   opacity: 0.55;
 }
+
 .fab-btn.button-disabled::part(native) {
   box-shadow: none;
 }
 
+//MAP
 
-/* ------------------------------
-   LOCK OVERLAY (πάνω από όλα)
------------------------------- */
-.lock-screen {
+.map-loading-overlay{
   position: fixed;
   inset: 0;
-  z-index: 3000;
+  z-index: 4000;
+
   display: grid;
   place-items: center;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  background: rgba(0, 0, 0, 0.18);
+  padding: 18px;
+  background: radial-gradient(
+      1200px 700px at 50% 20%,
+      rgba(255,255,255,0.14),
+      rgba(0,0,0,0.22)
+    ),
+    rgba(0,0,0,0.22);
+
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+
+  pointer-events: auto;
+
+  opacity: 1;
+  transition: opacity 240ms ease;
 }
 
-.lock-card {
-  background: rgba(255, 255, 255, 0.95);
-  padding: 14px 16px;
-  border-radius: 16px;
+.map-loading-overlay.is-leaving{
+  opacity: 0;
+}
+
+.ml-card{
+  width: min(360px, calc(100vw - 34px));
+  padding: 16px 16px 14px;
+  border-radius: 20px;
+
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255,255,255,0.55);
+
+  box-shadow:
+    0 18px 46px rgba(0,0,0,0.22),
+    0 2px 0 rgba(255,255,255,0.55) inset;
+
+  display: grid;
+  gap: 10px;
+  text-align: center;
+
+  transform: translateY(0);
+  animation: mlPop 320ms ease both;
+  position: relative;
+  overflow: hidden;
+}
+
+/* shimmer */
+.ml-card::before{
+  content: "";
+  position: absolute;
+  inset: -2px;
+  background: linear-gradient(
+    120deg,
+    rgba(255,255,255,0) 0%,
+    rgba(255,255,255,0.35) 28%,
+    rgba(255,255,255,0) 56%
+  );
+  transform: translateX(-55%);
+  animation: mlShimmer 1.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.ml-title{
   font-weight: 800;
+  font-size: 16px;
+  letter-spacing: -0.25px;
+  color: #0f172a;
+  position: relative;
+}
+
+.ml-percent{
+  font-weight: 800;
+  font-size: 13px;
+  opacity: 0.9;
+  position: relative;
+}
+
+.ml-sub{
+  font-size: 12px;
+  font-weight: 800;
+  opacity: 0.7;
+  position: relative;
+}
+
+ion-progress-bar{
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+
+.ml-card ion-spinner{
+  width: 34px;
+  height: 34px;
+  margin: 0 auto;
+  position: relative;
+}
+
+@keyframes mlPop{
+  from { transform: translateY(6px) scale(0.98); opacity: 0.2; }
+  to   { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes mlShimmer{
+  0%   { transform: translateX(-60%); opacity: 0.65; }
+  55%  { transform: translateX(60%);  opacity: 0.65; }
+  100% { transform: translateX(60%);  opacity: 0; }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))){
+  .map-loading-overlay{
+    background: rgba(0,0,0,0.32);
+  }
 }
