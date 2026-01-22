@@ -1974,4 +1974,33 @@ export class MapService {
   public getDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
     return L.latLng(lat1, lng1).distanceTo(L.latLng(lat2, lng2));
   }
+
+  invalidateSizeSafe() {
+  try {
+    // αν έχεις private map!: L.Map;
+    (this as any).map?.invalidateSize(true);
+  } catch {}
+}
+
+async refreshBaseLayer() {
+  try {
+    const map = (this as any).map;
+    const baseLayer = (this as any).baseLayer;
+
+    if (!map) return;
+
+    // ✅ αν είναι TileLayer, έχει redraw()
+    if (baseLayer && typeof baseLayer.redraw === 'function') {
+      baseLayer.redraw();
+      return;
+    }
+
+    // ✅ fallback: remove/add για να ξαναφορτώσει
+    if (baseLayer && map.hasLayer(baseLayer)) {
+      map.removeLayer(baseLayer);
+      baseLayer.addTo(map);
+    }
+  } catch {}
+}
+
 }

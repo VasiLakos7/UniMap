@@ -213,9 +213,10 @@
   },
 
   "SUPPORT": {
-    "EMAIL_SUBJECT": "UniMap – Feedback / Issue report",
-    "EMAIL_BODY": "Description:\n\nSteps to reproduce:\n1)\n2)\n\nDevice/OS (optional):\nApp version: {{appVersion}}\n"
+    "EMAIL_SUBJECT": "UniMap – Feedback / Αναφορά προβλήματος",
+    "EMAIL_BODY": "Περιγραφή:\n\nΒήματα αναπαραγωγής:\n1)\n2)\n\nΣυσκευή/OS (προαιρετικό):\nΈκδοση εφαρμογής: {{appVersion}}\n"
   },
+
 
   "DIALOG": {
     "OK": "Εντάξει",
@@ -248,7 +249,8 @@
     "OUTSIDE_CAMPUS_PICK_DEPT_MSG": "Βρίσκεστε εκτός campus. Παρακαλώ επιλέξτε ένα τμήμα εντός campus.",
     "ROUTE_FROM_BUSSTOP_TITLE": "Προσοχή",
     "ROUTE_FROM_BUSSTOP_MSG": "Είσαι εκτός campus. Οι οδηγίες θα ξεκινήσουν από τη στάση λεωφορείου.",
-    "OUTSIDE_CAMPUS_ON_START_MSG": "Είσαι εκτός εμβέλειας campus. Μπορείς να χρησιμοποιήσεις την εφαρμογή απομακρυσμένα."
+    "OUTSIDE_CAMPUS_ON_START_MSG": "Είσαι εκτός εμβέλειας campus. Μπορείς να χρησιμοποιήσεις την εφαρμογή απομακρυσμένα.",
+    "ERROR_REFRESH_MAP": "Αποτυχία ανανέωσης χάρτη. Δοκίμασε ξανά."
 
   }
   

@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, ModalController } from '@ionic/angular';
@@ -17,8 +17,9 @@ import { UiDialogService } from '../../services/ui-dialog.service';
   styleUrls: ['./settings-modal.component.scss'],
   imports: [IonicModule, CommonModule, FormsModule, TranslateModule],
 })
-export class SettingsModalComponent implements OnInit {
+export class SettingsModalComponent implements OnInit, OnDestroy {
   @Input() value?: AppSettings;
+  @Input() onRefreshMap?: () => Promise<void>;
 
   draft: AppSettings;
   dirty = false;
@@ -26,7 +27,10 @@ export class SettingsModalComponent implements OnInit {
   activeTab: 'general' | 'map' | 'support' = 'general';
 
   refreshing = false;
+  refreshLeaving = false;
   refreshPct = 0;
+  closeAfterRefresh = true;
+  private pctTimer?: any;
 
   appVersion = '0.9.0';
 
@@ -53,6 +57,10 @@ export class SettingsModalComponent implements OnInit {
 
     this.draft = this.clone(this.value);
     this.dirty = false;
+  }
+
+  ngOnDestroy() {
+    if (this.pctTimer) clearInterval(this.pctTimer);
   }
 
   private clone<T>(obj: T): T {
@@ -83,7 +91,6 @@ export class SettingsModalComponent implements OnInit {
 
       this.dirty = false;
 
-      // ✅ Παράθυρο μπροστά + tick + OK
       await this.uiDialog.settingsSaved();
 
       this.modalCtrl.dismiss(this.value, 'save');
@@ -111,10 +118,68 @@ export class SettingsModalComponent implements OnInit {
       await this.uiDialog.error('DIALOG.ERROR_TITLE', 'DIALOG.ERROR_RESET');
     }
   }
-
-  requestRefreshMap() {
-    this.modalCtrl.dismiss(null, 'refreshMap');
+  private sleep(ms: number) {
+    return new Promise<void>(res => setTimeout(res, ms));
   }
+
+  async requestRefreshMap() {
+    if (!this.onRefreshMap) {
+      this.modalCtrl.dismiss(null, 'refreshMap');
+      return;
+    }
+
+    if (this.refreshing) return;
+
+    const MIN_OVERLAY_MS = 1500;   
+    const FINISH_HOLD_MS = 250;   
+
+    this.refreshing = true;
+    this.refreshLeaving = false;
+    this.refreshPct = 0;
+
+    const startedAt = Date.now();
+
+    this.pctTimer = setInterval(() => {
+      if (this.refreshPct < 92) {
+        const step = this.refreshPct < 40 ? 6 : this.refreshPct < 75 ? 3 : 1;
+        this.refreshPct = Math.min(92, this.refreshPct + step);
+      }
+    }, 120);
+
+    try {
+      await this.onRefreshMap();
+
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < MIN_OVERLAY_MS) {
+        await this.sleep(MIN_OVERLAY_MS - elapsed);
+      }
+      this.refreshPct = 100;
+      await this.sleep(FINISH_HOLD_MS);
+      if (this.closeAfterRefresh) {
+      this.refreshLeaving = true;
+      await this.sleep(260);
+      this.modalCtrl.dismiss(null, 'refreshDone');
+      return;
+    }
+
+    } catch (e) {
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < 900) await this.sleep(900 - elapsed);
+
+      this.refreshPct = Math.min(this.refreshPct, 95);
+      await this.uiDialog.error('DIALOG.ERROR_TITLE', 'DIALOG.ERROR_REFRESH_MAP');
+    } finally {
+      if (this.pctTimer) clearInterval(this.pctTimer);
+
+      this.refreshLeaving = true;
+      setTimeout(() => {
+        this.refreshing = false;
+        this.refreshLeaving = false;
+        this.refreshPct = 0;
+      }, 260);
+    }
+  }
+
 
   sendFeedback() {
     const to = 'billrantzos@gmail.com';

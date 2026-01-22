@@ -95,13 +95,6 @@
         <ion-icon name="refresh-outline" slot="start"></ion-icon>
         <ion-label>{{ 'SETTINGS.ACTIONS.REFRESH_MAP' | translate }}</ion-label>
       </ion-item>
-
-      <div class="progress-wrap" *ngIf="refreshing">
-        <div class="progress-label">
-          {{ 'SETTINGS.ACTIONS.REFRESHING' | translate }}… {{ refreshPct }}%
-        </div>
-        <ion-progress-bar [value]="refreshPct/100"></ion-progress-bar>
-      </div>
     </div>
   </ng-container>
 
@@ -209,3 +202,24 @@
     </ion-button>
   </div>
 </ion-content>
+
+<!-- ✅ Fullscreen overlay (same as Home) -->
+<div class="map-loading-overlay" *ngIf="refreshing" [class.is-leaving]="refreshLeaving">
+  <div class="ml-card">
+    <div class="ml-title">
+      {{ 'SETTINGS.ACTIONS.REFRESHING' | translate }}
+    </div>
+
+    <ion-spinner name="crescent"></ion-spinner>
+
+    <div class="ml-percent">
+      {{ refreshPct }}%
+    </div>
+
+    <ion-progress-bar [value]="refreshPct/100"></ion-progress-bar>
+
+    <div class="ml-sub">
+      {{ 'HOME.MAP_LOADING_SUB' | translate }}
+    </div>
+  </div>
+</div>

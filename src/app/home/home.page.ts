@@ -397,38 +397,38 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
   }
 
   async openSettings() {
-    const value = await this.settingsSvc.load();
-
     const modal = await this.modalCtrl.create({
       component: SettingsModalComponent,
-      componentProps: { value: { ...value } },
-      backdropDismiss: true,
-      showBackdrop: true,
-      cssClass: 'settings-modal',
+      cssClass: 'app-dialog-modal',
+      componentProps: {
+        value: await this.settingsSvc.load(), // αν το κάνεις ήδη, οκ
+        onRefreshMap: async () => this.refreshMapNow(),
+      },
     });
 
     await modal.present();
-    const res = await modal.onDidDismiss();
 
-    if (res.role === 'save' && res.data) {
-      this.settings = res.data as AppSettings;
-      await this.applyLanguageFromSettings();
-      this.applyMapSettings();
-      return;
-    }
-
-    if (res.role === 'reset' && res.data) {
-      this.settings = res.data as AppSettings;
-      await this.applyLanguageFromSettings();
-      this.applyMapSettings();
-      return;
-    }
-
-    if (res.role === 'refreshMap') {
-      await this.refreshMapWithPercent();
-      await this.uiDialog.info('DIALOG.MAP_REFRESHED_TITLE', 'DIALOG.MAP_REFRESHED_MSG');
+    // ✅ Κράτα ΚΑΙ το παλιό flow για fallback (αν δεν περαστεί callback για κάποιο λόγο)
+    const { role } = await modal.onDidDismiss();
+    if (role === 'refreshMap') {
+      await this.refreshMapNow();
     }
   }
+
+  private async refreshMapNow() {
+  // 1) Leaflet resize fix (πολύ σημαντικό μετά από modals)
+  this.mapService.invalidateSizeSafe?.();
+
+  // 2) Force redraw tiles (πραγματικό refresh)
+  await this.mapService.refreshBaseLayer?.();
+
+  // 3) μικρό delay για repaint
+  await new Promise(r => setTimeout(r, 120));
+
+  // 4) ξανά invalidate
+  this.mapService.invalidateSizeSafe?.();
+}
+
 
   private etaFromMeters(m: number): number {
     const metersPerMinute = 78;
