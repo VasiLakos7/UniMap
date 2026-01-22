@@ -174,17 +174,13 @@ export class DepartmentPopupComponent implements AfterViewInit, OnChanges, OnDes
   async shareLocation() {
     const lat = this.destination?.entranceLat ?? this.destination?.lat;
     const lng = this.destination?.entranceLng ?? this.destination?.lng;
-    const text = `${this.destination?.name}\n${lat}, ${lng}`;
+    if (lat == null || lng == null) return;
 
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: 'UniMap', text });
-      } else {
-        await navigator.clipboard.writeText(text);
-        alert('Αντιγράφηκε στο clipboard ✅');
-      }
-    } catch {}
+    const url = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+    await Browser.open({ url });
   }
+
+
 
   formatDistance(meters: number | null): string {
     if (meters == null) return '';
