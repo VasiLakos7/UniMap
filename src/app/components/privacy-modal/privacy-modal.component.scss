@@ -1,0 +1,135 @@
+.privacy {
+  .privacy-hero {
+    padding: 6px 2px 10px;
+
+    .hero-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(var(--ion-color-primary-rgb), 0.12);
+      color: var(--ion-color-primary);
+      font-weight: 800;
+      font-size: 0.85rem;
+
+      ion-icon {
+        font-size: 1rem;
+      }
+    }
+
+    /* ✅ OpenStreetMap link */
+    .hero-link {
+      --padding-start: 8px;
+      --padding-end: 8px;
+      --padding-top: 6px;
+      --padding-bottom: 6px;
+      --min-height: 30px;
+
+      margin: 0;
+      font-weight: 800;
+      text-transform: none;
+      white-space: nowrap;
+      opacity: 0.95;
+    }
+
+    .hero-link ion-icon {
+      font-size: 1.05rem;
+      color: var(--ion-color-primary);
+    }
+
+    .hero-link ion-label {
+      font-size: 0.85rem;
+      line-height: 1;
+      color: var(--ion-color-primary);
+    }
+
+    h1 {
+      margin: 8px 0 6px;
+      font-size: 1.15rem;
+      font-weight: 900;
+      letter-spacing: -0.2px;
+    }
+
+    p {
+      margin: 0;
+      opacity: 0.85;
+      line-height: 1.35;
+      font-size: 0.95rem;
+    }
+  }
+
+  .privacy-card {
+    border-radius: 18px;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.10);
+    margin: 12px 0 6px;
+    overflow: hidden;
+
+    ion-card-header {
+      padding-bottom: 6px;
+    }
+
+    ion-card-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 900;
+      font-size: 1.05rem;
+
+      ion-icon {
+        font-size: 1.25rem;
+        color: var(--ion-color-primary);
+      }
+    }
+  }
+
+  .privacy-card.accent {
+    border-left: 4px solid var(--ion-color-primary);
+    background: linear-gradient(
+      180deg,
+      rgba(var(--ion-color-primary-rgb), 0.08),
+      rgba(255, 255, 255, 0.00)
+    );
+  }
+
+  .privacy-lead {
+    margin: 0 0 10px 0;
+    opacity: 0.9;
+    line-height: 1.35;
+  }
+
+  .privacy-list {
+    margin: 0;
+    padding: 0;
+
+    ion-item {
+      --padding-start: 0px;
+      --inner-padding-end: 0px;
+      --min-height: 42px;
+      --background: transparent;
+    }
+
+    ion-icon[slot="start"] {
+      font-size: 1.15rem;
+      opacity: 0.85;
+      margin-inline-end: 10px;
+    }
+
+    ion-label {
+      font-size: 0.95rem;
+      line-height: 1.25;
+    }
+  }
+}
+
+/* ✅ λίγο safe-area για Android */
+:host ::ng-deep ion-content.privacy::part(scroll) {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 6px);
+}

@@ -202,20 +202,26 @@
 
   "PRIVACY": {
     "TITLE": "Privacy policy",
+    "HERO": {
+      "BADGE": "Privacy",
+      "TITLE": "Transparency & minimal data",
+      "SUB": "UniMap is designed to work without collecting personal data. We store only what is necessary for your settings."
+    },
     "STORED": {
       "TITLE": "What is stored",
-      "BODY": "Only settings are stored (units m/km, map layer selection, north lock)."
+      "LEAD": "Only local settings are stored on your device.",
+      "ITEMS": {
+        "UNITS": "Measurement units (m/km)",
+        "LAYER": "Map / layer selection (e.g., OSM or MapTiler)",
+        "NORTH_LOCK": "North lock (orientation lock/unlock)"
+      }
     },
-    "NOT_STORED": {
-      "TITLE": "What is NOT stored",
-      "BODY": "We do not store location or movement history. GPS is used only for navigation."
-    },
-    "THIRD_PARTIES": {
-      "TITLE": "Third-party services",
-      "BODY": "Map tiles: © OpenStreetMap contributors, displayed via Leaflet (optionally MapTiler)."
-    },
-    "NOTE": "* Draft text — it will be refined officially later."
+    "LINKS": {
+      "OSM": "OpenStreetMap — Copyright & attribution"
+    }
   },
+
+
 
   "SUPPORT": {
     "EMAIL_SUBJECT": "UniMap – Feedback / Issue report",

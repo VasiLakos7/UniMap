@@ -4,21 +4,56 @@
 
     <ion-buttons slot="end">
       <ion-button fill="clear" (click)="close()" [attr.aria-label]="'COMMON.CLOSE' | translate">
-        ✕
+        <ion-icon name="close-outline" slot="icon-only"></ion-icon>
       </ion-button>
     </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
-<ion-content class="ion-padding">
-  <h2>{{ 'PRIVACY.STORED.TITLE' | translate }}</h2>
-  <p>{{ 'PRIVACY.STORED.BODY' | translate }}</p>
+<ion-content [fullscreen]="true" class="ion-padding privacy">
+  <!-- HERO -->
+  <div class="privacy-hero">
+    <div class="hero-row">
+      <div class="badge">
+        <ion-icon name="shield-outline" aria-hidden="true"></ion-icon>
+        <span>{{ 'PRIVACY.HERO.BADGE' | translate }}</span>
+      </div>
 
-  <h2>{{ 'PRIVACY.NOT_STORED.TITLE' | translate }}</h2>
-  <p>{{ 'PRIVACY.NOT_STORED.BODY' | translate }}</p>
+      <!-- ✅ LINK ΠΑΝΩ-ΠΑΝΩ ΔΙΠΛΑ (με κείμενο) -->
+      <ion-button
+        fill="clear"
+        size="small"
+        class="hero-link"
+        (click)="openLink(osmCopyrightUrl)"
+        aria-label="OpenStreetMap"
+      >
+        <ion-icon name="open-outline" slot="start"></ion-icon>
+        <ion-label>OpenStreetMap</ion-label>
+      </ion-button>
+    </div>
 
-  <h2>{{ 'PRIVACY.THIRD_PARTIES.TITLE' | translate }}</h2>
-  <p>{{ 'PRIVACY.THIRD_PARTIES.BODY' | translate }}</p>
+    <h1>{{ 'PRIVACY.HERO.TITLE' | translate }}</h1>
+    <p>{{ 'PRIVACY.HERO.SUB' | translate }}</p>
+  </div>
 
-  <ion-note>{{ 'PRIVACY.NOTE' | translate }}</ion-note>
+  <!-- STORED -->
+  <ion-card class="privacy-card accent">
+    <ion-card-header>
+      <ion-card-title>
+        <ion-icon name="save-outline" aria-hidden="true"></ion-icon>
+        {{ 'PRIVACY.STORED.TITLE' | translate }}
+      </ion-card-title>
+    </ion-card-header>
+
+    <ion-card-content>
+      <p class="privacy-lead">{{ 'PRIVACY.STORED.LEAD' | translate }}</p>
+
+      <ion-list lines="none" class="privacy-list">
+        <ion-item *ngFor="let k of storedKeys">
+          <ion-icon name="checkmark-circle-outline" slot="start" aria-hidden="true"></ion-icon>
+          <ion-label>{{ k | translate }}</ion-label>
+        </ion-item>
+      </ion-list>
+    </ion-card-content>
+  </ion-card>
 </ion-content>

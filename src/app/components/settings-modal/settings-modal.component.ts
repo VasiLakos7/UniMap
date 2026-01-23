@@ -195,10 +195,12 @@ export class SettingsModalComponent implements OnInit, OnDestroy {
   async openPrivacy() {
     const modal = await this.modalCtrl.create({
       component: PrivacyModalComponent,
-      breakpoints: [0, 0.5, 0.85],
+     breakpoints: [0, 0.5, 0.85],
       initialBreakpoint: 0.85,
+      backdropBreakpoint: 0,
       cssClass: 'privacy-modal',
     });
     await modal.present();
   }
+
 }
