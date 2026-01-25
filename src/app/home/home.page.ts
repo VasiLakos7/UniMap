@@ -740,13 +740,21 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
 
     this.outsideCampus = !inside;
 
-    const startLL = inside ? L.latLng(this.userLat, this.userLng) : this.BUS_STOP;
     const centerLL = L.latLng(dest.lat, dest.lng);
 
     this.mapService.pinDestination(centerLL.lat, centerLL.lng, dest.name);
     this.mapService.focusOn(centerLL.lat, centerLL.lng, 19);
 
-    this.setDistanceUiFromDirect(startLL, centerLL);
+    if (!this.hasUserFix || !inside) {
+      this.routeTotalMeters = 0;
+      this.routeRemainingMeters = 0;
+      this.popupMeters = null;   // -> "—"
+      this.popupEtaMin = null;   // -> "—"
+    } else {
+      const startLL = L.latLng(this.userLat, this.userLng);
+      this.setDistanceUiFromDirect(startLL, centerLL);
+    }
+
 
     this.routeReady = false;
     this.navigationActive = false;
@@ -754,6 +762,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
 
     this.showModal = true;
   }
+
 
   async onDirections() {
     if (!this.currentDestination) return;

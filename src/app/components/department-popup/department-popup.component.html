@@ -25,11 +25,22 @@
             {{ ('DEST.' + destination.id + '.NAME') | translate }}
           </div>
 
-          <div class="um-meta" *ngIf="meters !== null || etaMin !== null">
-            <span *ngIf="meters !== null">{{ formatDistance(meters) }}</span>
-            <span class="dot" *ngIf="meters !== null && etaMin !== null">•</span>
-            <span *ngIf="etaMin !== null">
-              {{ 'POPUP.MINUTES' | translate:{ value: etaMin } }}
+          <!-- ✅ ΠΑΝΤΑ δείξε meta, με παύλες όταν δεν υπάρχουν τιμές -->
+          <div class="um-meta">
+            <span>
+              <ng-container *ngIf="meters !== null; else dashMeters">
+                {{ formatDistance(meters) }}
+              </ng-container>
+              <ng-template #dashMeters>—</ng-template>
+            </span>
+
+            <span class="dot">•</span>
+
+            <span>
+              <ng-container *ngIf="etaMin !== null; else dashEta">
+                {{ 'POPUP.MINUTES' | translate:{ value: etaMin } }}
+              </ng-container>
+              <ng-template #dashEta>—</ng-template>
             </span>
           </div>
         </div>
@@ -117,13 +128,21 @@
           </div>
 
           <div class="um-nav-metrics">
-            <div class="um-nav-time" *ngIf="etaMin !== null">
-              {{ 'POPUP.MINUTES' | translate:{ value: etaMin } }}
+            <div class="um-nav-time">
+              <ng-container *ngIf="etaMin !== null; else dashEta2">
+                {{ 'POPUP.MINUTES' | translate:{ value: etaMin } }}
+              </ng-container>
+              <ng-template #dashEta2>—</ng-template>
             </div>
 
-            <div class="um-nav-dist" *ngIf="meters !== null">
+            <div class="um-nav-dist">
               <ion-icon name="walk-outline"></ion-icon>
-              <span>{{ formatDistance(meters) }}</span>
+              <span>
+                <ng-container *ngIf="meters !== null; else dashMeters2">
+                  {{ formatDistance(meters) }}
+                </ng-container>
+                <ng-template #dashMeters2>—</ng-template>
+              </span>
             </div>
           </div>
         </div>

@@ -183,7 +183,7 @@ export class DepartmentPopupComponent implements AfterViewInit, OnChanges, OnDes
 
 
   formatDistance(meters: number | null): string {
-    if (meters == null) return '';
+    if (meters == null) return '—';
 
     const unitM = this.translate.instant('SETTINGS.UNITS.M');
     const unitKM = this.translate.instant('SETTINGS.UNITS.KM');
@@ -197,6 +197,7 @@ export class DepartmentPopupComponent implements AfterViewInit, OnChanges, OnDes
 
     return `${Math.max(0, Math.round(meters))} ${unitM}`;
   }
+
 
   private recalcSnapPoints() {
     const el = this.sheetRef?.nativeElement;
