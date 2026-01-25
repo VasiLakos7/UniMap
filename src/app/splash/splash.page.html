@@ -4,11 +4,27 @@
     <ion-icon name="globe-outline" slot="icon-only"></ion-icon>
   </ion-button>
 
+  <!-- ✅ Premium notification banner (top, safe-area) -->
+  <div
+    class="notifyBanner"
+    *ngIf="bannerVisible"
+    [class.leaving]="bannerLeaving"
+    role="status"
+    aria-live="polite"
+  >
+    <ion-icon class="notifyIcon" name="wifi-outline" aria-hidden="true"></ion-icon>
+
+    <div class="notifyText">
+      {{ bannerKey ? (bannerKey | translate) : '' }}
+    </div>
+
+    <div class="notifyGlow" aria-hidden="true"></div>
+  </div>
+
   <div class="bg" aria-hidden="true"></div>
 
   <div class="wrap">
     <div class="center">
-
       <div class="logoWrap" aria-hidden="true">
         <img class="logoImg" src="assets/images/branding/logo.svg" alt="UniMap" />
       </div>
@@ -39,17 +55,23 @@
         <span>{{ 'SPLASH.NOTE' | translate }}</span>
       </div>
 
-      <!-- ✅ Μήνυμα / actions όταν κάτι πάει στραβά -->
+      <!-- ✅ Status box -->
       <div class="status" *ngIf="statusMode !== 'none'">
         <ion-icon
-          [name]="statusMode === 'permission' ? 'lock-closed-outline' : (statusMode === 'gps' ? 'navigate-outline' : 'warning-outline')">
+          [name]="statusMode === 'offline'
+            ? 'wifi-outline'
+            : (statusMode === 'permission'
+                ? 'lock-closed-outline'
+                : (statusMode === 'gps'
+                    ? 'navigate-outline'
+                    : 'warning-outline'))">
         </ion-icon>
 
         <div class="statusText">{{ statusKey ? (statusKey | translate) : '' }}</div>
 
         <div class="statusActions">
           <ion-button
-            *ngIf="statusMode === 'permission'"
+            *ngIf="netOnline && statusMode === 'permission'"
             size="small"
             fill="solid"
             shape="round"
@@ -58,7 +80,7 @@
           </ion-button>
 
           <ion-button
-            *ngIf="statusMode === 'gps'"
+            *ngIf="netOnline && statusMode === 'gps'"
             size="small"
             fill="solid"
             shape="round"
@@ -67,7 +89,6 @@
           </ion-button>
         </div>
       </div>
-
     </div>
   </div>
 

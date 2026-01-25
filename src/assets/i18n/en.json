@@ -190,13 +190,17 @@
     },
     "NOTE": "Location is required for navigation.",
     "STATUS": {
+      "NO_INTERNET": "You're offline. Enable Wi-Fi or mobile data and try again.",
       "PERMISSION_DENIED": "Location permission was not granted. Tap “Settings” and allow Location for UniMap.",
-      "GPS_OFF": "Location services (GPS) are turned off. Tap “Open Location” and enable it.",
-      "ERROR_GENERIC": "I couldn't get your location. Check permissions/location and try again."
+      "GPS_OFF": "Location Services (GPS) are turned off. Tap “Open Location” and enable them.",
+      "ERROR_GENERIC": "I couldn’t get your location. Check permissions/location services and try again."
     },
     "ACTIONS": {
       "SETTINGS": "Settings",
       "OPEN_LOCATION": "Open Location"
+    },
+    "TOAST": {
+      "BACK_ONLINE": "Connection restored successfully ✅"
     }
   },
 

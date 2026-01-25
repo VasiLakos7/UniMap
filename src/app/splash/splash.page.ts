@@ -1,23 +1,26 @@
-import { Component, AfterViewInit, OnDestroy } from '@angular/core';
+import { Component, AfterViewInit, OnDestroy, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { Capacitor } from '@capacitor/core';
+import type { PluginListenerHandle } from '@capacitor/core';
 import { Geolocation } from '@capacitor/geolocation';
-import { AlertController, Platform } from '@ionic/angular';
+import { Platform } from '@ionic/angular';
 
-import { NativeSettings, AndroidSettings, IOSSettings } from 'capacitor-native-settings';
+import { NativeSettings, AndroidSettings } from 'capacitor-native-settings';
 
 import { TranslateService } from '@ngx-translate/core';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { SettingsService, AppLanguage } from '../services/settings.service';
 import { NavController } from '@ionic/angular';
 
+import { Network } from '@capacitor/network';
+
 @Component({
   selector: 'app-splash',
   templateUrl: './splash.page.html',
   styleUrls: ['./splash.page.scss'],
-  standalone: false
+  standalone: false,
 })
-export class SplashPage implements AfterViewInit, OnDestroy {
+export class SplashPage implements OnInit, AfterViewInit, OnDestroy {
   loading = false;
 
   typedText = '';
@@ -26,21 +29,35 @@ export class SplashPage implements AfterViewInit, OnDestroy {
   private typingTimeout: any;
   private i = 0;
 
+  // ✅ Network
+  netOnline = true;
+  private netListener?: PluginListenerHandle;
+  private netPollTimer: any = null;
 
+  // ✅ Status
   statusKey: string | null = null;
-  statusMode: 'none' | 'permission' | 'gps' | 'error' = 'none';
+  statusMode: 'none' | 'offline' | 'permission' | 'gps' | 'error' = 'none';
 
   private langSub?: Subscription;
 
+  // ✅ Premium notification banner (top)
+  bannerVisible = false;
+  bannerLeaving = false;
+  bannerKey: string | null = null;
+  private bannerTimer: any = null;
+  private bannerSeq = 0;
 
   constructor(
     private router: Router,
-    private alertCtrl: AlertController,
     private platform: Platform,
     private translate: TranslateService,
     private settingsSvc: SettingsService,
-      private navCtrl: NavController
+    private navCtrl: NavController
   ) {}
+
+  async ngOnInit() {
+    await this.initNetwork();
+  }
 
   ngAfterViewInit() {
     this.applyWelcomeTextAndRestartTyping();
@@ -53,11 +70,135 @@ export class SplashPage implements AfterViewInit, OnDestroy {
   ngOnDestroy() {
     if (this.typingTimeout) clearTimeout(this.typingTimeout);
     this.langSub?.unsubscribe();
+
+    this.netListener?.remove();
+    window.removeEventListener('online', this.onOnline);
+    window.removeEventListener('offline', this.onOffline);
+
+    if (this.netPollTimer) {
+      clearInterval(this.netPollTimer);
+      this.netPollTimer = null;
+    }
+
+    if (this.bannerTimer) {
+      clearTimeout(this.bannerTimer);
+      this.bannerTimer = null;
+    }
   }
 
+  // -------------------------
+  // Network handling
+  // -------------------------
+  private async initNetwork() {
+    await this.refreshNetOnline();
+
+    if (!this.netOnline) {
+      this.setStatus('offline', 'SPLASH.STATUS.NO_INTERNET');
+    }
+
+    // listener (native)
+    try {
+      this.netListener = await Network.addListener('networkStatusChange', (st) => {
+        const prev = this.netOnline;
+        this.netOnline = !!st.connected;
+
+        if (!this.netOnline) {
+          this.setStatus('offline', 'SPLASH.STATUS.NO_INTERNET');
+          return;
+        }
+
+        // offline -> online
+        if (!prev && this.netOnline) {
+          if (this.statusMode === 'offline') this.clearStatus();
+          this.showBanner('SPLASH.TOAST.BACK_ONLINE');
+        }
+      });
+    } catch {
+      // web fallback
+      window.addEventListener('online', this.onOnline);
+      window.addEventListener('offline', this.onOffline);
+    }
+
+    // ✅ fallback που πιάνει ΠΑΝΤΑ αλλαγές
+    this.startNetPolling(1000);
+  }
+
+  private onOnline = () => {
+    const prev = this.netOnline;
+    this.netOnline = true;
+
+    if (!prev) {
+      if (this.statusMode === 'offline') this.clearStatus();
+      this.showBanner('SPLASH.TOAST.BACK_ONLINE');
+    }
+  };
+
+  private onOffline = () => {
+    this.netOnline = false;
+    this.setStatus('offline', 'SPLASH.STATUS.NO_INTERNET');
+  };
+
+  private async refreshNetOnline() {
+    try {
+      const st = await Network.getStatus();
+      this.netOnline = !!st.connected;
+    } catch {
+      this.netOnline = navigator.onLine;
+    }
+  }
+
+  private startNetPolling(ms = 1200) {
+    if (this.netPollTimer) return;
+
+    this.netPollTimer = setInterval(async () => {
+      const prev = this.netOnline;
+      await this.refreshNetOnline();
+
+      if (prev !== this.netOnline) {
+        if (!this.netOnline) {
+          this.setStatus('offline', 'SPLASH.STATUS.NO_INTERNET');
+        } else {
+          if (this.statusMode === 'offline') this.clearStatus();
+          this.showBanner('SPLASH.TOAST.BACK_ONLINE');
+        }
+      }
+    }, ms);
+  }
+
+  // -------------------------
+  // Premium notification banner (slide in + fade out)
+  // -------------------------
+  private showBanner(key: string, holdMs = 1400) {
+    this.bannerSeq++;
+    const seq = this.bannerSeq;
+
+    this.bannerKey = key;
+    this.bannerVisible = true;
+    this.bannerLeaving = false;
+
+    if (this.bannerTimer) clearTimeout(this.bannerTimer);
+
+    // μένει λίγο και μετά φεύγει “σιγά-σιγά”
+    this.bannerTimer = setTimeout(() => {
+      if (seq !== this.bannerSeq) return;
+
+      this.bannerLeaving = true;
+
+      // πρέπει να ταιριάζει με CSS (bannerOut 650ms)
+      setTimeout(() => {
+        if (seq !== this.bannerSeq) return;
+        this.bannerVisible = false;
+        this.bannerLeaving = false;
+      }, 650);
+    }, holdMs);
+  }
+
+  // -------------------------
+  // Language + typing
+  // -------------------------
   async toggleLanguage() {
     const s = await this.settingsSvc.load();
-    const next: AppLanguage = (s.language === 'el') ? 'en' : 'el';
+    const next: AppLanguage = s.language === 'el' ? 'en' : 'el';
 
     await this.settingsSvc.save({ ...s, language: next });
     await firstValueFrom(this.translate.use(next));
@@ -96,7 +237,7 @@ export class SplashPage implements AfterViewInit, OnDestroy {
       }
 
       const last = this.fullText.charAt(this.i - 1);
-      const extra = last === ' ' ? 110 : (last === '.' || last === ',') ? 260 : 0;
+      const extra = last === ' ' ? 110 : last === '.' || last === ',' ? 260 : 0;
 
       this.typingTimeout = setTimeout(tick, base + Math.floor(Math.random() * jitter) + extra);
     };
@@ -104,22 +245,17 @@ export class SplashPage implements AfterViewInit, OnDestroy {
     this.typingTimeout = setTimeout(tick, 350);
   }
 
+  // -------------------------
+  // Native settings helpers (Android only)
+  // -------------------------
   private isAndroidNative(): boolean {
     return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
-  }
-
-  private isIOSNative(): boolean {
-    return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios';
   }
 
   async openAppSettings() {
     try {
       if (this.isAndroidNative()) {
         await NativeSettings.openAndroid({ option: AndroidSettings.ApplicationDetails });
-        return;
-      }
-      if (this.isIOSNative()) {
-        await NativeSettings.openIOS({ option: IOSSettings.App });
         return;
       }
     } catch {}
@@ -131,14 +267,19 @@ export class SplashPage implements AfterViewInit, OnDestroy {
         await NativeSettings.openAndroid({ option: AndroidSettings.Location });
         return;
       }
-      if (this.isIOSNative()) {
-        await NativeSettings.openIOS({ option: IOSSettings.LocationServices });
-        return;
-      }
     } catch {}
   }
 
-  private setStatus(mode: 'permission' | 'gps' | 'error', key: string) {
+  // -------------------------
+  // Status logic (offline priority)
+  // -------------------------
+  private setStatus(mode: 'offline' | 'permission' | 'gps' | 'error', key: string) {
+    if (!this.netOnline || mode === 'offline') {
+      this.statusMode = 'offline';
+      this.statusKey = 'SPLASH.STATUS.NO_INTERNET';
+      return;
+    }
+
     this.statusMode = mode;
     this.statusKey = key;
   }
@@ -148,11 +289,9 @@ export class SplashPage implements AfterViewInit, OnDestroy {
     this.statusKey = null;
   }
 
-  private async showGenericAlert(header: string, message: string) {
-    const alert = await this.alertCtrl.create({ header, message, buttons: ['ΟΚ'] });
-    await alert.present();
-  }
-
+  // -------------------------
+  // Main flow: Location + go
+  // -------------------------
   async getLocationAndGo() {
     if (this.loading) return;
     this.loading = true;
@@ -161,16 +300,19 @@ export class SplashPage implements AfterViewInit, OnDestroy {
     try {
       await this.platform.ready();
 
+      // ✅ πριν κάνεις GPS/permissions: έλεγξε internet
+      await this.refreshNetOnline();
+      if (!this.netOnline) {
+        this.setStatus('offline', 'SPLASH.STATUS.NO_INTERNET');
+        return;
+      }
+
       const st: any = await Geolocation.checkPermissions();
-      let granted =
-        st?.location === 'granted' ||
-        st?.coarseLocation === 'granted';
+      let granted = st?.location === 'granted' || st?.coarseLocation === 'granted';
 
       if (!granted) {
         const req: any = await Geolocation.requestPermissions();
-        granted =
-          req?.location === 'granted' ||
-          req?.coarseLocation === 'granted';
+        granted = req?.location === 'granted' || req?.coarseLocation === 'granted';
       }
 
       if (!granted) {
@@ -181,7 +323,7 @@ export class SplashPage implements AfterViewInit, OnDestroy {
       const pos = await Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
         timeout: 20000,
-        maximumAge: 0
+        maximumAge: 0,
       });
 
       const lat = pos.coords.latitude;
@@ -189,18 +331,39 @@ export class SplashPage implements AfterViewInit, OnDestroy {
 
       this.navCtrl.navigateRoot('/home', { animated: false });
     } catch (e: any) {
+      // ✅ αν στο ενδιάμεσο έπεσε internet, δείξε ΜΟΝΟ offline
+      await this.refreshNetOnline();
+      if (!this.netOnline) {
+        this.setStatus('offline', 'SPLASH.STATUS.NO_INTERNET');
+        return;
+      }
+
+      const code = Number(e?.code);
       const msg = String(e?.message ?? e ?? '').toLowerCase();
 
-      if (
-        msg.includes('location') &&
-        (msg.includes('disabled') || msg.includes('off') || msg.includes('turned off'))
-      ) {
+      // Permission denied
+      if (code === 1 || msg.includes('permission') || msg.includes('denied')) {
+        this.setStatus('permission', 'SPLASH.STATUS.PERMISSION_DENIED');
+        return;
+      }
+
+      // GPS off / unavailable / timeout
+      const gpsLike =
+        code === 2 ||
+        code === 3 ||
+        msg.includes('location services') ||
+        msg.includes('disabled') ||
+        msg.includes('turned off') ||
+        msg.includes('position unavailable') ||
+        msg.includes('timeout') ||
+        (msg.includes('location') && (msg.includes('off') || msg.includes('unavailable')));
+
+      if (gpsLike) {
         this.setStatus('gps', 'SPLASH.STATUS.GPS_OFF');
         return;
       }
 
       this.setStatus('error', 'SPLASH.STATUS.ERROR_GENERIC');
-
     } finally {
       this.loading = false;
     }
