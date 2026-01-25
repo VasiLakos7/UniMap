@@ -57,6 +57,12 @@ export class MapService {
     progress: number;
   }>();
 
+  // ✅ ARRIVAL (near end pin) — emits once per navigation/route
+  public arrivedNearPin = new EventEmitter<void>();
+  private arrivedNearPinTriggered = false;
+  private readonly ARRIVE_PIN_DIST_M = 6.0;      // 5–6m από pin (βάλε 5.5 αν θες)
+  private readonly ARRIVE_PIN_MAX_ACC_M = 30;    // accuracy gate για να μην κάνει false-positive
+
   // -----------------------------
   // ✅ MAP LOADING OVERLAY + %
   // -----------------------------
@@ -134,8 +140,7 @@ export class MapService {
         this.firstTilesLoadedFired = true;
         this.firstTilesLoaded.emit();
       });
-    } catch {
-    }
+    } catch {}
   }
 
   public whenFirstTilesLoaded(timeoutMs = 9000): Promise<boolean> {
@@ -1157,7 +1162,6 @@ export class MapService {
 
       this.drawEndApproach(rest[rest.length - 2], rest[rest.length - 1]);
     } else if (rest.length === 2) {
-
       this.drawEndApproach(rest[0], rest[1]);
     }
 
@@ -1279,6 +1283,18 @@ export class MapService {
     }
 
     void this.maybeReroute(rawNow, acc, spd);
+
+    // ✅ ARRIVAL: 5–6m από το τελικό pin (μόνο όταν είμαστε σε navigation mode)
+    if (!this.arrivedNearPinTriggered && this.mapMatchEnabled && this.activeEndPoint && this.currentRoutePoints.length >= 2) {
+      const accOk = isFinite(acc) && acc <= this.ARRIVE_PIN_MAX_ACC_M;
+      if (accOk) {
+        const d = rawNow.distanceTo(this.activeEndPoint);
+        if (isFinite(d) && d <= this.ARRIVE_PIN_DIST_M) {
+          this.arrivedNearPinTriggered = true;
+          this.arrivedNearPin.emit();
+        }
+      }
+    }
 
     // -----------------------------
     // HEADING επιλογή
@@ -1510,7 +1526,6 @@ export class MapService {
     this.baseLayer = L.tileLayer(layers[style].url, layers[style].opt).addTo(this.map);
 
     this.hookFirstTilesLoaded(this.baseLayer);
-
     this.hookTileLoadingProgress(this.baseLayer);
 
     if (this.bootLoadSessionActive) {
@@ -1705,6 +1720,9 @@ export class MapService {
 
   public async drawCustomRouteToDestination(dest: Destination, startPoint: L.LatLng, opts?: { fit?: boolean }) {
     if (!this.map) return;
+
+    // ✅ reset arrival trigger για νέο route
+    this.arrivedNearPinTriggered = false;
 
     this.activeDestination = dest;
     this.rerouteEnabled = true;
@@ -1965,6 +1983,9 @@ export class MapService {
     this.rerouteEnabled = false;
     this.offRouteStreak = 0;
     this.lastRerouteAt = 0;
+
+    // ✅ reset arrival trigger
+    this.arrivedNearPinTriggered = false;
   }
 
   public getCurrentRoutePoints(): L.LatLng[] {
@@ -1976,31 +1997,27 @@ export class MapService {
   }
 
   invalidateSizeSafe() {
-  try {
-    // αν έχεις private map!: L.Map;
-    (this as any).map?.invalidateSize(true);
-  } catch {}
-}
+    try {
+      (this as any).map?.invalidateSize(true);
+    } catch {}
+  }
 
-async refreshBaseLayer() {
-  try {
-    const map = (this as any).map;
-    const baseLayer = (this as any).baseLayer;
+  async refreshBaseLayer() {
+    try {
+      const map = (this as any).map;
+      const baseLayer = (this as any).baseLayer;
 
-    if (!map) return;
+      if (!map) return;
 
-    // ✅ αν είναι TileLayer, έχει redraw()
-    if (baseLayer && typeof baseLayer.redraw === 'function') {
-      baseLayer.redraw();
-      return;
-    }
+      if (baseLayer && typeof baseLayer.redraw === 'function') {
+        baseLayer.redraw();
+        return;
+      }
 
-    // ✅ fallback: remove/add για να ξαναφορτώσει
-    if (baseLayer && map.hasLayer(baseLayer)) {
-      map.removeLayer(baseLayer);
-      baseLayer.addTo(map);
-    }
-  } catch {}
-}
-
+      if (baseLayer && map.hasLayer(baseLayer)) {
+        map.removeLayer(baseLayer);
+        baseLayer.addTo(map);
+      }
+    } catch {}
+  }
 }
