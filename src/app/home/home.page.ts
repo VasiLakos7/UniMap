@@ -267,13 +267,11 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     this.outsideCampusKnown = false;
     this.outsideCampusOverlay = false;
 
-    // αρχικό loading μέχρι να έρθει event από MapService
     this.mapLoading = true;
     this.mapLoadingPct = 0;
     this.mapLoadingVisible = true;
     this.mapLoadingLeaving = false;
 
-    // start minimum window
     const now = Date.now();
     this.mapLoadingShownAt = now;
     this.mapLoadingMinUntil = now + this.OVERLAY_MIN_SHOW_MS;
@@ -298,7 +296,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     this.mapService.initializeMap(this.userLat, this.userLng, 'map');
     this.mapService.setNavigationMode(false);
     this.applyMapSettings();
-    await this.mapService.startGpsWatch(true, 18);
+    await this.mapService.startGpsWatch(false, 18);
     void this.checkOutsideAfterTiles(9000);
   }
 

@@ -98,8 +98,8 @@ export const destinationList: Destination[] = [
   {
     id: 'AGRONOMY',
     name: 'Τμήμα Γεωπονίας',
-    lat: 40.6582175,
-    lng: 22.8037,
+    lat: 40.658483817912305,
+    lng:  22.80371325120134,
     entranceLat: 40.658552,
     entranceLng: 22.803704,
     image: 'assets/images/departments/geoponias.jpg',
