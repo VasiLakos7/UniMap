@@ -1,6 +1,8 @@
 import { Injectable } from '@angular/core';
 import { find_path } from 'dijkstrajs';
 import * as L from 'leaflet';
+import { getEdgeTag, edgeAllowedForWheelchair, registerAccessibilityEdges } from './campus-accessibility';
+
 
 // ----------------------------------------------------
 // 1) OSM GRAPH (auto-generated) — base network
@@ -348,7 +350,6 @@ const MANUAL_NODE_COORDS: Record<string, L.LatLng> = {
   M_DOWN_1: L.latLng(40.656153, 22.802575),
   M_BOTTOM_MID: L.latLng(40.655737, 22.802588),
 
-  // --- splits που είπες ---
   M_68_TO_BOTTOM_1: L.latLng(40.655738, 22.802178), // ανάμεσα N0068 και M_BOTTOM_MID
   M_BOTTOM_TO_60_1: L.latLng(40.65574083890454, 22.803266228597206), // ανάμεσα M_BOTTOM_MID και N0060
   M_60_TO_69_1: L.latLng(40.655726, 22.804071), // ανάμεσα N0060 και N0069
@@ -356,12 +357,15 @@ const MANUAL_NODE_COORDS: Record<string, L.LatLng> = {
   M_58_TO_59_1: L.latLng(40.656482, 22.803623), // ανάμεσα N0058 και N0059
 
   M_36_TO_67_1: L.latLng(40.657202, 22.804278), // ανάμεσα N0036 και N0067
-  M_36_TO_67_PRE_1: L.latLng(40.65722217661241, 22.80376874180772), // extra ενδιάμεσο που ζήτησες
+  M_36_TO_67_PRE_1: L.latLng(40.65722217661241, 22.80376874180772),
   M_CENTRAL_TO_DOWN_1: L.latLng(40.65650055899734, 22.80256027049915),
+  M_TOP_3_TO_SCHOOL_ENT_2_1: L.latLng(40.6576592749191, 22.80181308004021),
+  M_TOP_4_TO_N0042_1: L.latLng(40.657558, 22.803309),
+
+
 };
 
 const MANUAL_EDGES: Array<[string, string]> = [
-  // N0026 -> (40.656662,22.803098) -> (40.656660,22.802577)
   ['N0026', 'M_CENT_PRE_1'],
   ['M_CENT_PRE_1', 'M_CENTRAL'],
 
@@ -388,6 +392,15 @@ const MANUAL_EDGES: Array<[string, string]> = [
   ['M_TOP_5', 'M_SCHOOL_ENT_1'],
   ['M_SCHOOL_ENT_1', 'N0134'],
   ['M_TOP_3', 'M_SCHOOL_ENT_2'],
+
+  //nees sundeseis
+  ['M_TOP_3', 'M_TOP_3_TO_SCHOOL_ENT_2_1'],
+  ['M_TOP_3_TO_SCHOOL_ENT_2_1', 'M_SCHOOL_ENT_2'],
+  ['M_TOP_3_TO_SCHOOL_ENT_2_1', 'M_SCHOOL_ENT_1'],
+  ['M_TOP_4', 'M_TOP_4_TO_N0042_1'],
+  ['M_TOP_4_TO_N0042_1', 'N0042'],
+
+
 ];
 
 // ----------------------------------------------------
@@ -626,6 +639,7 @@ function mergeOSMWithPOIs(): MergedGraph {
   return { coords: ALL, adjacency: g, snapCandidates };
 }
 
+registerAccessibilityEdges();
 const MERGED = mergeOSMWithPOIs();
 
 // ----------------------------------------------------
@@ -635,11 +649,60 @@ const MERGED = mergeOSMWithPOIs();
 export class CampusGraphService {
   private readonly nodeCoords: Record<string, L.LatLng> = MERGED.coords;
   private readonly campusGraphData: Adjacency = MERGED.adjacency;
-
   private readonly snapCandidates: string[] = MERGED.snapCandidates;
+
+  private wheelchairAdj?: Adjacency;
+  private wheelchairSnap?: string[];
 
   private readonly MAX_SNAP_METERS = 90;
 
+  // ----------------------------
+  // AMEA: filtered graph by edges
+  // ----------------------------
+  private getAdjacency(wheelchair: boolean): Adjacency {
+    if (!wheelchair) return this.campusGraphData;
+    if (this.wheelchairAdj) return this.wheelchairAdj;
+
+    const filtered: Adjacency = {};
+
+    for (const [u, nbrs] of Object.entries(this.campusGraphData)) {
+      for (const [v, w] of Object.entries(nbrs)) {
+        const tag = getEdgeTag(u, v);
+
+        // ✅ DEBUG (μόνο για test)
+        if (
+          (u === 'N0027' && v === 'N0028') ||
+          (u === 'N0028' && v === 'N0027')
+        ) {
+          console.log('[AMEA TEST] tag N0027<->N0028 =', tag);
+        }
+
+        if (!edgeAllowedForWheelchair(tag)) continue;
+
+        (filtered[u] ??= {})[v] = w;
+      }
+    }
+
+    this.wheelchairAdj = filtered;
+    return filtered;
+  }
+
+
+  private getSnapCandidates(wheelchair: boolean): string[] {
+    if (!wheelchair) return this.snapCandidates;
+    if (this.wheelchairSnap) return this.wheelchairSnap;
+
+    const g = this.getAdjacency(true);
+    // κρατά nodes που έχουν τουλάχιστον 1 επιτρεπτή σύνδεση
+    this.wheelchairSnap = this.snapCandidates.filter((id) => g[id] && Object.keys(g[id]).length > 0);
+
+    return this.wheelchairSnap;
+    
+  }
+
+  // ----------------------------
+  // API
+  // ----------------------------
   public getNodeIdForName(destinationName: string): string | null {
     const key = norm(destinationName);
     return alias.get(key) ?? null;
@@ -651,13 +714,14 @@ export class CampusGraphService {
     return id ? this.nodeCoords[id] : undefined;
   }
 
-  public findNearestNodeId(lat: number, lng: number): string | null {
+  public findNearestNodeId(lat: number, lng: number, opts?: { wheelchair?: boolean }): string | null {
     const here = L.latLng(lat, lng);
+    const candidates = this.getSnapCandidates(!!opts?.wheelchair);
 
     let bestId: string | null = null;
     let bestDist = Infinity;
 
-    for (const id of this.snapCandidates) {
+    for (const id of candidates) {
       const ll = this.nodeCoords[id];
       if (!ll) continue;
 
@@ -671,9 +735,14 @@ export class CampusGraphService {
     return bestDist <= this.MAX_SNAP_METERS ? bestId : null;
   }
 
-  public calculatePath(startNodeId: string, endNodeId: string): L.LatLng[] | null {
+  public calculatePath(
+    startNodeId: string,
+    endNodeId: string,
+    opts?: { wheelchair?: boolean }
+  ): L.LatLng[] | null {
     try {
-      const nodePath: string[] = find_path(this.campusGraphData, startNodeId, endNodeId);
+      const g = this.getAdjacency(!!opts?.wheelchair);
+      const nodePath: string[] = find_path(g, startNodeId, endNodeId);
       return nodePath.map((pid) => this.nodeCoords[pid]).filter(Boolean);
     } catch (e) {
       console.warn(`NO PATH: ${startNodeId} → ${endNodeId}`, e);
@@ -681,20 +750,28 @@ export class CampusGraphService {
     }
   }
 
-  public calculatePathWithLength(startNodeId: string, endNodeId: string) {
-    const points = this.calculatePath(startNodeId, endNodeId);
+  public calculatePathWithLength(
+    startNodeId: string,
+    endNodeId: string,
+    opts?: { wheelchair?: boolean }
+  ) {
+    const points = this.calculatePath(startNodeId, endNodeId, opts);
     if (!points || points.length < 2) return null;
 
     let len = 0;
-    for (let i = 1; i < points.length; i++) {
-      len += points[i - 1].distanceTo(points[i]);
-    }
+    for (let i = 1; i < points.length; i++) len += points[i - 1].distanceTo(points[i]);
 
     return { points, lengthM: Math.round(len) };
   }
 
-  public findBestStartNodeForDestination(lat: number, lng: number, endNodeId: string): string | null {
+  public findBestStartNodeForDestination(
+    lat: number,
+    lng: number,
+    endNodeId: string,
+    opts?: { wheelchair?: boolean }
+  ): string | null {
     const here = L.latLng(lat, lng);
+    const candidates = this.getSnapCandidates(!!opts?.wheelchair);
 
     const lengthCache = new Map<string, number>();
     const getPathLengthFrom = (from: string): number | null => {
@@ -703,7 +780,7 @@ export class CampusGraphService {
         return val === Infinity ? null : val;
       }
 
-      const res = this.calculatePathWithLength(from, endNodeId);
+      const res = this.calculatePathWithLength(from, endNodeId, opts);
       if (!res) {
         lengthCache.set(from, Infinity);
         return null;
@@ -718,7 +795,7 @@ export class CampusGraphService {
     let bestNode: string | null = null;
     let bestCost = Infinity;
 
-    for (const id of this.snapCandidates) {
+    for (const id of candidates) {
       const ll = this.nodeCoords[id];
       if (!ll) continue;
 
@@ -739,10 +816,14 @@ export class CampusGraphService {
   }
 
   // -------- DEBUG helpers --------
-  public calculatePathNodeIds(startNodeId: string, endNodeId: string): string[] | null {
+  public calculatePathNodeIds(
+    startNodeId: string,
+    endNodeId: string,
+    opts?: { wheelchair?: boolean }
+  ): string[] | null {
     try {
-      const nodePath: string[] = find_path(this.campusGraphData, startNodeId, endNodeId);
-      return nodePath;
+      const g = this.getAdjacency(!!opts?.wheelchair);
+      return find_path(g, startNodeId, endNodeId);
     } catch (e) {
       console.warn(`NO PATH (ids): ${startNodeId} → ${endNodeId}`, e);
       return null;
@@ -752,4 +833,39 @@ export class CampusGraphService {
   public getNodeLatLng(id: string): L.LatLng | undefined {
     return this.nodeCoords[id];
   }
+
+  //test gia extra nodes
+  //   public debugGetNeighbors(nodeId: string, opts?: { wheelchair?: boolean }): Array<{ id: string; w: number; tag: any }> {
+  //   const g = this.getAdjacency(!!opts?.wheelchair);
+  //   const nbrs = g[nodeId] ?? {};
+  //   return Object.entries(nbrs).map(([id, w]) => ({
+  //     id,
+  //     w,
+  //     tag: getEdgeTag(nodeId, id),
+  //   }));
+  // }
+
+  public debugFindNearestAnyNodeId(lat: number, lng: number): string | null {
+    const here = L.latLng(lat, lng);
+    let bestId: string | null = null;
+    let bestDist = Infinity;
+
+    for (const [id, ll] of Object.entries(this.nodeCoords)) {
+      const d = here.distanceTo(ll);
+      if (d < bestDist) {
+        bestDist = d;
+        bestId = id;
+      }
+    }
+    return bestId;
+  }
+
+  public debugGetNodeLatLng(id: string): L.LatLng | undefined {
+    return this.nodeCoords[id];
+  }
+// //voulitses gia extra nodes
+//   public getAllNodeCoords(): Record<string, { lat: number; lng: number }> {
+//   return this.nodeCoords;
+// }
+
 }
