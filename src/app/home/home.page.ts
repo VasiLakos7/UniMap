@@ -392,6 +392,10 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
       'DIALOG.AMEA_TITLE',
       this.ameaEnabled ? 'DIALOG.AMEA_ON_MSG' : 'DIALOG.AMEA_OFF_MSG'
     );
+
+    if (this.currentDestination && (this.routeReady || this.navigationActive || this.hasRoutePreview)) {
+      await this.onDirections(); 
+    }
   }
 
   async openSettings() {
@@ -399,14 +403,13 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
       component: SettingsModalComponent,
       cssClass: 'app-dialog-modal',
       componentProps: {
-        value: await this.settingsSvc.load(), // αν το κάνεις ήδη, οκ
+        value: await this.settingsSvc.load(), 
         onRefreshMap: async () => this.refreshMapNow(),
       },
     });
 
     await modal.present();
 
-    // ✅ Κράτα ΚΑΙ το παλιό flow για fallback (αν δεν περαστεί callback για κάποιο λόγο)
     const { role } = await modal.onDidDismiss();
     if (role === 'refreshMap') {
       await this.refreshMapNow();
@@ -779,7 +782,10 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     const startLL = inside ? L.latLng(this.userLat, this.userLng) : this.BUS_STOP;
 
     this.mapService.removeRouting(true);
-    await this.mapService.drawCustomRouteToDestination(this.currentDestination, startLL);
+    await this.mapService.drawCustomRouteToDestination(this.currentDestination, startLL, {
+      wheelchair: this.ameaEnabled,
+    });
+
 
     const routePts = this.mapService.getCurrentRoutePoints();
     if (routePts && routePts.length >= 2) {

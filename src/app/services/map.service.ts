@@ -6,6 +6,8 @@ import { Capacitor } from '@capacitor/core';
 import { Destination, destinationList } from '../models/destination.model';
 import { CampusGraphService } from './campus-graph.service';
 import { RoutingService } from './routing.service';
+import { getEdgeTag } from './campus-accessibility';
+
 
 @Injectable({ providedIn: 'root' })
 export class MapService {
@@ -44,6 +46,8 @@ export class MapService {
   private readonly SNAP_MIN_SPEED_MPS = 0.25;
 
   private lastRouteBounds: L.LatLngBounds | null = null;
+  private activeWheelchair = false;
+
 
   public locationFound = new EventEmitter<{ lat: number; lng: number; accuracy?: number }>();
   public mapClicked = new EventEmitter<{ lat: number; lng: number; name: string | null }>();
@@ -304,6 +308,13 @@ export class MapService {
       this.snapEngaged = false;
       this.lastSnapLL = null;
     }
+    if (!active) {
+      this.activeWheelchair = false;
+      this.activeDestination = null;
+      this.activeEndPoint = null;
+    }
+
+
   }
 
   // -----------------------------
@@ -583,6 +594,10 @@ export class MapService {
 
     this.setupMapClickEvent();
     this.setupFreePanHandlers();
+
+    //test
+    // this.showAllDebugNodes();
+
   }
 
   private setupFreePanHandlers() {
@@ -1116,7 +1131,11 @@ export class MapService {
     this.lastRerouteAt = now;
 
     if (offM >= this.REROUTE_FULL_REBUILD_M) {
-      await this.drawCustomRouteToDestination(this.activeDestination, rawNow, { fit: false });
+      await this.drawCustomRouteToDestination(this.activeDestination, rawNow, {
+        fit: false,
+        wheelchair: this.activeWheelchair,
+      });
+
       return;
     }
 
@@ -1718,7 +1737,13 @@ export class MapService {
     return a.distanceTo(b) <= epsM;
   }
 
-  public async drawCustomRouteToDestination(dest: Destination, startPoint: L.LatLng, opts?: { fit?: boolean }) {
+  public async drawCustomRouteToDestination(
+  dest: Destination,
+  startPoint: L.LatLng,
+  opts?: { fit?: boolean; wheelchair?: boolean }) 
+  {
+    this.activeWheelchair = !!opts?.wheelchair;
+
     if (!this.map) return;
 
     // ✅ reset arrival trigger για νέο route
@@ -1739,6 +1764,7 @@ export class MapService {
 
     const APPROACH_START_M = 38;
     const distToDestNow = startPoint.distanceTo(endPoint);
+    
 
     if (isFinite(distToDestNow) && distToDestNow <= APPROACH_START_M) {
       this.currentRoutePoints = [startPoint, endPoint];
@@ -1766,22 +1792,57 @@ export class MapService {
         progress: 0,
       });
       return;
+      
     }
+    
 
     // =============================
     //  GRAPH ROUTE
     // =============================
-    let endNodeId = this.graphService.getNodeIdForName(dest.name) || this.graphService.findNearestNodeId(destLat, destLng);
+   let endNodeId =
+    this.graphService.getNodeIdForName(dest.name) ||
+    this.graphService.findNearestNodeId(destLat, destLng, { wheelchair: !!opts?.wheelchair });
+
     if (!endNodeId) return;
 
-    let startNodeId: string | null = this.graphService.findNearestNodeId(startPoint.lat, startPoint.lng);
+    let startNodeId: string | null = this.graphService.findNearestNodeId(
+    startPoint.lat,
+    startPoint.lng,
+    { wheelchair: !!opts?.wheelchair }
+    );
 
     if (!startNodeId) {
-      startNodeId = this.graphService.findBestStartNodeForDestination(startPoint.lat, startPoint.lng, endNodeId);
+      startNodeId = this.graphService.findBestStartNodeForDestination(
+        startPoint.lat,
+        startPoint.lng,
+        endNodeId,
+        { wheelchair: !!opts?.wheelchair }
+      );
     }
+
     if (!startNodeId) return;
 
-    const pathNodes = this.graphService.calculatePath(startNodeId, endNodeId);
+      //test
+    const pNormal = this.graphService.calculatePathNodeIds(startNodeId, endNodeId, { wheelchair: false });
+    const pAmea = this.graphService.calculatePathNodeIds(startNodeId, endNodeId, { wheelchair: true });
+
+    console.log('[PATH normal]', pNormal);
+    console.log('[PATH AMEA]', pAmea);
+
+    if (pNormal && pNormal.length >= 2) {
+    for (let i = 0; i < pNormal.length - 1; i++) {
+    const a = pNormal[i];
+    const b = pNormal[i + 1];
+    console.log(`[EDGE] ${a}<->${b} tag=${getEdgeTag(a, b)}`);
+  }
+}
+
+
+
+    const pathNodes = this.graphService.calculatePath(startNodeId, endNodeId, {
+      wheelchair: !!opts?.wheelchair,
+    });
+
     if (!pathNodes || pathNodes.length < 1) return;
 
     const startNodeCoords = this.graphService.getDestinationCoords(startNodeId);
@@ -1813,32 +1874,46 @@ export class MapService {
 
     if (!this.almostSame(pts[pts.length - 1], endPoint)) pts.push(endPoint);
 
-    this.currentRoutePoints = pts;
+   
+    let trimmed = this.trimStartBacktrack(pts, startPoint, { maxSnapM: 28, minSaveM: 7 });
+    trimmed = this.trimEndBacktrack(trimmed, endPoint, { maxSnapM: 28, minSaveM: 7, window: 10 });
 
-    if (startPoint.distanceTo(startNodeCoords) > 1) {
-      this.approachPolyline = L.polyline([startPoint, startNodeCoords], {
-        color: '#666666',
-        weight: 3,
-        opacity: 0.7,
-        dashArray: '4 8',
-      }).addTo(this.map);
-    }
+    this.currentRoutePoints = trimmed;
+    const drawPts = this.currentRoutePoints;
 
-    if (pts.length >= 3) {
-      const solidPts = pts.slice(0, -1);
-      this.currentPolyline = L.polyline(solidPts, {
-        color: '#007bff',
-        weight: 6,
-        opacity: 0.9,
-      }).addTo(this.map);
+    if (drawPts.length >= 2) {
+        const a0 = drawPts[0];
+        const a1 = drawPts[1];
 
-      this.drawEndApproach(pts[pts.length - 2], pts[pts.length - 1]);
-    } else if (pts.length === 2) {
-      // only dashed segment
-      this.drawEndApproach(pts[0], pts[1]);
-    }
+        if (a0.distanceTo(a1) > 1) {
+          this.approachPolyline = L.polyline([a0, a1], {
+            color: '#666666',
+            weight: 3,
+            opacity: 0.75,
+            dashArray: '4 8',
+          }).addTo(this.map);
+        }
 
-    const bounds = L.latLngBounds(pts);
+        if (drawPts.length >= 3) {
+          const solid = drawPts.slice(1, -1);
+
+          if (solid.length >= 2) {
+            this.currentPolyline = L.polyline(solid, {
+              color: '#007bff',
+              weight: 6,
+              opacity: 0.9,
+            }).addTo(this.map);
+          }
+
+          this.drawEndApproach(drawPts[drawPts.length - 2], drawPts[drawPts.length - 1]);
+        } else {
+
+          this.drawEndApproach(drawPts[0], drawPts[1]);
+        }
+      }
+
+const bounds = L.latLngBounds(drawPts);
+
     this.lastRouteBounds = bounds;
 
     if (opts?.fit !== false) {
@@ -2020,4 +2095,208 @@ export class MapService {
       }
     } catch {}
   }
+
+    private trimStartBacktrack(points: L.LatLng[], startPoint: L.LatLng, opts?: {
+      maxSnapM?: number;   // 
+      minSaveM?: number;   
+    }) : L.LatLng[] {
+      const maxSnapM = opts?.maxSnapM ?? 25; 
+      const minSaveM = opts?.minSaveM ?? 6;  
+
+      if (!points || points.length < 4) return points;
+      if (!startPoint) return points;
+
+    
+      const firstLeg = startPoint.distanceTo(points[1]);
+      if (!isFinite(firstLeg) || firstLeg < 3) return points;
+
+      const P = L.CRS.EPSG3857.project(startPoint);
+
+      let bestD = Infinity;
+      let bestPt: L.Point | null = null;
+      let bestI = -1;
+
+      for (let i = 1; i < points.length - 2; i++) {
+        const A = L.CRS.EPSG3857.project(points[i]);
+        const B = L.CRS.EPSG3857.project(points[i + 1]);
+        const res = this.closestPointOnSegmentMeters(P, A, B);
+        if (res.dist < bestD) {
+          bestD = res.dist;
+          bestPt = res.pt;
+          bestI = i;
+        }
+      }
+
+      if (!bestPt || bestI < 2) return points;            
+      if (!isFinite(bestD) || bestD > maxSnapM) return points;
+
+      const saved = firstLeg - bestD;
+      if (saved < minSaveM) return points;
+
+      const snapLL = L.CRS.EPSG3857.unproject(bestPt);
+
+
+      const out: L.LatLng[] = [];
+      out.push(startPoint);
+
+      if (!this.almostSame(out[out.length - 1], snapLL, 0.8)) out.push(snapLL);
+
+      const tail = points.slice(bestI + 1);
+      for (const p of tail) {
+        if (!this.almostSame(out[out.length - 1], p, 0.7)) out.push(p);
+      }
+
+      return out;
+    }
+
+    private trimEndBacktrack(
+      points: L.LatLng[],
+      endPoint: L.LatLng,
+      opts?: { maxSnapM?: number; minSaveM?: number; window?: number }
+    ): L.LatLng[] {
+      const maxSnapM = opts?.maxSnapM ?? 28;  
+      const minSaveM = opts?.minSaveM ?? 7;  
+      const window = opts?.window ?? 8;   
+
+      if (!points || points.length < 4) return points;
+      if (!endPoint) return points;
+
+      const lastLeg = points[points.length - 2].distanceTo(endPoint);
+      if (!isFinite(lastLeg) || lastLeg < 3) return points;
+
+      const P = L.CRS.EPSG3857.project(endPoint);
+
+      let bestD = Infinity;
+      let bestPt: L.Point | null = null;
+      let bestI = -1;
+
+    
+      const startI = Math.max(1, (points.length - 2) - window);
+      const endI = Math.max(1, points.length - 3);
+
+      for (let i = startI; i <= endI; i++) {
+        const A = L.CRS.EPSG3857.project(points[i]);
+        const B = L.CRS.EPSG3857.project(points[i + 1]);
+        const res = this.closestPointOnSegmentMeters(P, A, B);
+        if (res.dist < bestD) {
+          bestD = res.dist;
+          bestPt = res.pt;
+          bestI = i;
+        }
+      }
+
+      if (!bestPt || bestI < 1) return points;
+      if (!isFinite(bestD) || bestD > maxSnapM) return points;
+
+      const snapLL = L.CRS.EPSG3857.unproject(bestPt);
+
+
+      const tail = points.slice(bestI);
+      const oldTailDist = this.sumDistanceMeters(tail);
+
+      const fromLL = points[bestI];
+      const newTailDist = fromLL.distanceTo(snapLL) + snapLL.distanceTo(endPoint);
+
+      const saved = oldTailDist - newTailDist;
+      if (!isFinite(saved) || saved < minSaveM) return points;
+
+      const out: L.LatLng[] = [];
+      for (let k = 0; k <= bestI; k++) {
+        const p = points[k];
+        if (out.length === 0 || !this.almostSame(out[out.length - 1], p, 0.7)) out.push(p);
+      }
+
+      if (!this.almostSame(out[out.length - 1], snapLL, 0.8)) out.push(snapLL);
+      if (!this.almostSame(out[out.length - 1], endPoint, 0.7)) out.push(endPoint);
+
+      return out;
+    }
+
+
+
+  //test gia extra nodes
+// private debugNodesLayer = L.layerGroup();
+// private debugNodesVisible = false;
+
+// private ensureDebugPane() {
+//   if (!this.map) return;
+//   const paneName = 'debug-nodes';
+//   if (!this.map.getPane(paneName)) {
+//     this.map.createPane(paneName);
+//     // αρκετά ψηλά για να φαίνεται πάνω από routes/tiles
+//     (this.map.getPane(paneName) as HTMLElement).style.zIndex = '650';
+//   }
+// }
+
+// public toggleDebugNodes() {
+//   this.setDebugNodesVisible(!this.debugNodesVisible);
+// }
+
+// public setDebugNodesVisible(visible: boolean) {
+//   this.debugNodesVisible = visible;
+//   if (!this.map) return;
+
+//   this.ensureDebugPane();
+
+//   if (visible) {
+//     // Βάλε layer group στον χάρτη (αν δεν είναι ήδη)
+//     if (!this.map.hasLayer(this.debugNodesLayer)) {
+//       this.debugNodesLayer.addTo(this.map);
+//     }
+//     this.renderDebugNodes();
+//   } else {
+//     this.debugNodesLayer.clearLayers();
+//     if (this.map.hasLayer(this.debugNodesLayer)) {
+//       this.map.removeLayer(this.debugNodesLayer);
+//     }
+//   }
+// }
+
+//test
+// private renderDebugNodes() {
+//   if (!this.map) return;
+
+//   const coords = this.graphService.getAllNodeCoords?.();
+//   if (!coords) {
+//     console.warn('[DEBUG NODES] getAllNodeCoords() not available');
+//     return;
+//   }
+
+//   this.debugNodesLayer.clearLayers();
+//   this.ensureDebugPane();
+
+//   for (const [id, ll] of Object.entries(coords)) {
+//     if (!ll || !isFinite(ll.lat) || !isFinite(ll.lng)) continue;
+
+//     const m = L.circleMarker([ll.lat, ll.lng], {
+//       pane: 'debug-nodes',
+//       radius: 4,
+//       weight: 2,
+//       opacity: 1,
+//       fillOpacity: 1,
+//       // ✅ θέλουμε hover, άρα να είναι interactive
+//       interactive: true,
+//     });
+
+//     // ✅ Hover tooltip (όχι μόνιμο)
+//     m.bindTooltip(id, {
+//       permanent: false,
+//       sticky: true,              // ακολουθεί το mouse
+//       direction: 'top',
+//       offset: L.point(0, -8),
+//       opacity: 0.95,
+//       className: 'debug-node-tooltip',
+//     });
+
+//     m.addTo(this.debugNodesLayer);
+//   }
+// }
+
+// public showAllDebugNodes() {
+//   this.setDebugNodesVisible(true);
+//   this.renderDebugNodes();
+// }
+
+
+
 }
