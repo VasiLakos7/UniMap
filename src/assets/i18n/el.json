@@ -83,15 +83,6 @@
     "PRESS_DIRECTIONS": "Πάτησε «Οδηγίες» για να δεις διαδρομή", "OUTSIDE_PRESS_DIRECTIONS": "Είσαι εκτός campus — πάτησε «Οδηγίες»", "ROUTE_READY_PRESS_START": "Έτοιμο — πάτησε «Ξεκίνα»"
   },
 
-  "COMMON": {
-    "ON": "ON",
-    "OFF": "OFF",
-    "CLOSE": "Κλείσιμο",
-    "SAVE": "Αποθήκευση",
-    "ENABLED": "ΕΝΕΡΓΟ",
-    "DISABLED": "ΑΝΕΝΕΡΓΟ"
-  },
-
   "LANG": {
     "EL": "Ελληνικά",
     "EN": "Αγγλικά"

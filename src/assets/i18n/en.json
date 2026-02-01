@@ -7,7 +7,7 @@
     "CUSTOM": { "NAME": "Selected destination" },
 
     "MAIEUTIKI": {
-      "NAME": "Department of Midwifery",
+      "NAME": "Department of Midwifery Science",
       "DESCRIPTION": "The Department of Midwifery offers high-level education in the care of women and newborns."
     },
     "NURSING": {
@@ -19,11 +19,11 @@
       "DESCRIPTION": "Studies focused on rehabilitation and treatment of mobility-related dysfunctions."
     },
     "DIETETICS": {
-      "NAME": "Department of Nutrition and Dietetics",
+      "NAME": "Department of Nutritional Sciences and Dietetics",
       "DESCRIPTION": "Focuses on nutrition, healthy eating, and disease prevention through diet."
     },
     "AGRONOMY": {
-      "NAME": "Department of Agronomy",
+      "NAME": "Department of Agriculture",
       "DESCRIPTION": "Studies in agronomy, natural resource management, and agricultural production."
     },
     "FOOD_TECH": {
@@ -31,15 +31,15 @@
       "DESCRIPTION": "Study of food production processes and food quality control."
     },
     "MPD_VEHICLES": {
-      "NAME": "Department of Production and Management Engineering (Vehicles Annex)",
+      "NAME": "Department of Production Engineering",
       "DESCRIPTION": "Specialization in the study and management of motor vehicles and production processes."
     },
     "CS_BUILDING_H": {
-      "NAME": "Department of Computer Engineering (Building H)",
+      "NAME": "Department of Information and Electronic Engineeringg (Building H)",
       "DESCRIPTION": "Innovative research and applications in the field of computing."
     },
     "CS_BUILDING_P": {
-      "NAME": "Department of Computer Engineering (Building P)",
+      "NAME": "Department of Information and Electronic Engineering (Building P)",
       "DESCRIPTION": "Programming, artificial intelligence, and modern computing technologies."
     },
     "SDO": {
@@ -47,7 +47,7 @@
       "DESCRIPTION": "Studies in organizational management, marketing, and tourism."
     },
     "LIS": {
-      "NAME": "Department of Library Science, Archival Science & Information Systems",
+      "NAME": "Department of Library, Archival & Information Studies",
       "DESCRIPTION": "Department focused on library science and information systems."
     },
     "ENV_ENGINEERING": {
@@ -87,16 +87,7 @@
     "OUTSIDE_PRESS_DIRECTIONS": "You are outside campus — tap “Directions”",
     "ROUTE_READY_PRESS_START": "Ready — tap “Start”"
   },
-
-  "COMMON": {
-    "ON": "ON",
-    "OFF": "OFF",
-    "CLOSE": "Close",
-    "SAVE": "Save",
-    "ENABLED": "ON",
-    "DISABLED": "OFF"
-  },
-
+  
   "LANG": {
     "EL": "Greek",
     "EN": "English"
