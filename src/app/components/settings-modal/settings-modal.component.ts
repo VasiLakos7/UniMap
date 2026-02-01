@@ -124,7 +124,7 @@ export class SettingsModalComponent implements OnInit, OnDestroy {
 
   async requestRefreshMap() {
     if (!this.onRefreshMap) {
-      this.modalCtrl.dismiss(null, 'refreshMap');
+      this.modalCtrl.dismiss({ closeRoute: true }, 'refreshMap');
       return;
     }
 

@@ -296,7 +296,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     this.mapService.initializeMap(this.userLat, this.userLng, 'map');
     this.mapService.setNavigationMode(false);
     this.applyMapSettings();
-    await this.mapService.startGpsWatch(false, 18);
+    await this.mapService.startGpsWatch(!this.hasUserFix, 18);
     void this.checkOutsideAfterTiles(9000);
   }
 
@@ -398,23 +398,55 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     }
   }
 
-  async openSettings() {
-    const modal = await this.modalCtrl.create({
-      component: SettingsModalComponent,
-      cssClass: 'app-dialog-modal',
-      componentProps: {
-        value: await this.settingsSvc.load(), 
-        onRefreshMap: async () => this.refreshMapNow(),
-      },
-    });
+ async openSettings() {
+      const modal = await this.modalCtrl.create({
+        component: SettingsModalComponent,
+        cssClass: 'app-dialog-modal',
+        componentProps: {
+          value: await this.settingsSvc.load(),
+          onRefreshMap: async () => this.refreshMapNow(),
+        },
+      });
 
-    await modal.present();
+      await modal.present();
+      const { role, data } = await modal.onDidDismiss<any>();
 
-    const { role } = await modal.onDidDismiss();
     if (role === 'refreshMap') {
+      if (data?.closeRoute) {
+        this.cancelRouteKeepPopup(); 
+        this.mapService.removeRouting(true);
+        this.routeReady = false; this.navigationActive = false; this.hasRoutePreview = false;
+        this.resetTopNav(); this.lockIfHasDirections();
+      }
+
       await this.refreshMapNow();
+      return;
     }
-  }
+
+
+      // const { role, data } = await modal.onDidDismiss<AppSettings | null>();
+
+      if ((role === 'save' || role === 'reset') && data) {
+        this.settings = data;
+
+        await this.applyLanguageFromSettings();
+        this.applyMapSettings();
+        await this.refreshMapNow();
+        return;
+      }
+
+
+      if (role === 'refreshMap' || role === 'refreshDone') {
+        this.settings = await this.settingsSvc.load();
+        await this.applyLanguageFromSettings();
+        this.applyMapSettings();
+        await this.refreshMapNow();
+        return;
+      }
+
+    }
+
+
 
   private async refreshMapNow() {
   // 1) Leaflet resize fix (πολύ σημαντικό μετά από modals)
@@ -779,7 +811,9 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
       await this.uiDialog.info('DIALOG.ROUTE_FROM_BUSSTOP_TITLE', 'DIALOG.ROUTE_FROM_BUSSTOP_MSG');
     }
 
-    const startLL = inside ? L.latLng(this.userLat, this.userLng) : this.BUS_STOP;
+
+    const startLL = this.BUS_STOP;
+
 
     this.mapService.removeRouting(true);
     await this.mapService.drawCustomRouteToDestination(this.currentDestination, startLL, {
