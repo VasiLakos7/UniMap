@@ -31,7 +31,7 @@ export class DepartmentPopupComponent implements AfterViewInit, OnChanges, OnDes
 
   @Input() units: 'm' | 'km' = 'm';
 
-  // ✅ νέο: directions
+  // directions output
   @Output() directions = new EventEmitter<void>();
 
   @Output() navigate = new EventEmitter<void>();
@@ -152,7 +152,7 @@ export class DepartmentPopupComponent implements AfterViewInit, OnChanges, OnDes
     this.navigate.emit();
   }
 
-  // ✅ νέο: directions
+  // directions handler
   onDirections() {
     this.directions.emit();
   }

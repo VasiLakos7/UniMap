@@ -256,7 +256,9 @@
     "ROUTE_FROM_BUSSTOP_TITLE": "Heads up",
     "ROUTE_FROM_BUSSTOP_MSG": "You are outside campus. Directions will start from the bus stop.",
     "OUTSIDE_CAMPUS_ON_START_MSG": "You are outside campus range. You can still use the app remotely.",
-    "ERROR_REFRESH_MAP": "Map refresh failed. Please try again."
+    "ERROR_REFRESH_MAP": "Map refresh failed. Please try again.",
+    "ROUTE_ERROR_TITLE": "Route unavailable",
+    "ROUTE_ERROR_MSG": "Could not load the route. Please check your connection and try again."
 
   }
 }

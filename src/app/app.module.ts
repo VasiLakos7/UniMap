@@ -20,7 +20,7 @@ export function createTranslateLoader(http: HttpClient): TranslateLoader {
 }
 
 
-// ✅ init language BEFORE app renders
+// init language BEFORE app renders
 export function initLanguage(settingsSvc: SettingsService, translate: TranslateService) {
   return async () => {
     translate.setDefaultLang('el');
@@ -28,8 +28,7 @@ export function initLanguage(settingsSvc: SettingsService, translate: TranslateS
     const s = await settingsSvc.load();
     const lang = s.language || 'el';
     translate.addLangs(['el', 'en']);
-    await firstValueFrom(translate.use(lang)); 
-    console.log('[i18n] init lang =', translate.currentLang);
+    await firstValueFrom(translate.use(lang));
   };
 }
 

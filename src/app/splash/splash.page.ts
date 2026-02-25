@@ -29,18 +29,18 @@ export class SplashPage implements OnInit, AfterViewInit, OnDestroy {
   private typingTimeout: any;
   private i = 0;
 
-  // ✅ Network
+  // Network
   netOnline = true;
   private netListener?: PluginListenerHandle;
   private netPollTimer: any = null;
 
-  // ✅ Status
+  // Status
   statusKey: string | null = null;
   statusMode: 'none' | 'offline' | 'permission' | 'gps' | 'error' = 'none';
 
   private langSub?: Subscription;
 
-  // ✅ Premium notification banner (top)
+  // Premium notification banner (top)
   bannerVisible = false;
   bannerLeaving = false;
   bannerKey: string | null = null;
@@ -119,7 +119,7 @@ export class SplashPage implements OnInit, AfterViewInit, OnDestroy {
       window.addEventListener('offline', this.onOffline);
     }
 
-    // ✅ fallback που πιάνει ΠΑΝΤΑ αλλαγές
+    // fallback που πιάνει ΠΑΝΤΑ αλλαγές
     this.startNetPolling(1000);
   }
 
@@ -300,7 +300,7 @@ export class SplashPage implements OnInit, AfterViewInit, OnDestroy {
     try {
       await this.platform.ready();
 
-      // ✅ πριν κάνεις GPS/permissions: έλεγξε internet
+      // πριν κάνεις GPS/permissions: έλεγξε internet
       await this.refreshNetOnline();
       if (!this.netOnline) {
         this.setStatus('offline', 'SPLASH.STATUS.NO_INTERNET');
@@ -331,7 +331,7 @@ export class SplashPage implements OnInit, AfterViewInit, OnDestroy {
 
       this.navCtrl.navigateRoot('/home', { animated: false });
     } catch (e: any) {
-      // ✅ αν στο ενδιάμεσο έπεσε internet, δείξε ΜΟΝΟ offline
+      // αν στο ενδιάμεσο έπεσε internet, δείξε ΜΟΝΟ offline
       await this.refreshNetOnline();
       if (!this.netOnline) {
         this.setStatus('offline', 'SPLASH.STATUS.NO_INTERNET');

@@ -42,9 +42,9 @@ export class SearchBarComponent implements OnInit, OnDestroy {
   filteredResults: Destination[] = [];
   destinationList: Destination[] = destinationList;
 
-  // ✅ Recents by id (stable across languages)
+  // Recents by id (stable across languages)
   recentResults: Destination[] = [];
-  private readonly RECENTS_KEY = 'unimap_recent_destinations_v2'; // ✅ bumped
+  private readonly RECENTS_KEY = 'unimap_recent_destinations_v2'; // bumped
   private readonly RECENTS_LIMIT = 6;
 
   panelOpen = false;
@@ -191,7 +191,7 @@ export class SearchBarComponent implements OnInit, OnDestroy {
   }
 
   // -----------------------------
-  // ✅ RECENTS (by id)
+  // RECENTS (by id)
   // -----------------------------
   private loadRecents() {
     try {

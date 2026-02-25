@@ -38,7 +38,7 @@ export class UiDialogService {
     return modal.onDidDismiss();
   }
 
-  // ✅ “Οι ρυθμίσεις άλλαξαν”
+  // "Οι ρυθμίσεις άλλαξαν"
   settingsSaved() {
     return this.openKeys({
       titleKey: 'DIALOG.SETTINGS_CHANGED_TITLE',

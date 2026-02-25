@@ -811,15 +811,29 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
       await this.uiDialog.info('DIALOG.ROUTE_FROM_BUSSTOP_TITLE', 'DIALOG.ROUTE_FROM_BUSSTOP_MSG');
     }
 
+    const startLL = (inside && this.hasUserFix)
+      ? L.latLng(this.userLat, this.userLng)
+      : this.BUS_STOP;
 
-    const startLL = this.BUS_STOP;
 
+    // Immediately zoom out to start + destination while API loads
+    const destPreviewLat = this.currentDestination.entranceLat ?? this.currentDestination.lat;
+    const destPreviewLng = this.currentDestination.entranceLng ?? this.currentDestination.lng;
+    const bottomPad = 260 + (this.showModal ? this.popupHeightPx || 0 : 0);
+    this.mapService.previewRouteBounds(startLL, L.latLng(destPreviewLat, destPreviewLng), bottomPad);
 
     this.mapService.removeRouting(true);
-    await this.mapService.drawCustomRouteToDestination(this.currentDestination, startLL, {
-      wheelchair: this.ameaEnabled,
-    });
-
+    try {
+      await this.mapService.drawCustomRouteToDestination(this.currentDestination, startLL, {
+        wheelchair: this.ameaEnabled,
+      });
+    } catch (err) {
+      console.error('[onDirections] route API failed:', err);
+      await this.uiDialog.info('DIALOG.ROUTE_ERROR_TITLE', 'DIALOG.ROUTE_ERROR_MSG');
+      this.routeReady = false;
+      this.lockIfHasDirections();
+      return;
+    }
 
     const routePts = this.mapService.getCurrentRoutePoints();
     if (routePts && routePts.length >= 2) {
