@@ -1,7 +1,8 @@
-<div #sheet class="um-sheet" [class.is-expanded]="expanded">
-  <div class="um-handle" (click)="toggleExpand()"></div>
+<div #sheet class="um-sheet" [class.um-sheet--compact]="routeReady || navigationActive">
 
+  <!-- Absolute X: only in browse and arrived -->
   <button
+    *ngIf="isBrowseMode || hasArrived"
     class="um-x-top"
     type="button"
     (click)="onClose()"
@@ -11,153 +12,132 @@
   </button>
 
   <div class="um-sheet__scroll">
-    <!-- ✅ SELECT MODE -->
-    <ng-container *ngIf="!navigationActive || hasArrived; else navMode">
+
+    <!-- ── STATE 1: BROWSE ── -->
+    <ng-container *ngIf="isBrowseMode">
       <div class="um-head">
-        <img
-          class="um-avatar"
-          [src]="getImage()"
-          [attr.alt]="'POPUP.IMAGE_ALT' | translate"
-        />
-
+        <div class="um-avatar-wrap">
+          <img class="um-avatar" [src]="getImage()" [attr.alt]="'POPUP.IMAGE_ALT' | translate"/>
+        </div>
         <div class="um-title">
-          <div class="um-name">
-            {{ ('DEST.' + destination.id + '.NAME') | translate }}
-          </div>
-
-          <!-- ✅ ΠΑΝΤΑ δείξε meta, με παύλες όταν δεν υπάρχουν τιμές -->
+          <div class="um-name">{{ ('DEST.' + destination.id + '.NAME') | translate }}</div>
           <div class="um-meta">
             <span>
-              <ng-container *ngIf="meters !== null; else dashMeters">
-                {{ formatDistance(meters) }}
-              </ng-container>
-              <ng-template #dashMeters>—</ng-template>
+              <ng-container *ngIf="meters !== null; else dashM1">{{ formatDistance(meters) }}</ng-container>
+              <ng-template #dashM1>—</ng-template>
             </span>
-
             <span class="dot">•</span>
-
             <span>
-              <ng-container *ngIf="etaMin !== null; else dashEta">
-                {{ 'POPUP.MINUTES' | translate:{ value: etaMin } }}
-              </ng-container>
-              <ng-template #dashEta>—</ng-template>
+              <ng-container *ngIf="etaMin !== null; else dashE1">{{ 'POPUP.MINUTES' | translate:{ value: etaMin } }}</ng-container>
+              <ng-template #dashE1>—</ng-template>
             </span>
           </div>
         </div>
       </div>
 
-      <div class="um-actions" *ngIf="!hasArrived">
-        <div class="um-row um-row-1">
-          <!-- CTA -->
-          <ion-button
-            class="um-start"
-            color="primary"
-            *ngIf="!routeReady"
-            (click)="onDirections()"
-          >
+      <div class="um-actions">
+        <div class="um-row">
+          <ion-button class="um-start" color="primary" (click)="onDirections()">
             <ion-icon name="map-outline" slot="start"></ion-icon>
             {{ 'POPUP.DIRECTIONS' | translate }}
           </ion-button>
-
-          <ion-button
-            class="um-start"
-            color="primary"
-            *ngIf="routeReady"
-            (click)="onStart()"
-            [disabled]="startDisabled"
-          >
-            <ion-icon name="navigate" slot="start"></ion-icon>
-            {{ 'POPUP.START' | translate }}
-          </ion-button>
-
-          <!-- Minis group (link → phone → share) -->
           <div class="um-minis">
-            <ion-button
-              class="um-mini um-mini--link"
-              fill="outline"
-              color="primary"
-              *ngIf="destination?.website"
-              (click)="openWebsite()"
-              [attr.aria-label]="'POPUP.WEBSITE' | translate"
-            >
+            <ion-button class="um-mini um-mini--link" fill="outline" color="primary"
+              *ngIf="destination?.website" (click)="openWebsite()" [attr.aria-label]="'POPUP.WEBSITE' | translate">
               <ion-icon name="link-outline"></ion-icon>
             </ion-button>
-
-            <ion-button
-              class="um-mini um-mini--phone"
-              fill="outline"
-              color="danger"
-              *ngIf="getPhone()"
-              (click)="callNumber()"
-              [attr.aria-label]="'POPUP.PHONE' | translate"
-            >
+            <ion-button class="um-mini um-mini--phone" fill="outline" color="danger"
+              *ngIf="getPhone()" (click)="callNumber()" [attr.aria-label]="'POPUP.PHONE' | translate">
               <ion-icon name="call"></ion-icon>
             </ion-button>
-
-            <ion-button
-              class="um-mini um-mini--share"
-              fill="outline"
-              color="primary"
-              (click)="shareLocation()"
-              [attr.aria-label]="'POPUP.SHARE' | translate"
-            >
+            <ion-button class="um-mini um-mini--share" fill="outline" color="primary"
+              (click)="shareLocation()" [attr.aria-label]="'POPUP.SHARE' | translate">
               <ion-icon name="arrow-redo-outline"></ion-icon>
             </ion-button>
           </div>
         </div>
       </div>
+    </ng-container>
 
-      <ion-button
-        class="um-arrived"
-        expand="block"
-        color="success"
-        *ngIf="hasArrived"
-        (click)="onClose()"
-      >
+    <!-- ── STATE 2: ROUTE READY ── -->
+    <ng-container *ngIf="routeReady && !navigationActive && !hasArrived">
+      <div class="um-compact">
+
+        <!-- Header: name left, X right -->
+        <div class="um-compact-header">
+          <div class="um-compact-name">{{ ('DEST.' + destination.id + '.NAME') | translate }}</div>
+          <button class="um-compact-x" type="button" (click)="onExit()" [attr.aria-label]="'COMMON.CLOSE' | translate">
+            <ion-icon name="close"></ion-icon>
+          </button>
+        </div>
+
+        <!-- Metrics -->
+        <div class="um-compact-metrics">
+          <ion-icon class="icon-time" name="time-outline"></ion-icon>
+          <span>
+            <ng-container *ngIf="etaMin !== null; else dashE2">{{ 'POPUP.MINUTES' | translate:{ value: etaMin } }}</ng-container>
+            <ng-template #dashE2>—</ng-template>
+          </span>
+          <span class="um-dot">·</span>
+          <ion-icon class="icon-walk" name="walk-outline"></ion-icon>
+          <span>
+            <ng-container *ngIf="meters !== null; else dashM2">{{ formatDistance(meters) }}</ng-container>
+            <ng-template #dashM2>—</ng-template>
+          </span>
+        </div>
+
+        <!-- ΕΝΑΡΞΗ + Share -->
+        <div class="um-cta-row">
+          <ion-button expand="block" class="um-cta" color="primary" (click)="onStart()" [disabled]="startDisabled">
+            <ion-icon name="navigate" slot="start"></ion-icon>
+            {{ 'POPUP.START' | translate }}
+          </ion-button>
+          <ion-button class="um-mini um-mini--share" fill="outline" color="primary"
+            (click)="shareLocation()" [attr.aria-label]="'POPUP.SHARE' | translate">
+            <ion-icon name="arrow-redo-outline"></ion-icon>
+          </ion-button>
+        </div>
+
+      </div>
+    </ng-container>
+
+    <!-- ── STATE 3: NAVIGATION ACTIVE ── -->
+    <ng-container *ngIf="navigationActive && !hasArrived">
+      <div class="um-compact">
+
+        <div class="um-compact-header">
+          <div class="um-compact-name">{{ ('DEST.' + destination.id + '.NAME') | translate }}</div>
+        </div>
+
+        <div class="um-compact-metrics">
+          <ion-icon name="time-outline"></ion-icon>
+          <span>
+            <ng-container *ngIf="etaMin !== null; else dashE3">{{ 'POPUP.MINUTES' | translate:{ value: etaMin } }}</ng-container>
+            <ng-template #dashE3>—</ng-template>
+          </span>
+          <span class="um-dot">·</span>
+          <ion-icon name="walk-outline"></ion-icon>
+          <span>
+            <ng-container *ngIf="meters !== null; else dashM3">{{ formatDistance(meters) }}</ng-container>
+            <ng-template #dashM3>—</ng-template>
+          </span>
+        </div>
+
+        <ion-button expand="block" class="um-cta um-cta--exit" color="danger" (click)="onExit()">
+          <ion-icon name="close-circle-outline" slot="start"></ion-icon>
+          {{ 'POPUP.EXIT' | translate }}
+        </ion-button>
+
+      </div>
+    </ng-container>
+
+    <!-- ── STATE 4: ARRIVED ── -->
+    <ng-container *ngIf="hasArrived">
+      <ion-button class="um-arrived" expand="block" color="success" (click)="onClose()">
         <ion-icon name="checkmark" slot="start"></ion-icon>
         {{ 'POPUP.ARRIVED' | translate }}
       </ion-button>
     </ng-container>
 
-    <!-- ✅ NAV MODE -->
-    <ng-template #navMode>
-      <div class="um-nav">
-        <div class="um-nav-left">
-          <div class="um-nav-title">
-            {{ ('DEST.' + destination.id + '.NAME') | translate }}
-          </div>
-
-          <div class="um-nav-metrics">
-            <div class="um-nav-time">
-              <ng-container *ngIf="etaMin !== null; else dashEta2">
-                {{ 'POPUP.MINUTES' | translate:{ value: etaMin } }}
-              </ng-container>
-              <ng-template #dashEta2>—</ng-template>
-            </div>
-
-            <div class="um-nav-dist">
-              <ion-icon name="walk-outline"></ion-icon>
-              <span>
-                <ng-container *ngIf="meters !== null; else dashMeters2">
-                  {{ formatDistance(meters) }}
-                </ng-container>
-                <ng-template #dashMeters2>—</ng-template>
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <ion-button
-          class="um-start"
-          color="primary"
-          *ngIf="routeReady"
-          (click)="onStart()"
-          [disabled]="startDisabled"
-        >
-          <ion-icon name="navigate" slot="start"></ion-icon>
-          {{ 'POPUP.START' | translate }}
-        </ion-button>
-      </div>
-    </ng-template>
   </div>
 </div>
