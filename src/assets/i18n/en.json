@@ -143,15 +143,24 @@
     "HERO": {
       "BADGE": "Privacy",
       "TITLE": "Transparency & minimal data",
-      "SUB": "UniMap is designed to work without collecting personal data. We store only what is necessary for your settings."
+      "SUB": "UniMap works without collecting personal data. Nothing leaves your device."
     },
     "STORED": {
-      "TITLE": "What is stored",
-      "LEAD": "Only local settings are stored on your device.",
+      "TITLE": "Stored locally",
       "ITEMS": {
         "UNITS": "Measurement units (m/km)",
-        "LAYER": "Map / layer selection (e.g., OSM or MapTiler)",
-        "NORTH_LOCK": "North lock (orientation lock/unlock)"
+        "LAYER": "Map selection (OSM / MapTiler)",
+        "NORTH_LOCK": "North lock",
+        "LANGUAGE": "App language",
+        "RECENTS": "Recent searches"
+      }
+    },
+    "NOT_STORED": {
+      "TITLE": "Not stored",
+      "ITEMS": {
+        "LOCATION": "Location / GPS",
+        "PERSONAL": "Personal data",
+        "ANALYTICS": "Analytics & telemetry"
       }
     }
   },

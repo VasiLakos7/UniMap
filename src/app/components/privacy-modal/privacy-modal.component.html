@@ -1,53 +1,24 @@
-<ion-header>
-  <ion-toolbar>
-    <ion-title>{{ 'PRIVACY.TITLE' | translate }}</ion-title>
+<ion-content [scrollY]="false" class="ion-padding privacy">
 
-    <ion-buttons slot="end">
-      <ion-button fill="clear" (click)="close()" [attr.aria-label]="'COMMON.CLOSE' | translate">
-        <ion-icon name="close-outline" slot="icon-only"></ion-icon>
-      </ion-button>
-    </ion-buttons>
-  </ion-toolbar>
-</ion-header>
+  <button class="priv-x" type="button" (click)="close()" [attr.aria-label]="'COMMON.CLOSE' | translate">
+    <ion-icon name="close"></ion-icon>
+  </button>
 
-<ion-content [fullscreen]="true" class="ion-padding privacy">
   <!-- HERO -->
   <div class="privacy-hero">
-    <div class="hero-row">
-      <div class="badge">
-        <ion-icon name="shield-outline" aria-hidden="true"></ion-icon>
-        <span>{{ 'PRIVACY.HERO.BADGE' | translate }}</span>
-      </div>
-
-      <!-- ✅ LINK ΠΑΝΩ-ΠΑΝΩ ΔΙΠΛΑ (με κείμενο) -->
-      <ion-button
-        fill="clear"
-        size="small"
-        class="hero-link"
-        (click)="openLink(osmCopyrightUrl)"
-        aria-label="OpenStreetMap"
-      >
-        <ion-icon name="open-outline" slot="start"></ion-icon>
-        <ion-label>OpenStreetMap</ion-label>
-      </ion-button>
-    </div>
-
     <h1>{{ 'PRIVACY.HERO.TITLE' | translate }}</h1>
     <p>{{ 'PRIVACY.HERO.SUB' | translate }}</p>
   </div>
 
   <!-- STORED -->
-  <ion-card class="privacy-card accent">
+  <ion-card class="privacy-card accent-blue">
     <ion-card-header>
       <ion-card-title>
-        <ion-icon name="save-outline" aria-hidden="true"></ion-icon>
+        <ion-icon name="checkmark-circle-outline" aria-hidden="true"></ion-icon>
         {{ 'PRIVACY.STORED.TITLE' | translate }}
       </ion-card-title>
     </ion-card-header>
-
     <ion-card-content>
-      <p class="privacy-lead">{{ 'PRIVACY.STORED.LEAD' | translate }}</p>
-
       <ion-list lines="none" class="privacy-list">
         <ion-item *ngFor="let k of storedKeys">
           <ion-icon name="checkmark-circle-outline" slot="start" aria-hidden="true"></ion-icon>
@@ -56,4 +27,29 @@
       </ion-list>
     </ion-card-content>
   </ion-card>
+
+  <!-- NOT STORED -->
+  <ion-card class="privacy-card accent-red">
+    <ion-card-header>
+      <ion-card-title>
+        <ion-icon name="close-circle-outline" aria-hidden="true"></ion-icon>
+        {{ 'PRIVACY.NOT_STORED.TITLE' | translate }}
+      </ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <ion-list lines="none" class="privacy-list">
+        <ion-item *ngFor="let k of notStoredKeys">
+          <ion-icon name="close-circle-outline" slot="start" aria-hidden="true"></ion-icon>
+          <ion-label>{{ k | translate }}</ion-label>
+        </ion-item>
+      </ion-list>
+    </ion-card-content>
+  </ion-card>
+
+  <!-- OSM LINK -->
+  <ion-button fill="clear" class="osm-link" (click)="openLink(osmCopyrightUrl)" aria-label="OpenStreetMap">
+    <ion-icon name="open-outline" slot="start"></ion-icon>
+    <ion-label>OpenStreetMap — Copyright &amp; attribution</ion-label>
+  </ion-button>
+
 </ion-content>

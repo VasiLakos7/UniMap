@@ -18,8 +18,15 @@ export class PrivacyModalComponent {
     'PRIVACY.STORED.ITEMS.UNITS',
     'PRIVACY.STORED.ITEMS.LAYER',
     'PRIVACY.STORED.ITEMS.NORTH_LOCK',
+    'PRIVACY.STORED.ITEMS.LANGUAGE',
+    'PRIVACY.STORED.ITEMS.RECENTS',
   ];
 
+  notStoredKeys = [
+    'PRIVACY.NOT_STORED.ITEMS.LOCATION',
+    'PRIVACY.NOT_STORED.ITEMS.PERSONAL',
+    'PRIVACY.NOT_STORED.ITEMS.ANALYTICS',
+  ];
 
   constructor(private modalCtrl: ModalController) {}
 
@@ -34,5 +41,4 @@ export class PrivacyModalComponent {
       window.open(url, '_blank');
     }
   }
-
 }
