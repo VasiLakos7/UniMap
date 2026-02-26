@@ -32,6 +32,18 @@
   <!-- MAP -->
   <div id="map"></div>
 
+  <!-- ROUTE LOADING OVERLAY -->
+  <div
+    class="map-loading-overlay"
+    *ngIf="routeLoadingVisible"
+    [class.is-leaving]="routeLoadingLeaving"
+  >
+    <div class="ml-card" role="status" aria-live="polite">
+      <ion-spinner name="crescent"></ion-spinner>
+      <div class="ml-title">{{ 'LOADING.ROUTE_LOADING' | translate }}</div>
+    </div>
+  </div>
+
   <!-- MAP LOADING OVERLAY (center + blocks interaction) -->
   <div
     class="map-loading-overlay"
@@ -121,6 +133,7 @@
   <div *ngIf="showModal && currentDestination" slot="fixed" class="popup-overlay">
     <app-department-popup
       #popupCard
+      (heightChange)="popupHeightPx = $event"
       [destination]="currentDestination"
       [routeReady]="routeReady"
       [navigationActive]="navigationActive"

@@ -3,10 +3,8 @@ import {
   OnInit,
   OnDestroy,
   AfterViewInit,
-  AfterViewChecked,
   ElementRef,
   ViewChild,
-  NgZone,
   inject,
 } from '@angular/core';
 
@@ -26,6 +24,7 @@ import { SettingsModalComponent } from '../components/settings-modal/settings-mo
 
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { UiDialogService } from '../services/ui-dialog.service';
+import { App } from '@capacitor/app';
 
 @Component({
   standalone: true,
@@ -41,16 +40,13 @@ import { UiDialogService } from '../services/ui-dialog.service';
     TranslateModule,
   ],
 })
-export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChecked {
+export class HomePage implements OnInit, OnDestroy, AfterViewInit {
   private mapService = inject(MapService);
   private modalCtrl = inject(ModalController);
   private settingsSvc = inject(SettingsService);
   private translate = inject(TranslateService);
   private uiDialog = inject(UiDialogService);
-  private zone = inject(NgZone);
 
-  private popupRO?: ResizeObserver;
-  private popupObservedEl: HTMLElement | null = null;
   @ViewChild('popupCard', { read: ElementRef }) popupCard?: ElementRef<HTMLElement>;
 
   popupHeightPx = 0;
@@ -77,8 +73,12 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
   //  MAP LOADING (overlay)
   mapLoading = false;
   mapLoadingPct = 0;
-  mapLoadingVisible = false; 
-  mapLoadingLeaving = false; 
+  mapLoadingVisible = false;
+  mapLoadingLeaving = false;
+
+  //  ROUTE LOADING (overlay, same style)
+  routeLoadingVisible = false;
+  routeLoadingLeaving = false;
 
   private mapLoadingOffTimer: any = null;
   private mapLoadingMinTimer: any = null;
@@ -116,6 +116,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
 
   private maneuvers: { i: number; type: 'left' | 'right' }[] = [];
   private mapSubscriptions: Subscription[] = [];
+  private appStateListener?: any;
 
   private prevFix: L.LatLng | null = null;
   private lastRouteIndex = 0;
@@ -159,32 +160,6 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
 
   ngAfterViewInit() {}
 
-  ngAfterViewChecked() {
-    const el = this.popupCard?.nativeElement ?? null;
-
-    if (!el) {
-      if (this.popupRO) this.popupRO.disconnect();
-      this.popupRO = undefined;
-      this.popupObservedEl = null;
-      this.popupHeightPx = 0;
-      return;
-    }
-
-    if (this.popupObservedEl === el) return;
-
-    this.popupRO?.disconnect();
-    this.popupObservedEl = el;
-
-    this.popupHeightPx = Math.ceil(el.getBoundingClientRect().height || 0);
-
-    this.popupRO = new ResizeObserver((entries) => {
-      const h = Math.ceil(entries[0]?.contentRect?.height ?? 0);
-      this.zone.run(() => (this.popupHeightPx = h));
-    });
-
-    this.popupRO.observe(el);
-  }
-
   async ngOnInit() {
     this.translate.addLangs(['el', 'en']);
     this.translate.setDefaultLang('el');
@@ -193,11 +168,15 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
 
     await this.initSettings();
     await this.applyLanguageFromSettings();
+
+    App.addListener('appStateChange', ({ isActive }) => {
+      if (isActive && this.hasUserFix) {
+        this.mapService.recenterToUser({ zoom: 19, follow: true, animate: true });
+      }
+    }).then(h => (this.appStateListener = h));
   }
 
   ngOnDestroy() {
-    this.popupRO?.disconnect();
-
     this.mapSubscriptions.forEach((s) => s.unsubscribe());
     if (this.simulationInterval) clearInterval(this.simulationInterval);
 
@@ -205,6 +184,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     if (this.mapLoadingMinTimer) clearTimeout(this.mapLoadingMinTimer);
 
     this.mapService.stopGpsWatch();
+    void this.appStateListener?.remove();
   }
 
   private async checkOutsideAfterTiles(tilesTimeoutMs = 9000) {
@@ -341,15 +321,8 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     }
   }
 
-  private async presentLoadingKey(key: string, params?: any, durationMs = 700) {
-    const loading = document.createElement('ion-loading');
-    loading.message = this.translate.instant(key, params);
-    loading.spinner = 'crescent';
-    document.body.appendChild(loading);
-    await loading.present();
-
-    await new Promise((res) => setTimeout(res, durationMs));
-    await loading.dismiss();
+  private stopNavCameraMode(): void {
+    document.getElementById('map')?.classList.remove('nav-rotate');
   }
 
   private resetForNewSelection() {
@@ -358,6 +331,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
 
     this.mapService.setNavigationMode(false);
     this.mapService.setFollowUser(false);
+    this.stopNavCameraMode();
 
     if (this.simulationInterval) clearInterval(this.simulationInterval);
 
@@ -700,6 +674,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
 
         this.mapService.setFollowUser(false);
         this.mapService.setNavigationMode(false);
+        this.stopNavCameraMode();
 
         this.resetTopNav();
 
@@ -826,6 +801,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     try {
       await this.mapService.drawCustomRouteToDestination(this.currentDestination, startLL, {
         wheelchair: this.ameaEnabled,
+        fit: false,
       });
     } catch (err) {
       console.error('[onDirections] route API failed:', err);
@@ -874,10 +850,15 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     }
     if (!this.routeReady) return;
 
-    await this.presentLoadingKey('LOADING.ROUTE_LOADING');
+    this.routeLoadingVisible = true;
+    this.routeLoadingLeaving = false;
+    await new Promise((res) => setTimeout(res, 700));
+    this.routeLoadingLeaving = true;
+    setTimeout(() => { this.routeLoadingVisible = false; this.routeLoadingLeaving = false; }, this.OVERLAY_FADE_MS);
 
     this.mapService.setNavigationMode(true);
     this.hasArrived = false;
+    document.getElementById('map')?.classList.add('nav-rotate');
 
     const destLat = this.currentDestination.entranceLat ?? this.currentDestination.lat;
     const destLng = this.currentDestination.entranceLng ?? this.currentDestination.lng;
@@ -907,6 +888,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
 
     this.mapService.setNavigationMode(false);
     this.mapService.setFollowUser(false);
+    this.stopNavCameraMode();
 
     if (this.simulationInterval) clearInterval(this.simulationInterval);
 
@@ -947,15 +929,13 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
     this.showModal = false;
 
     this.popupHeightPx = 0;
-    this.popupRO?.disconnect();
-    this.popupRO = undefined;
-    this.popupObservedEl = null;
 
     this.navigationActive = false;
     if (this.simulationInterval) clearInterval(this.simulationInterval);
 
     this.mapService.setNavigationMode(false);
     this.mapService.setFollowUser(false);
+    this.stopNavCameraMode();
     this.mapService.removeRouting();
 
     this.routeReady = false;
@@ -1171,9 +1151,10 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit, AfterViewChec
   }
 
   onFitRoute() {
-    const bottomPad = 260 + (this.showModal ? this.popupHeightPx || 0 : 0);
+    const popupH = this.showModal ? 220 : 0;
+    const bottomPad = 20 + popupH;
 
-    (this.mapService as any).fitRouteToView?.({
+    this.mapService.fitRouteToView({
       paddingTopLeft: [30, 140],
       paddingBottomRight: [30, bottomPad],
       maxZoom: 18,

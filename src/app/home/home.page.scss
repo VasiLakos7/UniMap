@@ -18,6 +18,13 @@ ion-content {
   width: 100%;
   height: 100%;
   z-index: 0;
+  // Expand slightly so rotation doesn't reveal blank corners (up to ~30° turns)
+  &.nav-rotate {
+    inset: -20%;
+    width: 140%;
+    height: 140%;
+    transition: transform 0.3s linear;
+  }
 }
 
 /* ------------------------------
