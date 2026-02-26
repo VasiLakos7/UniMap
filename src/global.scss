@@ -228,32 +228,23 @@ ion-modal.app-dialog-modal::part(backdrop) {
    GLOBAL TYPOGRAPHY FIXES
 ========================================= */
 
-html, body, ion-app, ion-content,
-ion-title, ion-label, ion-text, ion-item, ion-button,
-button, input, textarea, select {
+* {
   font-family: var(--ion-font-family) !important;
+  font-weight: 400;
+  text-transform: none !important;
+  font-synthesis: none;
 }
 
 ion-searchbar::part(input) {
   font-family: var(--ion-font-family) !important;
-  font-weight: 600;
-}
-
-* {
-  text-transform: none !important;
+  font-weight: 500;
 }
 
 ion-button {
   --text-transform: none;
 }
 
-* {
-  font-synthesis: none;
-}
-
-.settings-content,
 .settings-content * {
-  font-family: var(--ion-font-family) !important;
   letter-spacing: normal !important;
   text-transform: none !important;
 }
@@ -262,10 +253,6 @@ ion-button {
   --text-transform: none;
 }
 
-ion-popover.select-compact-popover,
-ion-popover.select-compact-popover * {
-  font-family: var(--ion-font-family) !important;
-}
 
 /* =========================================
    UniMap: Shared Map Loading Overlay (GLOBAL)
