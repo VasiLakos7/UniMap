@@ -15,7 +15,7 @@ export interface RouteResult {
 export interface CampusRouteRequest {
   fromLat: number;
   fromLng: number;
-  destinationName?: string; // όνομα τμήματος (π.χ. "Τμήμα Μαιευτικής")
+  destinationName?: string; 
   destLat?: number;         // fallback αν δεν βρεθεί με όνομα
   destLng?: number;
   wheelchair?: boolean;
