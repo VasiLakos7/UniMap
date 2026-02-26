@@ -1,78 +1,34 @@
 {
   "APP": { "TITLE": "UniMap" },
 
+  "COMMON": {
+    "SAVE": "Save",
+    "CLOSE": "Close"
+  },
+
   "A11Y": { "AMEA_MODE": "Accessibility" },
 
   "DEST": {
     "CUSTOM": { "NAME": "Selected destination" },
-
-    "MAIEUTIKI": {
-      "NAME": "Department of Midwifery Science",
-      "DESCRIPTION": "The Department of Midwifery offers high-level education in the care of women and newborns."
-    },
-    "NURSING": {
-      "NAME": "Department of Nursing",
-      "DESCRIPTION": "Education and hands-on practice in healthcare and nursing science."
-    },
-    "PHYSIO": {
-      "NAME": "Department of Physiotherapy",
-      "DESCRIPTION": "Studies focused on rehabilitation and treatment of mobility-related dysfunctions."
-    },
-    "DIETETICS": {
-      "NAME": "Department of Nutritional Sciences and Dietetics",
-      "DESCRIPTION": "Focuses on nutrition, healthy eating, and disease prevention through diet."
-    },
-    "AGRONOMY": {
-      "NAME": "Department of Agriculture",
-      "DESCRIPTION": "Studies in agronomy, natural resource management, and agricultural production."
-    },
-    "FOOD_TECH": {
-      "NAME": "Department of Food Science and Technology",
-      "DESCRIPTION": "Study of food production processes and food quality control."
-    },
-    "MPD_VEHICLES": {
-      "NAME": "Department of Production Engineering",
-      "DESCRIPTION": "Specialization in the study and management of motor vehicles and production processes."
-    },
-    "CS_BUILDING_H": {
-      "NAME": "Department of Information and Electronic Engineeringg (Building H)",
-      "DESCRIPTION": "Innovative research and applications in the field of computing."
-    },
-    "CS_BUILDING_P": {
-      "NAME": "Department of Information and Electronic Engineering (Building P)",
-      "DESCRIPTION": "Programming, artificial intelligence, and modern computing technologies."
-    },
-    "SDO": {
-      "NAME": "Department of Business Administration, Marketing and Tourism",
-      "DESCRIPTION": "Studies in organizational management, marketing, and tourism."
-    },
-    "LIS": {
-      "NAME": "Department of Library, Archival & Information Studies",
-      "DESCRIPTION": "Department focused on library science and information systems."
-    },
-    "ENV_ENGINEERING": {
-      "NAME": "Department of Environmental Engineering",
-      "DESCRIPTION": "Studies in environmental engineering."
-    },
-    "ACCOUNTING_IS": {
-      "NAME": "Department of Accounting and Information Systems",
-      "DESCRIPTION": "Studies in accounting and information systems."
-    }
+    "MAIEUTIKI":     { "NAME": "Department of Midwifery Science" },
+    "NURSING":       { "NAME": "Department of Nursing" },
+    "PHYSIO":        { "NAME": "Department of Physiotherapy" },
+    "DIETETICS":     { "NAME": "Department of Nutritional Sciences and Dietetics" },
+    "AGRONOMY":      { "NAME": "Department of Agriculture" },
+    "FOOD_TECH":     { "NAME": "Department of Food Science and Technology" },
+    "MPD_VEHICLES":  { "NAME": "Department of Production Engineering" },
+    "CS_BUILDING_H": { "NAME": "Department of Information and Electronic Engineering (Building H)" },
+    "CS_BUILDING_P": { "NAME": "Department of Information and Electronic Engineering (Building P)" },
+    "SDO":           { "NAME": "Department of Business Administration, Marketing and Tourism" },
+    "LIS":           { "NAME": "Department of Library, Archival & Information Studies" },
+    "ENV_ENGINEERING": { "NAME": "Department of Environmental Engineering" },
+    "ACCOUNTING_IS": { "NAME": "Department of Accounting and Information Systems" }
   },
 
   "HOME": {
-    "AMEA": "PwD",
     "SEARCH_PLACEHOLDER": "Destination...",
-    "SEARCH_LOCKED": "🔒 Route active",
-    "OUT_OF_RANGE": "Out of range",
-    "RECENTER": "Recenter",
     "MAP_LOADING": "Loading map…",
-    "OUTSIDE_CAMPUS": "You are outside campus",
-    "CAMPUS_CHECK": "Checking campus range…",
     "MAP_LOADING_SUB": "Please wait..."
-
-
-
   },
 
   "NAV": {
@@ -81,13 +37,9 @@
     "ARRIVE_AHEAD": "Destination ahead",
     "GO_STRAIGHT_FOR": "Go straight for {{meters}} m",
     "TURN_LEFT_IN": "In {{meters}} m turn left",
-    "TURN_RIGHT_IN": "In {{meters}} m turn right",
-    "OUTSIDE_CAMPUS_BUSSTOP": "You are out of range. The route is shown from the bus stop.",
-    "PRESS_DIRECTIONS": "Tap “Directions” to view the route",
-    "OUTSIDE_PRESS_DIRECTIONS": "You are outside campus — tap “Directions”",
-    "ROUTE_READY_PRESS_START": "Ready — tap “Start”"
+    "TURN_RIGHT_IN": "In {{meters}} m turn right"
   },
-  
+
   "LANG": {
     "EL": "Greek",
     "EN": "English"
@@ -144,7 +96,7 @@
 
   "POPUP": {
     "IMAGE_ALT": "Department image",
-    "START": "START",
+    "START": "BEGIN",
     "PHONE": "Phone",
     "SHARE": "Share",
     "ARRIVED": "Arrived",
@@ -157,15 +109,6 @@
     "CANCEL": "Cancel",
     "RECENT_SHORT": "Recents",
     "CLEAR_ALL": "Clear all"
-  },
-
-  "TOAST": {
-    "AMEA_STATUS": "Accessibility: {{state}}",
-    "CLOSE_POPUP_TO_CANCEL": "Tap X on the popup to cancel.",
-    "SETTINGS_SAVED": "Settings saved ✅",
-    "SETTINGS_RESET": "Settings reset ✅",
-    "MAP_REFRESHED": "Map refreshed ✅",
-    "MAP_REFRESH_SOON": "Map refresh: soon"
   },
 
   "LOADING": {
@@ -182,9 +125,9 @@
     "NOTE": "Location is required for navigation.",
     "STATUS": {
       "NO_INTERNET": "You're offline. Enable Wi-Fi or mobile data and try again.",
-      "PERMISSION_DENIED": "Location permission was not granted. Tap “Settings” and allow Location for UniMap.",
-      "GPS_OFF": "Location Services (GPS) are turned off. Tap “Open Location” and enable them.",
-      "ERROR_GENERIC": "I couldn’t get your location. Check permissions/location services and try again."
+      "PERMISSION_DENIED": "Location permission was not granted. Tap \u201cSettings\u201d and allow Location for UniMap.",
+      "GPS_OFF": "Location Services (GPS) are turned off. Tap \u201cOpen Location\u201d and enable them.",
+      "ERROR_GENERIC": "I couldn't get your location. Check permissions/location services and try again."
     },
     "ACTIONS": {
       "SETTINGS": "Settings",
@@ -210,13 +153,8 @@
         "LAYER": "Map / layer selection (e.g., OSM or MapTiler)",
         "NORTH_LOCK": "North lock (orientation lock/unlock)"
       }
-    },
-    "LINKS": {
-      "OSM": "OpenStreetMap — Copyright & attribution"
     }
   },
-
-
 
   "SUPPORT": {
     "EMAIL_SUBJECT": "UniMap – Feedback / Issue report",
@@ -225,40 +163,23 @@
 
   "DIALOG": {
     "OK": "OK",
-
     "SETTINGS_CHANGED_TITLE": "Settings updated",
     "SETTINGS_CHANGED_MSG": "Your changes have been saved.",
-
     "RESET_DONE_TITLE": "Settings reset",
     "RESET_DONE_MSG": "Settings were restored to defaults.",
-
-    "MAP_REFRESHED_TITLE": "Map refresh",
-    "MAP_REFRESHED_MSG": "The map has been refreshed.",
-
     "ERROR_TITLE": "Error",
     "ERROR_SAVE_SETTINGS": "Could not save settings.",
     "ERROR_RESET": "Could not reset settings.",
-    "INFO_TITLE": "Info",
-    "CLOSE_POPUP_TO_CANCEL_MSG": "Tap X on the popup to cancel.",
     "AMEA_TITLE": "Accessibility",
     "AMEA_ON_MSG": "Accessibility mode is enabled.",
     "AMEA_OFF_MSG": "Accessibility mode is disabled.",
     "CANCEL": "Cancel",
     "OUTSIDE_CAMPUS_TITLE": "Outside campus",
-    "OUTSIDE_CAMPUS_MSG": "This point is outside the campus. Please choose another.",
-
-    "ROUTE_ACTIVE_TITLE": "Route active",
-    "ROUTE_ACTIVE_MSG": "A route is active. Do you want to cancel it to select a new destination?",
-    "KEEP_ROUTE": "Keep route",
-    "CANCEL_ROUTE": "Cancel route",
-    "OUTSIDE_CAMPUS_ROUTE_FROM_BUSSTOP": "You are out of range. The route will be shown from the bus stop once you enter the campus.",
     "OUTSIDE_CAMPUS_PICK_DEPT_MSG": "You are outside campus. Please select a department inside campus.",
     "ROUTE_FROM_BUSSTOP_TITLE": "Heads up",
     "ROUTE_FROM_BUSSTOP_MSG": "You are outside campus. Directions will start from the bus stop.",
-    "OUTSIDE_CAMPUS_ON_START_MSG": "You are outside campus range. You can still use the app remotely.",
     "ERROR_REFRESH_MAP": "Map refresh failed. Please try again.",
     "ROUTE_ERROR_TITLE": "Route unavailable",
     "ROUTE_ERROR_MSG": "Could not load the route. Please check your connection and try again."
-
   }
 }
