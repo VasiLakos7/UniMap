@@ -22,6 +22,10 @@ export class MapService {
   private readonly CAM_MIN_INTERVAL_MS = 250;
   private readonly CAM_MIN_MOVE_M = 1;
 
+  // Navigation camera (heading-up + offset)
+  private navCameraActive = false;
+  private readonly NAV_CAM_OFFSET_RATIO = 0.18; // user at ~68% from top
+
   // Animation
   private animReq: number | null = null;
   private animFrom: L.LatLng | null = null;
@@ -312,7 +316,7 @@ export class MapService {
 
       if (this.map && this.followUser) {
         const z = this.followZoom ?? this.map.getZoom();
-        this.map.panTo(next, { animate: false });
+        this.map.panTo(this.getNavCameraCenter(next), { animate: false });
         if (this.map.getZoom() !== z) this.map.setZoom(z);
       }
 
@@ -346,7 +350,7 @@ export class MapService {
           this.lastCamLL = cur;
 
           const z = this.followZoom ?? this.map.getZoom();
-          this.map.panTo(cur, { animate: false });
+          this.map.panTo(this.getNavCameraCenter(cur), { animate: false });
           if (this.map.getZoom() !== z) this.map.setZoom(z);
         }
       }
@@ -375,6 +379,13 @@ export class MapService {
       cone.style.transform = `translate(-50%, -50%) rotate(${deg}deg)`;
       cone.style.opacity = '0.24';
     }
+
+    // Heading-up: rotate map container so forward direction is always at top
+    if (this.navCameraActive && this.map) {
+      const container = this.map.getContainer();
+      container.style.transformOrigin = '50% 50%';
+      container.style.transform = `rotate(${-deg}deg)`;
+    }
   }
 
   public setUserHeading(deg: number): void {
@@ -397,6 +408,23 @@ export class MapService {
   public setNavigationMode(active: boolean): void {
     this.setUserMarkerStyle(active ? 'arrow' : 'dot');
     this.routeSvc.setMapMatchEnabled(active);
+    this.navCameraActive = active;
+    if (!active) this.resetMapRotation();
+  }
+
+  private resetMapRotation(): void {
+    if (!this.map) return;
+    const el = this.map.getContainer();
+    el.style.transform = '';
+    el.style.transformOrigin = '';
+  }
+
+  private getNavCameraCenter(userLL: L.LatLng): L.LatLng {
+    if (!this.navCameraActive || !this.map) return userLL;
+    const size = this.map.getSize();
+    const userPx = this.map.latLngToContainerPoint(userLL);
+    const camPx = L.point(userPx.x, userPx.y - size.y * this.NAV_CAM_OFFSET_RATIO);
+    return this.map.containerPointToLatLng(camPx);
   }
 
   // North lock stub (future implementation)
@@ -419,8 +447,9 @@ export class MapService {
 
     const zoom = opts?.zoom ?? Math.max(this.map.getZoom(), 18);
     const animate = opts?.animate ?? true;
+    const center = this.getNavCameraCenter(this.lastUserLatLng);
 
-    this.map.setView(this.lastUserLatLng, zoom, { animate });
+    this.map.setView(center, zoom, { animate });
 
     if (opts?.follow) {
       this.setFollowUser(true, zoom);

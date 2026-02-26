@@ -30,14 +30,16 @@ export class RouteService {
   // Reroute state
   private offRouteStreak = 0;
   private lastRerouteAt = 0;
-  private readonly REROUTE_COOLDOWN_MS = 4000;
-  private readonly REROUTE_CONFIRM_FIXES = 4;
-  private readonly REROUTE_OFF_M = 24;
-  private readonly REROUTE_ON_M = 12;
+  private cumulativePassedM = 0;
+  private lastOnRoutePassedM = 0;
+  private readonly REROUTE_COOLDOWN_MS = 3000;
+  private readonly REROUTE_CONFIRM_FIXES = 2;
+  private readonly REROUTE_OFF_M = 18;
+  private readonly REROUTE_ON_M = 10;
   private readonly REROUTE_MAX_ACC_M = 25;
   private readonly REROUTE_MIN_SPEED_MPS = 0.35;
   private readonly REROUTE_SKIP_NEAR_DEST_M = 45;
-  private readonly REROUTE_FULL_REBUILD_M = 9999;
+  private readonly REROUTE_FULL_REBUILD_M = 0;
 
   // Snap state
   private mapMatchEnabled = false;
@@ -247,10 +249,15 @@ export class RouteService {
     this.offRouteStreak = 0;
     this.lastRerouteAt = now;
 
+    // Accumulate walked meters before rebuilding
+    this.cumulativePassedM += this.lastOnRoutePassedM;
+    this.lastOnRoutePassedM = 0;
+
     if (offM >= this.REROUTE_FULL_REBUILD_M) {
       await this.drawCustomRouteToDestination(this.activeDestination, rawNow, {
         fit: false,
         wheelchair: this.activeWheelchair,
+        isReroute: true,
       });
       return;
     }
@@ -317,9 +324,13 @@ export class RouteService {
   public async drawCustomRouteToDestination(
     dest: Destination,
     startPoint: L.LatLng,
-    opts?: { fit?: boolean; wheelchair?: boolean }
+    opts?: { fit?: boolean; wheelchair?: boolean; isReroute?: boolean }
   ): Promise<void> {
     this.activeWheelchair = !!opts?.wheelchair;
+    if (!opts?.isReroute) {
+      this.cumulativePassedM = 0;
+      this.lastOnRoutePassedM = 0;
+    }
 
     if (!this.map) return;
 
@@ -328,19 +339,17 @@ export class RouteService {
     this.rerouteEnabled = true;
     this.offRouteStreak = 0;
 
-    this.clearRouteLayers();
-
     const destLat = dest.entranceLat ?? dest.lat;
     const destLng = dest.entranceLng ?? dest.lng;
     const endPoint = L.latLng(destLat, destLng);
     this.activeEndPoint = endPoint;
 
-    this.pinDestination(destLat, destLng, dest.name);
-
     const APPROACH_START_M = 38;
     const distToDestNow = startPoint.distanceTo(endPoint);
 
     if (isFinite(distToDestNow) && distToDestNow <= APPROACH_START_M) {
+      this.clearRouteLayers();
+      this.pinDestination(destLat, destLng, dest.name);
       this.currentRoutePoints = [startPoint, endPoint];
 
       this.drawEndApproach(startPoint, endPoint);
@@ -358,16 +367,18 @@ export class RouteService {
         });
       }
 
-      const totalMeters = this.getCurrentRouteDistanceMeters();
+      const remainingMeters = this.getCurrentRouteDistanceMeters();
+      const totalMeters = this.cumulativePassedM + remainingMeters;
       this.routeProgress.emit({
-        passedMeters: 0,
-        remainingMeters: totalMeters,
+        passedMeters: this.cumulativePassedM,
+        remainingMeters,
         totalMeters,
-        progress: 0,
+        progress: totalMeters > 0 ? this.cumulativePassedM / totalMeters : 0,
       });
       return;
     }
 
+    // Fetch new route — keep old layers visible during the API call
     let routeResult: { path: { lat: number; lng: number }[]; lengthM: number };
     try {
       routeResult = await this.apiService.getCampusRoute({
@@ -388,8 +399,11 @@ export class RouteService {
       return;
     }
 
+    // Swap layers now that new route is ready
+    this.clearRouteLayers();
+    this.pinDestination(destLat, destLng, dest.name);
+
     const pathNodes: L.LatLng[] = routeResult.path.map(p => L.latLng(p.lat, p.lng));
-    const startNodeCoords = pathNodes[0];
 
     const mainRoutePoints: L.LatLng[] = [...pathNodes];
     const END_TRIM_TOL_M = 2.0;
@@ -406,38 +420,36 @@ export class RouteService {
       }
     }
 
+    // Build route starting from first graph node (not GPS position)
+    // to avoid diagonal approach lines through buildings
     const pts: L.LatLng[] = [];
-    pts.push(startPoint);
-
-    if (!this.almostSame(startPoint, startNodeCoords)) pts.push(startNodeCoords);
-
     for (const p of mainRoutePoints) {
       if (pts.length === 0 || !this.almostSame(pts[pts.length - 1], p)) pts.push(p);
     }
-
     if (!this.almostSame(pts[pts.length - 1], endPoint)) pts.push(endPoint);
 
-    let trimmed = this.trimStartBacktrack(pts, startPoint, { maxSnapM: 28, minSaveM: 7 });
-    trimmed = this.trimEndBacktrack(trimmed, endPoint, { maxSnapM: 60, minSaveM: 5, window: 20 });
+    const trimmed = this.trimEndBacktrack(pts, endPoint, { maxSnapM: 60, minSaveM: 5, window: 20 });
 
     this.currentRoutePoints = trimmed;
     const drawPts = this.currentRoutePoints;
 
+    // Draw grey dashed approach from GPS to first graph node if close enough
+    const START_APPROACH_MAX_M = 50;
+    const firstNode = drawPts[0];
+    const distToFirstNode = startPoint.distanceTo(firstNode);
+    if (distToFirstNode > 1 && distToFirstNode <= START_APPROACH_MAX_M) {
+      this.approachPolyline = L.polyline([startPoint, firstNode], {
+        color: '#666666',
+        weight: 3,
+        opacity: 0.75,
+        dashArray: '6 10',
+        lineCap: 'round',
+      }).addTo(this.map);
+    }
+
     if (drawPts.length >= 2) {
-      const a0 = drawPts[0];
-      const a1 = drawPts[1];
-
-      if (a0.distanceTo(a1) > 1) {
-        this.approachPolyline = L.polyline([a0, a1], {
-          color: '#666666',
-          weight: 3,
-          opacity: 0.75,
-          dashArray: '4 8',
-        }).addTo(this.map);
-      }
-
       if (drawPts.length >= 3) {
-        const solid = drawPts.slice(1, -1);
+        const solid = drawPts.slice(0, -1);
 
         if (solid.length >= 2) {
           this.currentPolyline = L.polyline(solid, {
@@ -466,12 +478,13 @@ export class RouteService {
       });
     }
 
-    const totalMeters = this.getCurrentRouteDistanceMeters();
+    const remainingMeters = this.getCurrentRouteDistanceMeters();
+    const totalMeters = this.cumulativePassedM + remainingMeters;
     this.routeProgress.emit({
-      passedMeters: 0,
-      remainingMeters: totalMeters,
+      passedMeters: this.cumulativePassedM,
+      remainingMeters,
       totalMeters,
-      progress: 0,
+      progress: totalMeters > 0 ? this.cumulativePassedM / totalMeters : 0,
     });
   }
 
@@ -556,7 +569,9 @@ export class RouteService {
       }
     }
 
-    const passedMeters = sumDistanceMeters(passedPoints);
+    const onRoutePassed = sumDistanceMeters(passedPoints);
+    this.lastOnRoutePassedM = onRoutePassed;
+    const passedMeters = this.cumulativePassedM + onRoutePassed;
     const remainingMeters = sumDistanceMeters(remainingPoints);
     const totalMeters = passedMeters + remainingMeters;
     const progress = totalMeters > 0 ? passedMeters / totalMeters : 0;
@@ -605,6 +620,8 @@ export class RouteService {
     this.rerouteEnabled = false;
     this.offRouteStreak = 0;
     this.lastRerouteAt = 0;
+    this.cumulativePassedM = 0;
+    this.lastOnRoutePassedM = 0;
 
     this.arrivedNearPinTriggered = false;
   }
@@ -811,57 +828,6 @@ export class RouteService {
     return a.distanceTo(b) <= epsM;
   }
 
-  private trimStartBacktrack(
-    points: L.LatLng[],
-    startPoint: L.LatLng,
-    opts?: { maxSnapM?: number; minSaveM?: number }
-  ): L.LatLng[] {
-    const maxSnapM = opts?.maxSnapM ?? 25;
-    const minSaveM = opts?.minSaveM ?? 6;
-
-    if (!points || points.length < 4) return points;
-    if (!startPoint) return points;
-
-    const firstLeg = startPoint.distanceTo(points[1]);
-    if (!isFinite(firstLeg) || firstLeg < 3) return points;
-
-    const P = L.CRS.EPSG3857.project(startPoint);
-
-    let bestD = Infinity;
-    let bestPt: L.Point | null = null;
-    let bestI = -1;
-
-    for (let i = 1; i < points.length - 2; i++) {
-      const A = L.CRS.EPSG3857.project(points[i]);
-      const B = L.CRS.EPSG3857.project(points[i + 1]);
-      const res = this.closestPointOnSegmentMeters(P, A, B);
-      if (res.dist < bestD) {
-        bestD = res.dist;
-        bestPt = res.pt;
-        bestI = i;
-      }
-    }
-
-    if (!bestPt || bestI < 2) return points;
-    if (!isFinite(bestD) || bestD > maxSnapM) return points;
-
-    const saved = firstLeg - bestD;
-    if (saved < minSaveM) return points;
-
-    const snapLL = L.CRS.EPSG3857.unproject(bestPt);
-
-    const out: L.LatLng[] = [];
-    out.push(startPoint);
-
-    if (!this.almostSame(out[out.length - 1], snapLL, 0.8)) out.push(snapLL);
-
-    const tail = points.slice(bestI + 1);
-    for (const p of tail) {
-      if (!this.almostSame(out[out.length - 1], p, 0.7)) out.push(p);
-    }
-
-    return out;
-  }
 
   private trimEndBacktrack(
     points: L.LatLng[],
