@@ -546,13 +546,9 @@ export class GpsService {
 
     const applyIfDot = (sm: number) => {
       if (this.isNavModeCb?.()) {
-        // In nav mode: apply compass only when stationary (movement bearing takes priority)
-        if ((this.lastSpeedMps ?? 0) < this.SPEED_TRUST_BEARING_MPS) {
-          requestAnimationFrame(() => {
-            const blended = smoothAngle(this.lastHeadingDeg, sm, 0.18);
-            this.applyHeadingInternal(blended);
-          });
-        }
+        // In nav mode: skip high-freq compass updates (every ~90ms causes spinning).
+        // The GPS-fix handler (~1 s) already applies compass as fallback when stationary,
+        // and computeMovementBearing handles heading when moving.
         return;
       }
       requestAnimationFrame(() => this.applyHeadingInternal(sm));
