@@ -32,6 +32,11 @@ ion-content {
 ------------------------------ */
 .unimap-toolbar {
   --min-height: 56px;
+
+  ion-title {
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
 }
 
 .amea-pill {
