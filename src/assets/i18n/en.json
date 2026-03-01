@@ -99,7 +99,7 @@
     "START": "BEGIN",
     "PHONE": "Phone",
     "SHARE": "Share",
-    "ARRIVED": "Arrived",
+    "ARRIVED": "End of route",
     "EXIT": "EXIT",
     "MINUTES": "{{value}} min",
     "DIRECTIONS": "Directions"
