@@ -33,10 +33,10 @@ export class RouteService {
   private cumulativePassedM = 0;
   private lastOnRoutePassedM = 0;
   private readonly REROUTE_COOLDOWN_MS = 3000;
-  private readonly REROUTE_CONFIRM_FIXES = 2;
-  private readonly REROUTE_OFF_M = 18;
+  private readonly REROUTE_CONFIRM_FIXES = 3;
+  private readonly REROUTE_OFF_M = 25;
   private readonly REROUTE_ON_M = 10;
-  private readonly REROUTE_MAX_ACC_M = 25;
+  private readonly REROUTE_MAX_ACC_M = 22;
   private readonly REROUTE_MIN_SPEED_MPS = 0.35;
   private readonly REROUTE_SKIP_NEAR_DEST_M = 45;
   private readonly REROUTE_FULL_REBUILD_M = 0;
@@ -45,17 +45,19 @@ export class RouteService {
   private mapMatchEnabled = false;
   private snapEngaged = false;
   private lastSnapLL: L.LatLng | null = null;
-  private readonly SNAP_ENTER_M = 12;
-  private readonly SNAP_EXIT_M = 20;
-  private readonly SNAP_FULL_M = 3;
-  private readonly SNAP_BLEND_M = 14;
+  private readonly SNAP_ENTER_M = 30;
+  private readonly SNAP_EXIT_M = 45;
+  private readonly SNAP_FULL_M = 5;
+  private readonly SNAP_BLEND_M = 30;
   private readonly SNAP_MIN_SPEED_MPS = 0.25;
 
   // Arrival
   public arrivedNearPin = new EventEmitter<void>();
   private arrivedNearPinTriggered = false;
-  private readonly ARRIVE_PIN_DIST_M = 6.0;
-  private readonly ARRIVE_PIN_MAX_ACC_M = 30;
+  private arriveStreak = 0;
+  private readonly ARRIVE_PIN_DIST_M = 12;
+  private readonly ARRIVE_PIN_MAX_ACC_M = 15;
+  private readonly ARRIVE_PIN_STREAK = 2; // consecutive readings required
 
   // Progress
   public routeProgress = new EventEmitter<{
@@ -123,7 +125,7 @@ export class RouteService {
       return { chosen, resetSmooth };
     }
 
-    const canSnap = spd >= this.SNAP_MIN_SPEED_MPS || acc <= 20;
+    const canSnap = spd >= this.SNAP_MIN_SPEED_MPS || acc <= 40;
 
     if (!canSnap) {
       this.snapEngaged = false;
@@ -175,8 +177,8 @@ export class RouteService {
           d <= this.SNAP_FULL_M
             ? 0.97
             : d >= this.SNAP_BLEND_M
-              ? 0.45
-              : 0.97 - (d - this.SNAP_FULL_M) * (0.52 / (this.SNAP_BLEND_M - this.SNAP_FULL_M));
+              ? 0.80
+              : 0.97 - (d - this.SNAP_FULL_M) * (0.17 / (this.SNAP_BLEND_M - this.SNAP_FULL_M));
 
         chosen = L.latLng(
           rawNow.lat + (target.lat - rawNow.lat) * w,
@@ -200,12 +202,17 @@ export class RouteService {
     if (this.currentRoutePoints.length < 2) return;
 
     const accOk = isFinite(acc) && acc <= this.ARRIVE_PIN_MAX_ACC_M;
-    if (!accOk) return;
+    if (!accOk) { this.arriveStreak = 0; return; }
 
     const d = rawNow.distanceTo(this.activeEndPoint);
     if (isFinite(d) && d <= this.ARRIVE_PIN_DIST_M) {
-      this.arrivedNearPinTriggered = true;
-      this.arrivedNearPin.emit();
+      this.arriveStreak++;
+      if (this.arriveStreak >= this.ARRIVE_PIN_STREAK) {
+        this.arrivedNearPinTriggered = true;
+        this.arrivedNearPin.emit();
+      }
+    } else {
+      this.arriveStreak = 0;
     }
   }
 
@@ -335,6 +342,7 @@ export class RouteService {
     if (!this.map) return;
 
     this.arrivedNearPinTriggered = false;
+    this.arriveStreak = 0;
     this.activeDestination = dest;
     this.rerouteEnabled = true;
     this.offRouteStreak = 0;
@@ -420,25 +428,50 @@ export class RouteService {
       }
     }
 
-    // Build route starting from first graph node (not GPS position)
-    // to avoid diagonal approach lines through buildings
-    const pts: L.LatLng[] = [];
+    // ── Build the graph-node path (without startPoint) ──────────────────────
+    const graphPts: L.LatLng[] = [];
     for (const p of mainRoutePoints) {
-      if (pts.length === 0 || !this.almostSame(pts[pts.length - 1], p)) pts.push(p);
+      if (graphPts.length === 0 || !this.almostSame(graphPts[graphPts.length - 1], p)) graphPts.push(p);
     }
-    if (!this.almostSame(pts[pts.length - 1], endPoint)) pts.push(endPoint);
+    if (!this.almostSame(graphPts[graphPts.length - 1], endPoint)) graphPts.push(endPoint);
 
-    const trimmed = this.trimEndBacktrack(pts, endPoint, { maxSnapM: 60, minSaveM: 5, window: 20 });
+    const graphTrimmed = this.trimEndBacktrack(graphPts, endPoint, { maxSnapM: 60, minSaveM: 5, window: 20 });
 
-    this.currentRoutePoints = trimmed;
+    // ── Snap startPoint onto the route to find the nearest approach endpoint ─
+    // This avoids always going to the first graph node — instead it snaps to
+    // whichever point on the route is geometrically closest (could be mid-segment).
+    this.currentRoutePoints = graphTrimmed; // temporary, for snapToRouteWithIndex
+    const snapResult = this.snapToRouteWithIndex(startPoint);
+
+    let approachEnd: L.LatLng;
+    let routeTailStart: number; // index in graphTrimmed where remaining route begins
+
+    if (snapResult) {
+      approachEnd = snapResult.snap;
+      routeTailStart = snapResult.segStartIndex + 1;
+    } else {
+      approachEnd = graphTrimmed[0];
+      routeTailStart = 1;
+    }
+
+    const approachDist = startPoint.distanceTo(approachEnd);
+
+    // ── Build currentRoutePoints: [startPoint, approachEnd, …tail] ──────────
+    // Including startPoint ensures progress tracking starts from user's position,
+    // not from the (possibly already-passed) first graph node.
+    const routeTail = graphTrimmed.slice(routeTailStart);
+    if (approachDist > 1) {
+      this.currentRoutePoints = [startPoint, approachEnd, ...routeTail];
+    } else {
+      this.currentRoutePoints = graphTrimmed;
+    }
+
     const drawPts = this.currentRoutePoints;
-
-    // Draw grey dashed approach from GPS to first graph node if close enough
     const START_APPROACH_MAX_M = 50;
-    const firstNode = drawPts[0];
-    const distToFirstNode = startPoint.distanceTo(firstNode);
-    if (distToFirstNode > 1 && distToFirstNode <= START_APPROACH_MAX_M) {
-      this.approachPolyline = L.polyline([startPoint, firstNode], {
+
+    // ── Grey dashed approach: startPoint → snapEnd ───────────────────────────
+    if (approachDist > 1 && approachDist <= START_APPROACH_MAX_M) {
+      this.approachPolyline = L.polyline([startPoint, approachEnd], {
         color: '#666666',
         weight: 3,
         opacity: 0.75,
@@ -447,9 +480,11 @@ export class RouteService {
       }).addTo(this.map);
     }
 
-    if (drawPts.length >= 2) {
-      if (drawPts.length >= 3) {
-        const solid = drawPts.slice(0, -1);
+    // ── Solid blue route: from approachEnd onward (skip startPoint if prepended) ─
+    const solidStart = approachDist > 1 ? 1 : 0;
+    if (drawPts.length - solidStart >= 2) {
+      if (drawPts.length - solidStart >= 3) {
+        const solid = drawPts.slice(solidStart, -1);
 
         if (solid.length >= 2) {
           this.currentPolyline = L.polyline(solid, {
@@ -461,7 +496,7 @@ export class RouteService {
 
         this.drawEndApproach(drawPts[drawPts.length - 2], drawPts[drawPts.length - 1]);
       } else {
-        this.drawEndApproach(drawPts[0], drawPts[1]);
+        this.drawEndApproach(drawPts[solidStart], drawPts[solidStart + 1]);
       }
     }
 
@@ -624,6 +659,7 @@ export class RouteService {
     this.lastOnRoutePassedM = 0;
 
     this.arrivedNearPinTriggered = false;
+    this.arriveStreak = 0;
   }
 
   public getCurrentRoutePoints(): L.LatLng[] {

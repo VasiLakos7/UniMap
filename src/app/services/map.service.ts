@@ -32,6 +32,20 @@ export class MapService {
   private animTo: L.LatLng | null = null;
   private animStart = 0;
   private lastFixAt = 0;
+  // Velocity extrapolation (dead-reckoning between GPS fixes)
+  private velLat = 0;   // deg/ms
+  private velLng = 0;
+  private extrapolating = false;
+  private readonly EXTRAP_MAX_MS = 2000; // stop dead-reckoning after this
+
+  // Map bearing & manual rotation (nav mode)
+  private mapBearingDeg = 0;          // compass direction currently at top of screen
+  private gpsHeadingDeg_ = 0;         // latest GPS heading
+  private lastManualRotateAt = 0;
+  private rotTouchPrevAngle: number | null = null;
+  private rotAnimReq: number | null = null;
+  private readonly MANUAL_LOCK_MS = 5000;  // manual override duration
+  private readonly AUTO_ROTATE_DEG = 40;   // deviation threshold for auto-correct
 
   // User marker style
   private userArrowIcon = L.divIcon({
@@ -132,6 +146,7 @@ export class MapService {
 
     this.setupMapClickEvent();
     this.setupFreePanHandlers();
+    this.setupRotationGesture();
 
     // Wire up child services
     this.routeSvc.registerMap(this.map);
@@ -302,16 +317,21 @@ export class MapService {
     }
 
     const now = performance.now();
-    const dt = this.lastFixAt ? now - this.lastFixAt : 450;
+    const dt = this.lastFixAt ? now - this.lastFixAt : 1000;
     this.lastFixAt = now;
 
-    const durationMs = Math.max(140, Math.min(420, dt * 0.55));
+    // Cover ~92% of the GPS interval so the marker never freezes waiting for the next fix
+    const durationMs = Math.max(200, Math.min(950, dt * 0.92));
 
     this.animFrom = this.userMarker.getLatLng();
     this.animTo = next;
     const distM = this.animFrom.distanceTo(next);
 
-    if (distM > 6) {
+    // Only teleport for clearly unrealistic jumps (GPS glitch)
+    if (distM > 30) {
+      this.extrapolating = false;
+      this.velLat = 0;
+      this.velLng = 0;
       this.userMarker.setLatLng(next);
 
       if (this.map && this.followUser) {
@@ -326,14 +346,46 @@ export class MapService {
     }
 
     this.animStart = now;
+    this.extrapolating = false;
     if (this.animReq) cancelAnimationFrame(this.animReq);
+
+    const dLat = this.animTo.lat - this.animFrom.lat;
+    const dLng = this.animTo.lng - this.animFrom.lng;
 
     const step = (t: number) => {
       if (!this.animFrom || !this.animTo) return;
 
-      const k = Math.min(1, (t - this.animStart) / durationMs);
-      const lat = this.animFrom.lat + (this.animTo.lat - this.animFrom.lat) * k;
-      const lng = this.animFrom.lng + (this.animTo.lng - this.animFrom.lng) * k;
+      const elapsed = t - this.animStart;
+      const k = Math.min(1, elapsed / durationMs);
+      // ease-out for natural deceleration
+      const ek = 1 - (1 - k) * (1 - k);
+
+      let lat: number;
+      let lng: number;
+
+      if (k < 1) {
+        lat = this.animFrom.lat + dLat * ek;
+        lng = this.animFrom.lng + dLng * ek;
+      } else if (this.extrapolating) {
+        // Dead-reckoning: keep moving at the last velocity until next GPS fix,
+        // but stop after EXTRAP_MAX_MS to avoid drifting when stationary.
+        const overshoot = elapsed - durationMs;
+        if (overshoot > this.EXTRAP_MAX_MS) {
+          this.extrapolating = false;
+          lat = this.animTo.lat;
+          lng = this.animTo.lng;
+        } else {
+          lat = this.animTo.lat + this.velLat * overshoot;
+          lng = this.animTo.lng + this.velLng * overshoot;
+        }
+      } else {
+        // Animation just finished — record velocity for dead-reckoning
+        this.velLat = dLat / durationMs;
+        this.velLng = dLng / durationMs;
+        this.extrapolating = true;
+        lat = this.animTo.lat;
+        lng = this.animTo.lng;
+      }
 
       const cur = L.latLng(lat, lng);
       this.userMarker.setLatLng(cur);
@@ -355,7 +407,8 @@ export class MapService {
         }
       }
 
-      if (k < 1) this.animReq = requestAnimationFrame(step);
+      // Keep rAF alive during animation and dead-reckoning (stops when extrapolating=false)
+      if (k < 1 || this.extrapolating) this.animReq = requestAnimationFrame(step);
     };
 
     this.animReq = requestAnimationFrame(step);
@@ -380,12 +433,40 @@ export class MapService {
       cone.style.opacity = '0.24';
     }
 
-    // Heading-up: rotate map container so forward direction is always at top
+    this.gpsHeadingDeg_ = deg;
+
+    // Heading-up: update map bearing (auto-follow or manual override)
     if (this.navCameraActive && this.map) {
-      const container = this.map.getContainer();
-      container.style.transformOrigin = '50% 50%';
-      container.style.transform = `rotate(${-deg}deg)`;
+      const manualRecent = Date.now() - this.lastManualRotateAt < this.MANUAL_LOCK_MS;
+      if (!manualRecent) {
+        // Auto-follow: map bearing tracks GPS heading exactly
+        this.mapBearingDeg = deg;
+        this.applyMapRotationNow();
+      } else {
+        // Manual override active — only auto-correct if deviation is too large
+        const dev = Math.abs(this.normalizeAngleDeg(deg - this.mapBearingDeg));
+        if (dev > this.AUTO_ROTATE_DEG) {
+          this.lastManualRotateAt = 0; // end manual lock
+          this.animateMapBearingTo(deg);
+        }
+        // else: keep user's manual rotation
+      }
     }
+  }
+
+  /** Apply +deg to all Leaflet markers except the user marker, so they stay
+   *  upright while the map container is rotated by -deg. Pivot = bottom-center
+   *  (the natural anchor of a pin icon). */
+  private counterRotateMarkers(deg: number): void {
+    if (!this.map) return;
+    const container = this.map.getContainer();
+    const icons = container.querySelectorAll<HTMLElement>(
+      '.leaflet-marker-icon:not(.user-marker):not(.user-dot)'
+    );
+    icons.forEach(el => {
+      el.style.transformOrigin = '50% 100%';
+      el.style.transform = `rotate(${deg}deg)`;
+    });
   }
 
   public setUserHeading(deg: number): void {
@@ -414,16 +495,35 @@ export class MapService {
 
   private resetMapRotation(): void {
     if (!this.map) return;
-    const el = this.map.getContainer();
-    el.style.transform = '';
-    el.style.transformOrigin = '';
+    this.mapBearingDeg = 0;
+    this.lastManualRotateAt = 0;
+    if (this.rotAnimReq) { cancelAnimationFrame(this.rotAnimReq); this.rotAnimReq = null; }
+    const container = this.map.getContainer();
+    container.style.transform = '';
+    container.style.transformOrigin = '';
+    // Reset all marker counter-rotations
+    const icons = container.querySelectorAll<HTMLElement>(
+      '.leaflet-marker-icon:not(.user-marker):not(.user-dot)'
+    );
+    icons.forEach(el => {
+      el.style.transform = '';
+      el.style.transformOrigin = '';
+    });
   }
 
   private getNavCameraCenter(userLL: L.LatLng): L.LatLng {
     if (!this.navCameraActive || !this.map) return userLL;
     const size = this.map.getSize();
     const userPx = this.map.latLngToContainerPoint(userLL);
-    const camPx = L.point(userPx.x, userPx.y - size.y * this.NAV_CAM_OFFSET_RATIO);
+    const offsetPx = size.y * this.NAV_CAM_OFFSET_RATIO;
+    // Shift map center in the heading direction (in Leaflet pixel space) so
+    // the user always appears at the bottom-center regardless of heading.
+    // sin/cos maps compass bearing → Leaflet x/y axes (x=east, y=north↑ inverted).
+    const rad = (this.mapBearingDeg * Math.PI) / 180;
+    const camPx = L.point(
+      userPx.x + offsetPx * Math.sin(rad),
+      userPx.y - offsetPx * Math.cos(rad)
+    );
     return this.map.containerPointToLatLng(camPx);
   }
 
@@ -686,6 +786,83 @@ export class MapService {
       });
     });
   }
+
+  // ── Map bearing helpers ────────────────────────────────────────────────────
+
+  private normalizeAngleDeg(deg: number): number {
+    const d = ((deg % 360) + 360) % 360;
+    return d > 180 ? d - 360 : d;
+  }
+
+  private applyMapRotationNow(): void {
+    if (!this.map) return;
+    const container = this.map.getContainer();
+    container.style.transformOrigin = '50% 50%';
+    container.style.transform = `rotate(${-this.mapBearingDeg}deg)`;
+    this.counterRotateMarkers(this.mapBearingDeg);
+  }
+
+  private animateMapBearingTo(targetDeg: number): void {
+    if (this.rotAnimReq) cancelAnimationFrame(this.rotAnimReq);
+    const startDeg = this.mapBearingDeg;
+    const delta = this.normalizeAngleDeg(targetDeg - startDeg);
+    if (Math.abs(delta) < 0.5) {
+      this.mapBearingDeg = targetDeg;
+      this.applyMapRotationNow();
+      return;
+    }
+    const duration = Math.min(700, Math.abs(delta) * 6); // ~6ms/degree, max 700ms
+    const startAt = performance.now();
+    const step = (t: number) => {
+      const k = Math.min(1, (t - startAt) / duration);
+      const ek = 1 - (1 - k) * (1 - k); // ease-out
+      this.mapBearingDeg = startDeg + delta * ek;
+      this.applyMapRotationNow();
+      if (k < 1) {
+        this.rotAnimReq = requestAnimationFrame(step);
+      } else {
+        this.mapBearingDeg = targetDeg;
+        this.lastManualRotateAt = 0; // resume auto-follow after animation
+        this.applyMapRotationNow();
+      }
+    };
+    this.rotAnimReq = requestAnimationFrame(step);
+  }
+
+  /** Detect two-finger rotation gesture and apply it as manual map bearing offset. */
+  private setupRotationGesture(): void {
+    if (!this.map) return;
+    const el = this.map.getContainer();
+
+    el.addEventListener('touchstart', (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        this.rotTouchPrevAngle = this.getTwoFingerAngle(e.touches);
+      }
+    }, { passive: true });
+
+    el.addEventListener('touchmove', (e: TouchEvent) => {
+      if (e.touches.length !== 2 || this.rotTouchPrevAngle === null) return;
+      if (!this.navCameraActive) return;
+      const angle = this.getTwoFingerAngle(e.touches);
+      const delta = angle - this.rotTouchPrevAngle;
+      this.rotTouchPrevAngle = angle;
+      this.mapBearingDeg = this.normalizeAngleDeg(this.mapBearingDeg - delta);
+      this.lastManualRotateAt = Date.now();
+      this.applyMapRotationNow();
+    }, { passive: true });
+
+    el.addEventListener('touchend', () => {
+      this.rotTouchPrevAngle = null;
+    }, { passive: true });
+  }
+
+  private getTwoFingerAngle(touches: TouchList): number {
+    const dx = touches[1].clientX - touches[0].clientX;
+    const dy = touches[1].clientY - touches[0].clientY;
+    return Math.atan2(dy, dx) * (180 / Math.PI);
+  }
+
+  // ── Free pan handlers ──────────────────────────────────────────────────────
 
   private setupFreePanHandlers(): void {
     if (!this.map) return;
