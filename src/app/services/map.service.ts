@@ -97,10 +97,14 @@ export class MapService {
 
   constructor(private gpsSvc: GpsService, private routeSvc: RouteService) {}
 
-  get locationFound() { return this.gpsSvc.locationFound; }
-  get locationError()  { return this.gpsSvc.locationError; }
-  get routeProgress()  { return this.routeSvc.routeProgress; }
-  get arrivedNearPin() { return this.routeSvc.arrivedNearPin; }
+  get locationFound()   { return this.gpsSvc.locationFound; }
+  get locationError()   { return this.gpsSvc.locationError; }
+  get gpsStale()        { return this.gpsSvc.gpsStale; }
+  get routeProgress()   { return this.routeSvc.routeProgress; }
+  get arrivedNearPin()  { return this.routeSvc.arrivedNearPin; }
+  get rerouteOffline()  { return this.routeSvc.rerouteOffline; }
+
+  public isGpsWatching(): boolean { return this.gpsSvc.isWatching(); }
 
   // Map init
   initializeMap(lat: number, lng: number, elementId: string): void {
@@ -326,6 +330,17 @@ export class MapService {
     this.animFrom = this.userMarker.getLatLng();
     this.animTo = next;
     const distM = this.animFrom.distanceTo(next);
+
+    // Sub-meter noise: snap without animation or dead-reckoning to stop trembling
+    if (distM < 1.0) {
+      this.userMarker.setLatLng(next);
+      this.animFrom = next;
+      this.animTo = next;
+      this.extrapolating = false;
+      this.velLat = 0;
+      this.velLng = 0;
+      return;
+    }
 
     // Only teleport for clearly unrealistic jumps (GPS glitch)
     if (distM > 30) {

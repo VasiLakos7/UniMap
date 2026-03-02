@@ -185,6 +185,26 @@ ion-content {
   background: #0f766e;
 }
 
+.nav-status-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: rgba(245, 158, 11, 0.15);
+  border-top: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 0 0 18px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #92400e;
+  cursor: pointer;
+
+  ion-icon {
+    font-size: 15px;
+    flex-shrink: 0;
+    color: #d97706;
+  }
+}
+
 /* ------------------------------
    RIGHT STACKED FABs (route + recenter)
 ------------------------------ */

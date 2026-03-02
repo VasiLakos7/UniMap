@@ -51,6 +51,12 @@ export class RouteService {
   private readonly SNAP_BLEND_M = 30;
   private readonly SNAP_MIN_SPEED_MPS = 0.25;
 
+  // Reroute offline circuit-breaker
+  public rerouteOffline = new EventEmitter<void>();
+  private rerouteFailStreak = 0;
+  private rerouteBlockedUntil = 0;
+  private readonly REROUTE_BLOCK_MS = 30_000;
+
   // Arrival
   public arrivedNearPin = new EventEmitter<void>();
   private arrivedNearPinTriggered = false;
@@ -220,6 +226,7 @@ export class RouteService {
     if (!this.rerouteEnabled) return;
     if (!this.mapMatchEnabled) return;
     if (!this.activeDestination) return;
+    if (Date.now() < this.rerouteBlockedUntil) return;
     if (!this.currentRoutePoints || this.currentRoutePoints.length < 2) return;
 
     const now = Date.now();
@@ -261,11 +268,21 @@ export class RouteService {
     this.lastOnRoutePassedM = 0;
 
     if (offM >= this.REROUTE_FULL_REBUILD_M) {
-      await this.drawCustomRouteToDestination(this.activeDestination, rawNow, {
-        fit: false,
-        wheelchair: this.activeWheelchair,
-        isReroute: true,
-      });
+      try {
+        await this.drawCustomRouteToDestination(this.activeDestination, rawNow, {
+          fit: false,
+          wheelchair: this.activeWheelchair,
+          isReroute: true,
+        });
+        this.rerouteFailStreak = 0;
+      } catch {
+        this.rerouteFailStreak++;
+        if (this.rerouteFailStreak >= 2) {
+          this.rerouteBlockedUntil = Date.now() + this.REROUTE_BLOCK_MS;
+          this.rerouteFailStreak = 0;
+          this.rerouteOffline.emit();
+        }
+      }
       return;
     }
 

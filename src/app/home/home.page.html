@@ -95,6 +95,10 @@
             {{ navInstructionKey | translate: navInstructionParams }}
           </div>
         </div>
+        <div *ngIf="navBannerKey" class="nav-status-banner" (click)="hideNavBanner()">
+          <ion-icon name="warning-outline"></ion-icon>
+          <span>{{ navBannerKey | translate }}</span>
+        </div>
       </div>
     </ng-template>
   </div>

@@ -10,6 +10,7 @@ import { bearingDeg, angleDiffDeg, smoothAngle, applyMaxStep } from './map-geo.u
 export class GpsService {
   public locationFound = new EventEmitter<{ lat: number; lng: number; accuracy?: number }>();
   public locationError = new EventEmitter<void>();
+  public gpsStale = new EventEmitter<boolean>();
 
   // GPS watch IDs
   private watchId: string | null = null;
@@ -62,12 +63,33 @@ export class GpsService {
   private readonly COMPASS_MAX_TURN_DPS = 360;
   private readonly COMPASS_REJECT_SPIKE_DEG = 150;
 
+  // GPS staleness watchdog
+  private staleTimer: any = null;
+  private staleActive = false;
+  private readonly GPS_STALE_MS = 15000;
+
   private updatePositionCb?: (lat: number, lng: number) => void;
   private applyHeadingCb?: (deg: number) => void;
   private mapCenterCb?: (lat: number, lng: number, zoom: number) => void;
   private isNavModeCb?: () => boolean;
 
   constructor(private routeSvc: RouteService) {}
+
+  public isWatching(): boolean {
+    return this.watchId !== null || this.webWatchId !== null;
+  }
+
+  private resetStaleTimer(): void {
+    if (this.staleTimer) clearTimeout(this.staleTimer);
+    if (this.staleActive) {
+      this.staleActive = false;
+      this.gpsStale.emit(false);
+    }
+    this.staleTimer = setTimeout(() => {
+      this.staleActive = true;
+      this.gpsStale.emit(true);
+    }, this.GPS_STALE_MS);
+  }
 
   registerCallbacks(
     updatePosition: (lat: number, lng: number) => void,
@@ -274,6 +296,9 @@ export class GpsService {
 
     this.stopCompass();
 
+    if (this.staleTimer) { clearTimeout(this.staleTimer); this.staleTimer = null; }
+    if (this.staleActive) { this.staleActive = false; this.gpsStale.emit(false); }
+
     this.smoothLL = null;
     this.lastRawLL = null;
     this.lastHeadingDeg = null;
@@ -340,6 +365,7 @@ export class GpsService {
     // Smooth position then animate user marker (MapService handles the animation)
     const smoothed = this.smoothLatLng(chosen);
     this.updatePositionCb?.(smoothed.lat, smoothed.lng);
+    this.resetStaleTimer();
 
     // Emit to UI (throttled)
     if (this.shouldEmitToUI(chosen, nowMs)) {
