@@ -85,15 +85,15 @@
       </div>
     </div>
 
-    <div class="section-card">
+    <div class="section-card danger">
       <div class="section-title">
-        <ion-icon name="flash-outline"></ion-icon>
-        <span>{{ 'SETTINGS.SECTIONS.ACTIONS' | translate }}</span>
+        <ion-icon name="refresh-circle-outline"></ion-icon>
+        <span>{{ 'SETTINGS.RESET.TITLE' | translate }}</span>
       </div>
 
-      <ion-item button detail="false" (click)="requestRefreshMap()">
-        <ion-icon name="refresh-outline" slot="start"></ion-icon>
-        <ion-label>{{ 'SETTINGS.ACTIONS.REFRESH_MAP' | translate }}</ion-label>
+      <ion-item button detail="false" (click)="reset()">
+        <ion-icon name="trash-outline" slot="start"></ion-icon>
+        <ion-label>{{ 'SETTINGS.RESET.BUTTON' | translate }}</ion-label>
       </ion-item>
     </div>
   </ng-container>
@@ -142,15 +142,15 @@
       </ion-item>
     </div>
 
-    <div class="section-card danger">
+    <div class="section-card">
       <div class="section-title">
-        <ion-icon name="refresh-circle-outline"></ion-icon>
-        <span>{{ 'SETTINGS.RESET.TITLE' | translate }}</span>
+        <ion-icon name="flash-outline"></ion-icon>
+        <span>{{ 'SETTINGS.SECTIONS.ACTIONS' | translate }}</span>
       </div>
 
-      <ion-item button detail="false" (click)="reset()">
-        <ion-icon name="trash-outline" slot="start"></ion-icon>
-        <ion-label>{{ 'SETTINGS.RESET.BUTTON' | translate }}</ion-label>
+      <ion-item button detail="false" (click)="requestRefreshMap()">
+        <ion-icon name="refresh-outline" slot="start"></ion-icon>
+        <ion-label>{{ 'SETTINGS.ACTIONS.REFRESH_MAP' | translate }}</ion-label>
       </ion-item>
     </div>
   </ng-container>
