@@ -391,10 +391,15 @@ export class GpsService {
       } else {
         const compassFresh = Date.now() - (this.compassHeadingAt || 0) < this.COMPASS_FRESH_MS;
         if (compassFresh && this.compassHeadingDeg != null) {
-          const slow = (this.lastSpeedMps ?? 0) < 0.8;
-          const a = slow ? 0.22 : 0.28;
-          const sm = smoothAngle(this.lastHeadingDeg, this.compassHeadingDeg, a);
-          this.applyHeadingInternal(sm);
+          const compassDiff = this.lastHeadingDeg != null
+            ? Math.abs(angleDiffDeg(this.lastHeadingDeg, this.compassHeadingDeg))
+            : 360;
+          if (compassDiff >= 5) {
+            const slow = (this.lastSpeedMps ?? 0) < 0.8;
+            const a = slow ? 0.22 : 0.28;
+            const sm = smoothAngle(this.lastHeadingDeg, this.compassHeadingDeg, a);
+            this.applyHeadingInternal(sm);
+          }
         }
       }
     }
