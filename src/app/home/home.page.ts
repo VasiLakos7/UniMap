@@ -25,6 +25,7 @@ import { SettingsModalComponent } from '../components/settings-modal/settings-mo
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { UiDialogService } from '../services/ui-dialog.service';
 import { App } from '@capacitor/app';
+import { Network } from '@capacitor/network';
 
 @Component({
   standalone: true,
@@ -117,6 +118,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
   private maneuvers: { i: number; type: 'left' | 'right' }[] = [];
   private mapSubscriptions: Subscription[] = [];
   private appStateListener?: any;
+  private netListener?: any;
 
   navBannerKey: string | null = null;
   private navBannerTimer: any = null;
@@ -182,6 +184,15 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
         }
       }
     }).then(h => (this.appStateListener = h));
+
+    Network.addListener('networkStatusChange', (status) => {
+      if (!this.navigationActive) return;
+      if (!status.connected) {
+        this.showNavBanner('NAV_STATUS.OFFLINE');
+      } else if (this.navBannerKey === 'NAV_STATUS.OFFLINE') {
+        this.hideNavBanner();
+      }
+    }).then(h => (this.netListener = h));
   }
 
   ngOnDestroy() {
@@ -193,6 +204,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
 
     this.mapService.stopGpsWatch();
     void this.appStateListener?.remove();
+    void this.netListener?.remove();
     if (this.navBannerTimer) clearTimeout(this.navBannerTimer);
   }
 
@@ -803,9 +815,9 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
 
     this.routeReady = false;
     this.navigationActive = false;
-    this.lockIfHasDirections();
 
     this.showModal = true;
+    this.lockIfHasDirections();
   }
 
 

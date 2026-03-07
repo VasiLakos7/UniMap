@@ -61,7 +61,7 @@ export class RouteService {
   public arrivedNearPin = new EventEmitter<void>();
   private arrivedNearPinTriggered = false;
   private arriveStreak = 0;
-  private readonly ARRIVE_PIN_DIST_M = 12;
+  private readonly ARRIVE_PIN_DIST_M = 8;
   private readonly ARRIVE_PIN_MAX_ACC_M = 15;
   private readonly ARRIVE_PIN_STREAK = 2; // consecutive readings required
 

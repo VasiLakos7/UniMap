@@ -33,7 +33,8 @@
 
   "NAV_STATUS": {
     "GPS_WEAK": "Weak GPS signal",
-    "NO_INTERNET_REROUTE": "No internet – rerouting disabled"
+    "NO_INTERNET_REROUTE": "No internet – rerouting disabled",
+    "OFFLINE": "No internet connection"
   },
 
   "NAV": {

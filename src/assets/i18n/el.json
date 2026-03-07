@@ -33,7 +33,8 @@
 
   "NAV_STATUS": {
     "GPS_WEAK": "Ασθενές σήμα GPS",
-    "NO_INTERNET_REROUTE": "Χωρίς σύνδεση – επαναδρομολόγηση ανενεργή"
+    "NO_INTERNET_REROUTE": "Χωρίς σύνδεση – επαναδρομολόγηση ανενεργή",
+    "OFFLINE": "Χωρίς σύνδεση internet"
   },
 
   "NAV": {
