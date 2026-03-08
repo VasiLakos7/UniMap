@@ -182,38 +182,6 @@ ion-modal.app-dialog-modal::part(backdrop) {
   z-index: 2;
 }
 
-.user-dot .cone {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 120px;
-  height: 120px;
-
-  transform: translate(-50%, -50%) rotate(0deg);
-  transform-origin: 50% 50%;
-  opacity: 0.24;
-
-  z-index: 1;
-  pointer-events: none;
-
-  background: radial-gradient(
-    circle at 50% 35%,
-    rgba(26, 115, 232, 0.35) 0%,
-    rgba(26, 115, 232, 0.18) 35%,
-    rgba(26, 115, 232, 0.0) 70%
-  );
-
-  clip-path: polygon(50% 50%, 18% 0%, 82% 0%);
-
-  transition: transform 80ms linear, opacity 160ms ease;
-  will-change: transform, opacity;
-  backface-visibility: hidden;
-  transform-style: preserve-3d;
-}
-
-.leaflet-marker-icon.user-dot .cone{
-  transition: none !important;
-}
 
 .leaflet-container,
 .leaflet-control,
