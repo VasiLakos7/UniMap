@@ -655,6 +655,10 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
       }
     );
 
+    const tileFailSub = this.mapService.tileLoadFailed.subscribe(() => {
+      void this.refreshMapNow();
+    });
+
     const locSub = this.mapService.locationFound.subscribe((pos) => {
       this.userLat = pos.lat;
       this.userLng = pos.lng;
@@ -765,7 +769,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
     });
 
     if (loadSub) this.mapSubscriptions.push(loadSub);
-    this.mapSubscriptions.push(locSub, errSub, outSub, clickSub, progSub, staleSub, rerouteOfflineSub);
+    this.mapSubscriptions.push(tileFailSub, locSub, errSub, outSub, clickSub, progSub, staleSub, rerouteOfflineSub);
   }
 
   async onDestinationSelected(destination: Destination) {
