@@ -58,7 +58,6 @@ export class MapService {
   private userDotIcon = L.divIcon({
     className: 'user-dot',
     html: `
-      <div class="cone" aria-hidden="true"></div>
       <span class="dot" aria-hidden="true"></span>
       <span class="halo" aria-hidden="true"></span>
     `,
@@ -71,9 +70,11 @@ export class MapService {
   // Tile loading
   public mapLoadingProgress = new EventEmitter<{ loading: boolean; progress: number }>();
   public firstTilesLoaded = new EventEmitter<void>();
+  public tileLoadFailed = new EventEmitter<void>();
   private isMapLoading = false;
   private tileInflight = 0;
   private tileLoaded = 0;
+  private tileErrorCount = 0;
   private bootLoadSessionActive = false;
   private readonly BOOT_OVERLAY_MIN_MS = 650;
   private bootLoadingStartedAt = 0;
@@ -241,6 +242,7 @@ export class MapService {
 
     this.tileInflight = 0;
     this.tileLoaded = 0;
+    this.tileErrorCount = 0;
 
     const emit = () => {
       if (!this.bootLoadSessionActive) return;
@@ -256,6 +258,7 @@ export class MapService {
       if (!this.bootLoadSessionActive) return;
       this.tileInflight = 0;
       this.tileLoaded = 0;
+      this.tileErrorCount = 0;
       this.setMapLoading(true, 2);
     });
 
@@ -273,12 +276,21 @@ export class MapService {
     };
 
     layer.on('tileload', onTileDone);
-    layer.on('tileerror', onTileDone);
+    layer.on('tileerror', () => {
+      this.tileErrorCount++;
+      onTileDone();
+    });
 
     layer.on('load', () => {
       if (!this.bootLoadSessionActive) return;
       this.tileInflight = 0;
       this.setMapLoading(false, 100);
+
+      // If >40% of tiles failed and at least 4 tiles were attempted, signal failure
+      const total = this.tileLoaded;
+      if (total >= 4 && this.tileErrorCount / total > 0.4) {
+        setTimeout(() => this.tileLoadFailed.emit(), 800);
+      }
 
       if (this.bootFailsafeTimer) {
         clearTimeout(this.bootFailsafeTimer);
@@ -439,13 +451,6 @@ export class MapService {
     if (img) {
       img.style.transformOrigin = '50% 50%';
       img.style.transform = `rotate(${deg}deg)`;
-    }
-
-    const cone = el.querySelector('.cone') as HTMLElement | null;
-    if (cone) {
-      cone.style.transformOrigin = '50% 50%';
-      cone.style.transform = `translate(-50%, -50%) rotate(${deg}deg)`;
-      cone.style.opacity = '0.24';
     }
 
     this.gpsHeadingDeg_ = deg;

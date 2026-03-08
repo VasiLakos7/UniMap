@@ -33,6 +33,8 @@ export class GpsService {
   // Smoothing
   private smoothLL: L.LatLng | null = null;
   private readonly SMOOTH_ALPHA = 0.25;
+  private lastMarkerLL: L.LatLng | null = null;
+  private readonly MARKER_MIN_MOVE_M = 1.2;
 
   public lastSpeedMps = 0;
   public lastAccM = 9999;
@@ -57,11 +59,13 @@ export class GpsService {
   private onDeviceOrientation?: (e: DeviceOrientationEvent) => void;
   private readonly COMPASS_MIN_INTERVAL_MS = 90;
   private readonly COMPASS_FRESH_MS = 900;
-  private readonly COMPASS_DEADBAND_DEG = 2.2;
+  private readonly COMPASS_DEADBAND_DEG = 4.0;
   private readonly COMPASS_SMOOTH_ALPHA_ABS = 0.3;
   private readonly COMPASS_SMOOTH_ALPHA_REL = 0.24;
   private readonly COMPASS_MAX_TURN_DPS = 360;
   private readonly COMPASS_REJECT_SPIKE_DEG = 150;
+  private readonly NAV_COMPASS_INTERVAL_MS = 200; // max 5Hz in nav mode
+  private lastNavCompassApplyAt = 0;
 
   // GPS staleness watchdog
   private staleTimer: any = null;
@@ -300,6 +304,7 @@ export class GpsService {
     if (this.staleActive) { this.staleActive = false; this.gpsStale.emit(false); }
 
     this.smoothLL = null;
+    this.lastMarkerLL = null;
     this.lastRawLL = null;
     this.lastHeadingDeg = null;
 
@@ -315,6 +320,7 @@ export class GpsService {
 
     this.compassHeadingDeg = null;
     this.compassHeadingAt = 0;
+    this.lastNavCompassApplyAt = 0;
   }
 
   // Core fix handler
@@ -364,7 +370,15 @@ export class GpsService {
 
     // Smooth position then animate user marker (MapService handles the animation)
     const smoothed = this.smoothLatLng(chosen);
-    this.updatePositionCb?.(smoothed.lat, smoothed.lng);
+
+    // Position deadband: skip marker update if smoothed position hasn't moved enough
+    const markerMoved = !this.lastMarkerLL ||
+      this.lastMarkerLL.distanceTo(smoothed) >= this.MARKER_MIN_MOVE_M;
+    if (markerMoved) {
+      this.lastMarkerLL = smoothed;
+      this.updatePositionCb?.(smoothed.lat, smoothed.lng);
+    }
+
     this.resetStaleTimer();
 
     // Emit to UI (throttled)
@@ -388,20 +402,9 @@ export class GpsService {
       if (typeof heading === 'number' && isFinite(heading) && spd > this.SPEED_USE_GPS_HEADING_MPS) {
         const sm = smoothAngle(this.lastHeadingDeg, heading, 0.18);
         this.applyHeadingInternal(sm);
-      } else {
-        const compassFresh = Date.now() - (this.compassHeadingAt || 0) < this.COMPASS_FRESH_MS;
-        if (compassFresh && this.compassHeadingDeg != null) {
-          const compassDiff = this.lastHeadingDeg != null
-            ? Math.abs(angleDiffDeg(this.lastHeadingDeg, this.compassHeadingDeg))
-            : 360;
-          if (compassDiff >= 5) {
-            const slow = (this.lastSpeedMps ?? 0) < 0.8;
-            const a = slow ? 0.22 : 0.28;
-            const sm = smoothAngle(this.lastHeadingDeg, this.compassHeadingDeg, a);
-            this.applyHeadingInternal(sm);
-          }
-        }
       }
+      // Compass heading is applied continuously via applyIfDot in startCompass()
+      // for both nav mode (at 5Hz, 5° deadband) and non-nav mode (at 11Hz, 4° deadband).
     }
 
     // First-fix centering
@@ -425,6 +428,7 @@ export class GpsService {
     if (spd >= 1.2) return 0.42;
     if (spd >= 0.6) return 0.32;
 
+    if (spd < 0.3) return 0.07;  // nearly stationary: very sticky, resist GPS noise
     if (acc > 35) return 0.18;
     return this.SMOOTH_ALPHA;
   }
@@ -577,10 +581,15 @@ export class GpsService {
 
     const applyIfDot = (sm: number) => {
       if (this.isNavModeCb?.()) {
-        // In nav mode: skip high-freq compass updates (every ~90ms causes spinning).
-        // The GPS-fix handler (~1 s) already applies compass as fallback when stationary,
-        // and computeMovementBearing handles heading when moving.
-        return;
+        // Nav mode: allow compass but throttled to 5Hz with 5° deadband
+        // to keep cone responsive without causing map to spin.
+        const now = Date.now();
+        if (now - this.lastNavCompassApplyAt < this.NAV_COMPASS_INTERVAL_MS) return;
+        const diff = this.lastHeadingDeg != null
+          ? Math.abs(angleDiffDeg(this.lastHeadingDeg, sm))
+          : 360;
+        if (diff < 5) return;
+        this.lastNavCompassApplyAt = now;
       }
       requestAnimationFrame(() => this.applyHeadingInternal(sm));
     };
