@@ -74,11 +74,14 @@ export class RouteService {
   }>();
 
   // Icons
-  private destIcon = L.icon({
-    iconUrl: 'assets/images/pins/end-pin.png',
-    iconSize: [45, 45],
-    iconAnchor: [22, 45],
-  });
+  private makeDestIcon(_label?: string): L.DivIcon {
+    return L.divIcon({
+      className: 'dest-pin-icon',
+      html: `<div class="dest-pin-wrap"><img src="assets/images/pins/end-pin.png" class="dest-pin-img"/></div>`,
+      iconSize: [45, 45],
+      iconAnchor: [22, 45],
+    });
+  }
 
   private destinationList = destinationList;
 
@@ -139,7 +142,8 @@ export class RouteService {
       return { chosen, resetSmooth };
     }
 
-    const snap = this.snapToCurrentRoute(rawNow);
+    const snapResult = this.snapToRouteWithIndex(rawNow);
+    const snap = snapResult ? { snapped: snapResult.snap, distM: snapResult.distM } : null;
 
     if (snap) {
       const d = snap.distM;
@@ -161,18 +165,25 @@ export class RouteService {
 
         let target = snap.snapped;
         if (prevSnap) {
-          const a = 0.35;
+          const a = 0.5;
           target = L.latLng(
             prevSnap.lat + (target.lat - prevSnap.lat) * a,
             prevSnap.lng + (target.lng - prevSnap.lng) * a
           );
         }
 
-        if (prevSnap) {
-          const moved = prevSnap.distanceTo(target);
-          if (moved >= 0.8) {
-            const deg = bearingDeg(prevSnap, target);
-            const sm = smoothAngle(lastHeadingDeg, deg, 0.25);
+        // Always derive heading from the route segment at the snap point,
+        // so the arrow always points along the route — even when stationary.
+        if (snapResult) {
+          const segI = snapResult.segStartIndex;
+          const pts = this.currentRoutePoints;
+          const from = pts[segI];
+          const to = pts[Math.min(segI + 1, pts.length - 1)];
+          if (from && to && from.distanceTo(to) > 0.5) {
+            const routeDeg = bearingDeg(from, to);
+            // Moving: snap fast to route bearing. Stationary: ease in slowly.
+            const alpha = spd >= 0.6 ? 0.4 : 0.12;
+            const sm = smoothAngle(lastHeadingDeg, routeDeg, alpha);
             applyHeadingCb(sm);
           }
         }
@@ -693,19 +704,12 @@ export class RouteService {
 
     const to = L.latLng(lat, lng);
 
+    const icon = this.makeDestIcon(label);
     if (!this.destinationMarker) {
-      this.destinationMarker = L.marker(to, { icon: this.destIcon }).addTo(this.map);
+      this.destinationMarker = L.marker(to, { icon }).addTo(this.map);
     } else {
       this.destinationMarker.setLatLng(to);
-    }
-
-    if (label) {
-      this.destinationMarker.unbindTooltip();
-      this.destinationMarker.bindTooltip(label, {
-        direction: 'top',
-        offset: L.point(12, -45),
-        opacity: 0.95,
-      });
+      this.destinationMarker.setIcon(icon);
     }
   }
 

@@ -368,8 +368,15 @@ export class GpsService {
       this.smoothLL = chosen;
     }
 
-    // Smooth position then animate user marker (MapService handles the animation)
-    const smoothed = this.smoothLatLng(chosen);
+    // When snap is engaged in nav mode the snap already provides stability —
+    // skip the extra smoothing layer to avoid the marker lagging behind the user.
+    let smoothed: L.LatLng;
+    if (this.routeSvc.isMapMatchEnabled() && this.routeSvc.isSnapEngaged()) {
+      this.smoothLL = chosen;
+      smoothed = chosen;
+    } else {
+      smoothed = this.smoothLatLng(chosen);
+    }
 
     // Position deadband: skip marker update if smoothed position hasn't moved enough
     const markerMoved = !this.lastMarkerLL ||
@@ -581,14 +588,15 @@ export class GpsService {
 
     const applyIfDot = (sm: number) => {
       if (this.isNavModeCb?.()) {
-        // Nav mode: allow compass but throttled to 5Hz with 5° deadband
-        // to keep cone responsive without causing map to spin.
+        // When snap is engaged the route geometry drives heading — compass is irrelevant.
+        if (this.routeSvc.isSnapEngaged()) return;
+        // Not snapped: allow compass at 5Hz with deadband to keep arrow responsive.
         const now = Date.now();
         if (now - this.lastNavCompassApplyAt < this.NAV_COMPASS_INTERVAL_MS) return;
         const diff = this.lastHeadingDeg != null
           ? Math.abs(angleDiffDeg(this.lastHeadingDeg, sm))
           : 360;
-        if (diff < 5) return;
+        if (diff < 9) return;
         this.lastNavCompassApplyAt = now;
       }
       requestAnimationFrame(() => this.applyHeadingInternal(sm));
