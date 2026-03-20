@@ -122,6 +122,8 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
 
   navBannerKey: string | null = null;
   private navBannerTimer: any = null;
+  private navCondOffline = false;
+  private navCondGpsWeak = false;
 
   private prevFix: L.LatLng | null = null;
   private lastRouteIndex = 0;
@@ -187,11 +189,8 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
 
     Network.addListener('networkStatusChange', (status) => {
       if (!this.navigationActive) return;
-      if (!status.connected) {
-        this.showNavBanner('NAV_STATUS.OFFLINE');
-      } else if (this.navBannerKey === 'NAV_STATUS.OFFLINE') {
-        this.hideNavBanner();
-      }
+      this.navCondOffline = !status.connected;
+      this.refreshNavBanner();
     }).then(h => (this.netListener = h));
   }
 
@@ -212,13 +211,29 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
     if (this.navBannerTimer) clearTimeout(this.navBannerTimer);
     this.navBannerKey = key;
     if (autoHideMs > 0) {
-      this.navBannerTimer = setTimeout(() => (this.navBannerKey = null), autoHideMs);
+      this.navBannerTimer = setTimeout(() => this.refreshNavBanner(), autoHideMs);
     }
   }
 
   hideNavBanner(): void {
     if (this.navBannerTimer) clearTimeout(this.navBannerTimer);
     this.navBannerKey = null;
+  }
+
+  private refreshNavBanner(): void {
+    if (this.navCondOffline) {
+      this.showNavBanner('NAV_STATUS.OFFLINE');
+    } else if (this.navCondGpsWeak) {
+      this.showNavBanner('NAV_STATUS.GPS_WEAK');
+    } else {
+      this.hideNavBanner();
+    }
+  }
+
+  private resetNavConditions(): void {
+    this.navCondOffline = false;
+    this.navCondGpsWeak = false;
+    this.hideNavBanner();
   }
 
   private async checkOutsideAfterTiles(tilesTimeoutMs = 9000) {
@@ -757,11 +772,9 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
     });
 
     const staleSub = this.mapService.gpsStale.subscribe((stale) => {
-      if (stale && this.navigationActive) {
-        this.showNavBanner('NAV_STATUS.GPS_WEAK');
-      } else if (!stale && this.navBannerKey === 'NAV_STATUS.GPS_WEAK') {
-        this.hideNavBanner();
-      }
+      if (!this.navigationActive) return;
+      this.navCondGpsWeak = stale;
+      this.refreshNavBanner();
     });
 
     const rerouteOfflineSub = this.mapService.rerouteOffline.subscribe(() => {
@@ -936,6 +949,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
   cancelRouteKeepPopup() {
     this.navigationActive = false;
     this.hasArrived = false;
+    this.resetNavConditions();
 
     this.mapService.setNavigationMode(false);
     this.mapService.setFollowUser(false);
@@ -982,6 +996,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
     this.popupHeightPx = 0;
 
     this.navigationActive = false;
+    this.resetNavConditions();
     if (this.simulationInterval) clearInterval(this.simulationInterval);
 
     this.mapService.setNavigationMode(false);

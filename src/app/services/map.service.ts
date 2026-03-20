@@ -36,7 +36,7 @@ export class MapService {
   private velLat = 0;   // deg/ms
   private velLng = 0;
   private extrapolating = false;
-  private readonly EXTRAP_MAX_MS = 2000; // stop dead-reckoning after this
+  private readonly EXTRAP_MAX_MS = 500; // stop dead-reckoning after this
 
   // Map bearing & manual rotation (nav mode)
   private mapBearingDeg = 0;          // compass direction currently at top of screen
@@ -406,10 +406,14 @@ export class MapService {
           lng = this.animTo.lng + this.velLng * overshoot;
         }
       } else {
-        // Animation just finished — record velocity for dead-reckoning
-        this.velLat = dLat / durationMs;
-        this.velLng = dLng / durationMs;
-        this.extrapolating = true;
+        // Animation just finished — record velocity for dead-reckoning,
+        // but skip extrapolation when snap is engaged (snap is already stable).
+        const snapActive = this.routeSvc.isMapMatchEnabled() && this.routeSvc.isSnapEngaged();
+        if (!snapActive) {
+          this.velLat = dLat / durationMs;
+          this.velLng = dLng / durationMs;
+          this.extrapolating = true;
+        }
         lat = this.animTo.lat;
         lng = this.animTo.lng;
       }
@@ -796,7 +800,7 @@ export class MapService {
       });
 
       if (!found) {
-        found = this.routeSvc.findNearestDestinationWithin(clickedLat, clickedLng, 40, 'center');
+        found = this.routeSvc.findNearestDestinationWithin(clickedLat, clickedLng, 22, 'center');
       }
 
       this.mapClicked.emit({
@@ -896,6 +900,32 @@ export class MapService {
     this.map.on('dragstart', stopFollowIfUser);
     this.map.on('zoomstart', stopFollowIfUser);
     this.map.on('movestart', stopFollowIfUser);
+
+    // When the map container is CSS-rotated (heading-up mode), Leaflet computes
+    // drag deltas in screen pixel space — but the user sees a rotated view.
+    // We intercept predrag and rotate the delta by the map bearing so that
+    // dragging "up on screen" always pans in the direction visually facing up.
+    const draggable = (this.map.dragging as any)?._draggable;
+    if (draggable) {
+      draggable.on('predrag', () => {
+        const bearing = this.mapBearingDeg;
+        if (!bearing) return; // north-up: no correction needed
+
+        const newPos: L.Point = draggable._newPos;
+        const startPos: L.Point = draggable._startPos;
+        const dx = newPos.x - startPos.x;
+        const dy = newPos.y - startPos.y;
+
+        const rad = (bearing * Math.PI) / 180;
+        const cos = Math.cos(rad);
+        const sin = Math.sin(rad);
+
+        draggable._newPos = L.point(
+          startPos.x + dx * cos - dy * sin,
+          startPos.y + dx * sin + dy * cos
+        );
+      });
+    }
   }
 
   public getDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -955,6 +985,7 @@ export class MapService {
 
   public previewRouteBounds(from: L.LatLng, to: L.LatLng, bottomPad = 280): void {
     if (!this.map) return;
+    this.setFollowUser(false);
     const bounds = L.latLngBounds([from, to]).pad(0.15);
     this.map.fitBounds(bounds, {
       paddingTopLeft: [30, 140],
@@ -971,6 +1002,7 @@ export class MapService {
     maxZoom?: number;
     animate?: boolean;
   }): boolean {
+    this.setFollowUser(false);
     return this.routeSvc.fitRouteToView(opts);
   }
 

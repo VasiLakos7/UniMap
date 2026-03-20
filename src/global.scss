@@ -335,3 +335,40 @@ ion-button {
   .map-loading-overlay{ background: rgba(0,0,0,0.32); }
 }
 
+/* ── Destination pin with label ─────────────────────────────────────── */
+.dest-pin-icon {
+  background: none !important;
+  border: none !important;
+}
+.dest-pin-wrap {
+  position: relative;
+  width: 45px;
+  height: 45px;
+}
+.dest-pin-img {
+  width: 45px;
+  height: 45px;
+  display: block;
+}
+.dest-pin-label {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #fff;
+  color: #0f172a;
+  font-family: 'Manrope', sans-serif;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1.25;
+  padding: 5px 9px;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.22);
+  white-space: nowrap;
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+
+
