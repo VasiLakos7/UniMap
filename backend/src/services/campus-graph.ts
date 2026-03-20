@@ -204,7 +204,13 @@ function buildMergedGraph(): MergedGraph {
     addUndirectedEdge(g, ALL, poiId, nearId);
   }
 
-  return { coords: ALL, adjacency: g, snapCandidates };
+  // POI entrance nodes συμμετέχουν ως snap candidates: αν ο χρήστης
+  // είναι πλησιέστερα σε είσοδο κτιρίου από οποιονδήποτε άλλο node,
+  // η διαδρομή ξεκινά από εκεί (φυσική συμπεριφορά, χωρίς magic radius).
+  const poiIds = Object.keys(POI_NODE_COORDS);
+  const allSnapCandidates = [...snapCandidates, ...poiIds];
+
+  return { coords: ALL, adjacency: g, snapCandidates: allSnapCandidates };
 }
 
 // Singleton — φτιάχνεται μία φορά
@@ -241,6 +247,7 @@ function getSnapCandidates(wheelchair: boolean): string[] {
 // Public API
 const MAX_SNAP_METERS = 90;
 const MAX_START_RADIUS = 120;
+
 
 export function getNodeIdForName(destinationName: string): string | null {
   return POI_ALIAS.get(norm(destinationName)) ?? null;
@@ -297,36 +304,54 @@ export function calculatePathWithLength(
   return { path: points, lengthM: Math.round(len) };
 }
 
-export function findBestStartNode(
+const VIRTUAL_START = '__USER__';
+const VIRTUAL_CONNECT_K = 3; // top-K nearest nodes to connect the virtual node
+
+/**
+ * Calculates a route from the user's exact GPS position to endNodeId.
+ * A virtual node is injected at (lat, lng), connected to the K nearest
+ * snap candidates, so the returned path starts at the user's real position
+ * with no diagonal offset.
+ */
+export function calculateRouteFromPosition(
   lat: number,
   lng: number,
   endNodeId: string,
   opts?: { wheelchair?: boolean }
-): string | null {
+): RouteResult | null {
   const here: LatLng = { lat, lng };
   const candidates = getSnapCandidates(!!opts?.wheelchair);
-  const cache = new Map<string, number>();
 
-  let bestNode: string | null = null;
-  let bestCost = Infinity;
+  // Find K nearest reachable candidates
+  const nearest = candidates
+    .map(id => ({ id, d: distanceTo(here, MERGED.coords[id] ?? here) }))
+    .filter(x => x.d <= MAX_START_RADIUS && MERGED.coords[x.id])
+    .sort((a, b) => a.d - b.d)
+    .slice(0, VIRTUAL_CONNECT_K);
 
-  for (const id of candidates) {
-    const ll = MERGED.coords[id];
-    if (!ll) continue;
-    const dUser = distanceTo(here, ll);
-    if (dUser > MAX_START_RADIUS) continue;
+  if (nearest.length === 0) return null;
 
-    let pathLen = cache.get(id);
-    if (pathLen === undefined) {
-      const res = calculatePathWithLength(id, endNodeId, opts);
-      pathLen = res ? res.lengthM : Infinity;
-      cache.set(id, pathLen);
-    }
-    if (pathLen === Infinity) continue;
+  const baseAdj = getAdjacency(!!opts?.wheelchair);
 
-    // Penalise straight-line distance (real walking paths are ~1.5× longer than crow-flies)
-    const cost = dUser * 1.5 + pathLen;
-    if (cost < bestCost) { bestCost = cost; bestNode = id; }
+  // Shallow-copy adjacency and inject virtual node (outgoing edges only)
+  const adj: Adjacency = { ...baseAdj, [VIRTUAL_START]: {} };
+  for (const { id, d } of nearest) {
+    adj[VIRTUAL_START][id] = Math.round(d) || 1;
   }
-  return bestNode;
+
+  try {
+    const nodePath: string[] = find_path(adj, VIRTUAL_START, endNodeId);
+    const points: LatLng[] = nodePath.map(id =>
+      id === VIRTUAL_START ? here : MERGED.coords[id]
+    ).filter((p): p is LatLng => !!p);
+
+    if (points.length < 2) return null;
+
+    let len = 0;
+    for (let i = 1; i < points.length; i++) len += distanceTo(points[i - 1], points[i]);
+
+    return { path: points, lengthM: Math.round(len) };
+  } catch {
+    return null;
+  }
 }

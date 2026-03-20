@@ -2,8 +2,7 @@ import { Router, Request, Response } from 'express';
 import {
   getNodeIdForName,
   findNearestNodeId,
-  findBestStartNode,
-  calculatePathWithLength,
+  calculateRouteFromPosition,
 } from '../services/campus-graph';
 import { CampusRouteRequest } from '../types';
 
@@ -43,17 +42,10 @@ router.post('/', (req: Request, res: Response) => {
     return;
   }
 
-  // 2. Βρες το καλύτερο σημείο εκκίνησης
-  const startNodeId = findBestStartNode(fromLat, fromLng, endNodeId, opts);
-  if (!startNodeId) {
-    res.status(422).json({ error: 'Δεν βρέθηκε κοντινό node στη θέση σου. Βρίσκεσαι εντός campus;' });
-    return;
-  }
-
-  // 3. Υπολόγισε διαδρομή
-  const result = calculatePathWithLength(startNodeId, endNodeId, opts);
+  // 2. Υπολόγισε διαδρομή με virtual start node στη θέση του χρήστη
+  const result = calculateRouteFromPosition(fromLat, fromLng, endNodeId, opts);
   if (!result) {
-    res.status(422).json({ error: 'Δεν βρέθηκε διαδρομή προς τον προορισμό.' });
+    res.status(422).json({ error: 'Δεν βρέθηκε διαδρομή. Βρίσκεσαι εντός campus;' });
     return;
   }
 

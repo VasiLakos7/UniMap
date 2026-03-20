@@ -38,6 +38,8 @@ export const MANUAL_NODE_COORDS: Record<string, LatLng> = {
   M_36_TO_67_MID_1: { lat: 40.657202, lng: 22.804081 },
   M_36_TO_67_PRE_1: { lat: 40.657212, lng: 22.803769 },
   N0158: { lat: 40.656579, lng: 22.802563 },
+  N0159: { lat: 40.656759, lng: 22.802563 },
+  N0160: { lat: 40.656761, lng: 22.802108 },
   M_CENTRAL_TO_DOWN_1: { lat: 40.656515, lng: 22.802562 },
   M_TOP_3_TO_SCHOOL_ENT_2_1: { lat: 40.657655, lng: 22.801761 },
   M_TOP_4_TO_N0042_1: { lat: 40.657556, lng: 22.803275 },
@@ -60,7 +62,7 @@ export const MANUAL_EDGES: Array<[string, string]> = [
   ['M_TOP_5', 'N0154'], ['N0154', 'M_TOP_6'],
   ['N0154', 'N0038'],
   ['M_TOP_6', 'M_TOP_7'],
-  ['M_TOP_7', 'M_CENTRAL'],
+  ['M_TOP_7', 'N0159'], ['N0159', 'M_CENTRAL'], ['N0159', 'N0160'],
   ['M_CENTRAL', 'N0158'], ['N0158', 'M_CENTRAL_TO_DOWN_1'],
   ['M_CENTRAL_TO_DOWN_1', 'M_DOWN_1'],
   ['M_DOWN_1', 'M_BOTTOM_MID'],
@@ -77,8 +79,7 @@ export const MANUAL_EDGES: Array<[string, string]> = [
   ['M_BUS_STOP', 'M_TOP_3_TO_SCHOOL_ENT_2_1'],
   // Δυτικός κατακόρυφος άξονας (N0146→N0152)
   ['N0146', 'N0147'], ['N0147', 'N0155'], ['N0155', 'N0148'],
-  ['N0155', 'N0156'], ['N0148', 'N0149'], ['N0149', 'N0157'], ['N0157', 'N0151'], ['N0151', 'N0152'],
-  ['N0157', 'N0158'],
+  ['N0155', 'N0156'], ['N0148', 'N0149'], ['N0149', 'N0160'], ['N0160', 'N0157'], ['N0157', 'N0151'], ['N0151', 'N0152'],
   // Νότιος άξονας — midpoints που συνδέουν N0068/N0060/N0069 με τον κεντρικό κόμβο
   ['N0139', 'N0152'], ['N0068', 'N0152'], ['N0152', 'M_68_TO_BOTTOM_1'], ['M_68_TO_BOTTOM_1', 'M_BOTTOM_MID'],
   ['M_BOTTOM_MID', 'M_BOTTOM_TO_60_1'], ['M_BOTTOM_TO_60_1', 'N0060'],
