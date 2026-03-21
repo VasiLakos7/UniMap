@@ -17,14 +17,17 @@ export class MapService {
   private followUser = false;
   private followZoom: number | null = null;
   private lastUserLatLng: L.LatLng | null = null;
-  private lastCamMoveAt = 0;
   private lastCamLL: L.LatLng | null = null;
-  private readonly CAM_MIN_INTERVAL_MS = 250;
-  private readonly CAM_MIN_MOVE_M = 1;
+  private readonly CAM_MIN_MOVE_M = 0.3;
+  private autoRecenterTimer: any = null;
+  private readonly AUTO_RECENTER_MS = 5000; // 5s after drag ends → resume follow
+
+  // Free-pan mode: user dragged during navigation → freeze camera + rotation
+  private isFreePanning = false;
 
   // Navigation camera (heading-up + offset)
   private navCameraActive = false;
-  private readonly NAV_CAM_OFFSET_RATIO = 0.18; // user at ~68% from top
+
 
   // Animation
   private animReq: number | null = null;
@@ -140,6 +143,9 @@ export class MapService {
       maxZoom: 22,
       zoomSnap: 0.5,
       zoomDelta: 0.5,
+      // Larger SVG padding so polylines stay visible when map is CSS-rotated
+      // (heading-up mode). Default 0.1 clips route lines at viewport corners.
+      renderer: L.svg({ padding: 1.0 }),
     }).setView([lat, lng], 18);
 
     this.mapTilerKey = 'fFUNZQgQLPQX2iZWUJ8w';
@@ -422,16 +428,9 @@ export class MapService {
       this.userMarker.setLatLng(cur);
 
       if (this.map && this.followUser) {
-        const nowMs = Date.now();
         const movedM = this.lastCamLL ? this.lastCamLL.distanceTo(cur) : Infinity;
-
-        const tooSoon = nowMs - this.lastCamMoveAt < this.CAM_MIN_INTERVAL_MS;
-        const tooSmall = movedM < this.CAM_MIN_MOVE_M;
-
-        if (!(tooSoon && tooSmall)) {
-          this.lastCamMoveAt = nowMs;
+        if (movedM >= this.CAM_MIN_MOVE_M) {
           this.lastCamLL = cur;
-
           const z = this.followZoom ?? this.map.getZoom();
           this.map.panTo(this.getNavCameraCenter(cur), { animate: false });
           if (this.map.getZoom() !== z) this.map.setZoom(z);
@@ -460,7 +459,7 @@ export class MapService {
     this.gpsHeadingDeg_ = deg;
 
     // Heading-up: update map bearing (auto-follow or manual override)
-    if (this.navCameraActive && this.map) {
+    if (this.navCameraActive && this.map && !this.isFreePanning) {
       const manualRecent = Date.now() - this.lastManualRotateAt < this.MANUAL_LOCK_MS;
       if (!manualRecent) {
         // Auto-follow: map bearing tracks GPS heading exactly
@@ -488,8 +487,11 @@ export class MapService {
       '.leaflet-marker-icon:not(.user-marker):not(.user-dot)'
     );
     icons.forEach(el => {
-      el.style.transformOrigin = '50% 100%';
-      el.style.transform = `rotate(${deg}deg)`;
+      // Apply rotation to the child element so Leaflet's translate3d on the
+      // parent (.leaflet-marker-icon) is not overwritten and markers stay visible.
+      const child = (el.firstElementChild ?? el) as HTMLElement;
+      child.style.transformOrigin = '50% 100%';
+      child.style.transform = `rotate(${deg}deg)`;
     });
   }
 
@@ -530,25 +532,14 @@ export class MapService {
       '.leaflet-marker-icon:not(.user-marker):not(.user-dot)'
     );
     icons.forEach(el => {
-      el.style.transform = '';
-      el.style.transformOrigin = '';
+      const child = (el.firstElementChild ?? el) as HTMLElement;
+      child.style.transform = '';
+      child.style.transformOrigin = '';
     });
   }
 
   private getNavCameraCenter(userLL: L.LatLng): L.LatLng {
-    if (!this.navCameraActive || !this.map) return userLL;
-    const size = this.map.getSize();
-    const userPx = this.map.latLngToContainerPoint(userLL);
-    const offsetPx = size.y * this.NAV_CAM_OFFSET_RATIO;
-    // Shift map center in the heading direction (in Leaflet pixel space) so
-    // the user always appears at the bottom-center regardless of heading.
-    // sin/cos maps compass bearing → Leaflet x/y axes (x=east, y=north↑ inverted).
-    const rad = (this.mapBearingDeg * Math.PI) / 180;
-    const camPx = L.point(
-      userPx.x + offsetPx * Math.sin(rad),
-      userPx.y - offsetPx * Math.cos(rad)
-    );
-    return this.map.containerPointToLatLng(camPx);
+    return userLL;
   }
 
   // North lock stub (future implementation)
@@ -560,7 +551,7 @@ export class MapService {
     this.followZoom = typeof zoom === 'number' ? zoom : null;
 
     if (enabled) {
-      this.lastCamMoveAt = 0;
+      this.isFreePanning = false;
       this.lastCamLL = null;
     }
   }
@@ -894,12 +885,25 @@ export class MapService {
     const stopFollowIfUser = (e: any) => {
       if (!this.followUser) return;
       if (!e?.originalEvent) return;
+      this.isFreePanning = true;
       this.setFollowUser(false);
+      clearTimeout(this.autoRecenterTimer);
+    };
+
+    const resumeFollowAfterDrag = () => {
+      if (!this.isFreePanning) return;
+      clearTimeout(this.autoRecenterTimer);
+      this.autoRecenterTimer = setTimeout(() => {
+        if (!this.isFreePanning) return;
+        const zoom = this.followZoom ?? this.map?.getZoom();
+        this.setFollowUser(true, zoom);
+      }, this.AUTO_RECENTER_MS);
     };
 
     this.map.on('dragstart', stopFollowIfUser);
     this.map.on('zoomstart', stopFollowIfUser);
     this.map.on('movestart', stopFollowIfUser);
+    this.map.on('dragend', resumeFollowAfterDrag);
 
     // When the map container is CSS-rotated (heading-up mode), Leaflet computes
     // drag deltas in screen pixel space — but the user sees a rotated view.
