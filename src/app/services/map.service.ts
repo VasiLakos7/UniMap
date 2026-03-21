@@ -149,7 +149,7 @@ export class MapService {
     }).setView([lat, lng], 18);
 
     this.mapTilerKey = 'fFUNZQgQLPQX2iZWUJ8w';
-    this.setBaseLayer('maptiler-osm', this.mapTilerKey);
+    this.setBaseLayer('maptiler', this.mapTilerKey);
 
     this.setUserMarkerStyle(this.activeUserStyle);
     this.setupUserMarker(lat, lng);
@@ -580,7 +580,7 @@ export class MapService {
 
   // Base layer
   private setBaseLayer(
-    style: 'osm' | 'positron' | 'dark' | 'maptiler-outdoor' | 'maptiler-osm',
+    style: 'maptiler' | 'maptiler-basic',
     apiKey?: string
   ): void {
     if (!this.map) return;
@@ -593,36 +593,16 @@ export class MapService {
       keepBuffer: 6,
     };
 
+    const mtOpt = { attribution: '© MapTiler | © OpenStreetMap', tileSize: 512, zoomOffset: -1, ...commonOpt };
+
     const layers: Record<string, { url: string; opt: L.TileLayerOptions }> = {
-      osm: {
-        url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        opt: { attribution: '© OpenStreetMap contributors', ...commonOpt },
-      },
-      positron: {
-        url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-        opt: { attribution: '© OpenStreetMap contributors, © CARTO', ...commonOpt },
-      },
-      dark: {
-        url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-        opt: { attribution: '© OpenStreetMap contributors, © CARTO', ...commonOpt },
-      },
-      'maptiler-outdoor': {
-        url: `https://api.maptiler.com/maps/outdoor-v2/{z}/{x}/{y}.png?key=${apiKey ?? ''}`,
-        opt: {
-          attribution: '© OpenStreetMap | © MapTiler',
-          tileSize: 512,
-          zoomOffset: -1,
-          ...commonOpt,
-        },
-      },
-      'maptiler-osm': {
+      'maptiler': {
         url: `https://api.maptiler.com/maps/openstreetmap/{z}/{x}/{y}.png?key=${apiKey ?? ''}`,
-        opt: {
-          attribution: '© OpenStreetMap | © MapTiler',
-          tileSize: 512,
-          zoomOffset: -1,
-          ...commonOpt,
-        },
+        opt: mtOpt,
+      },
+      'maptiler-basic': {
+        url: `https://api.maptiler.com/maps/basic-v2/{z}/{x}/{y}.png?key=${apiKey ?? ''}`,
+        opt: mtOpt,
       },
     };
 
@@ -637,22 +617,9 @@ export class MapService {
   }
 
   public setBaseLayerFromSettings(mode: string): void {
-    const style =
-      mode === 'osm'
-        ? 'osm'
-        : mode === 'positron'
-          ? 'positron'
-          : mode === 'dark'
-            ? 'dark'
-            : mode === 'maptiler-outdoor'
-              ? 'maptiler-outdoor'
-              : mode === 'maptiler-osm'
-                ? 'maptiler-osm'
-                : mode === 'maptiler'
-                  ? 'maptiler-osm'
-                  : 'osm';
-
-    const needsKey = style === 'maptiler-outdoor' || style === 'maptiler-osm';
+    const valid = ['maptiler', 'maptiler-basic'];
+    const style = valid.includes(mode) ? mode : 'maptiler';
+    const needsKey = true;
     this.setBaseLayer(style as any, needsKey ? this.mapTilerKey ?? undefined : undefined);
     this.refreshMap();
   }

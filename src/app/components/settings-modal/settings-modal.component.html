@@ -130,12 +130,11 @@
             interface="popover"
             (ionChange)="markDirty()"
           >
-            <ion-select-option value="osm">
-              {{ 'SETTINGS.MAP.OSM' | translate }}
-            </ion-select-option>
-
             <ion-select-option value="maptiler">
               {{ 'SETTINGS.MAP.MAPTILER' | translate }}
+            </ion-select-option>
+            <ion-select-option value="maptiler-basic">
+              {{ 'SETTINGS.MAP.MT_BASIC' | translate }}
             </ion-select-option>
           </ion-select>
         </div>

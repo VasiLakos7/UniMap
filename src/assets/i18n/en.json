@@ -80,10 +80,10 @@
     "MAP": {
       "NORTH_LOCK": "North lock",
       "NORTH_LOCK_SUB": "No rotation",
-      "MAP_TYPE": "Map type",
-      "MAP_TYPE_SUB": "Layers",
-      "OSM": "OpenStreetMap",
-      "MAPTILER": "MapTiler"
+      "MAP_TYPE": "Map style",
+      "MAP_TYPE_SUB": "Select appearance",
+      "MAPTILER": "MapTiler",
+      "MT_BASIC": "MapTiler Basic"
     },
     "RESET": {
       "TITLE": "Reset",
@@ -155,7 +155,7 @@
       "TITLE": "Stored locally",
       "ITEMS": {
         "UNITS": "Measurement units (m/km)",
-        "LAYER": "Map selection (OSM / MapTiler)",
+        "LAYER": "Map style",
         "NORTH_LOCK": "North lock",
         "LANGUAGE": "App language",
         "RECENTS": "Recent searches"

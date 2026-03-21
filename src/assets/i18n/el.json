@@ -80,10 +80,10 @@
     "MAP": {
       "NORTH_LOCK": "Κλείδωμα Βορρά",
       "NORTH_LOCK_SUB": "Χωρίς περιστροφές",
-      "MAP_TYPE": "Τύπος χάρτη",
-      "MAP_TYPE_SUB": "Layers",
-      "OSM": "OpenStreetMap",
-      "MAPTILER": "MapTiler"
+      "MAP_TYPE": "Στυλ χάρτη",
+      "MAP_TYPE_SUB": "Επιλογή εμφάνισης",
+      "MAPTILER": "MapTiler",
+      "MT_BASIC": "MapTiler Basic"
     },
     "RESET": {
       "TITLE": "Επαναφορά",
@@ -155,7 +155,7 @@
       "TITLE": "Αποθηκεύεται τοπικά",
       "ITEMS": {
         "UNITS": "Μονάδες μέτρησης (m/km)",
-        "LAYER": "Επιλογή χάρτη (OSM / MapTiler)",
+        "LAYER": "Στυλ χάρτη",
         "NORTH_LOCK": "Κλείδωμα Βορρά",
         "LANGUAGE": "Γλώσσα εφαρμογής",
         "RECENTS": "Πρόσφατες αναζητήσεις"

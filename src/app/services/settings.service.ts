@@ -3,14 +3,14 @@ import { Preferences } from '@capacitor/preferences';
 
 export type AppLanguage = 'el' | 'en';
 export type UnitsMode = 'm' | 'km';
-export type BaseLayerMode = 'osm' | 'maptiler';
+export type BaseLayerMode = 'maptiler' | 'maptiler-basic';
 
 export interface AppSettings {
   // Γενικά
-  language: AppLanguage;  
+  language: AppLanguage;
   units: UnitsMode;        // m ή km
   northLock: boolean;      // κλείδωμα βορρά (north up)
-  baseLayer: BaseLayerMode;// OSM / MapTiler
+  baseLayer: BaseLayerMode;
 }
 
 const KEY = 'unimap_settings_v2';
