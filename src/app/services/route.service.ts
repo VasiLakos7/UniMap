@@ -168,7 +168,7 @@ export class RouteService {
 
         let target = snap.snapped;
         if (prevSnap) {
-          const a = 0.5;
+          const a = 0.82;
           target = L.latLng(
             prevSnap.lat + (target.lat - prevSnap.lat) * a,
             prevSnap.lng + (target.lng - prevSnap.lng) * a
