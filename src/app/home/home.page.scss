@@ -18,13 +18,6 @@ ion-content {
   width: 100%;
   height: 100%;
   z-index: 0;
-  // Expand slightly so rotation doesn't reveal blank corners (up to ~30° turns)
-  &.nav-rotate {
-    inset: -20%;
-    width: 140%;
-    height: 140%;
-    transition: transform 0.3s linear;
-  }
 }
 
 /* ------------------------------
@@ -264,4 +257,14 @@ ion-content {
 
 .fab-btn.button-disabled::part(native) {
   box-shadow: none;
+}
+
+/* Nav follow button — active follow state */
+.fab-btn.nav-follow-btn {
+  --background: var(--ion-color-primary);
+  transition: --background 0.2s ease;
+}
+
+.fab-btn.nav-follow-btn.is-following {
+  --background: #27ae60;
 }

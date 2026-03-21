@@ -121,7 +121,22 @@
       <ion-icon name="git-network-outline"></ion-icon>
     </ion-button>
 
+    <!-- Nav follow button: visible only during navigation -->
     <ion-button
+      *ngIf="navigationActive"
+      class="fab-btn nav-follow-btn"
+      [class.is-following]="mapService.isFollowingUser"
+      shape="round"
+      fill="solid"
+      (click)="onRecenter()"
+      [disabled]="!hasUserFix || mapLoadingVisible"
+      aria-label="Επανεστίαση πλοήγησης"
+    >
+      <ion-icon [name]="mapService.isFollowingUser ? 'navigate' : 'navigate-outline'"></ion-icon>
+    </ion-button>
+
+    <ion-button
+      *ngIf="!navigationActive"
       class="fab-btn"
       shape="round"
       fill="solid"
