@@ -20,7 +20,7 @@ export class MapService {
   private lastCamLL: L.LatLng | null = null;
   private readonly CAM_MIN_MOVE_M = 0.3;
   private autoRecenterTimer: any = null;
-  private readonly AUTO_RECENTER_MS = 5000; // 5s after drag ends → resume follow
+  private autoRecenterMs = 5000; // 5s after drag ends → resume follow (2.5s during navigation)
 
   // Free-pan mode: user dragged during navigation → freeze camera + rotation
   private isFreePanning = false;
@@ -43,12 +43,8 @@ export class MapService {
 
   // Map bearing & manual rotation (nav mode)
   private mapBearingDeg = 0;          // compass direction currently at top of screen
-  private gpsHeadingDeg_ = 0;         // latest GPS heading
-  private lastManualRotateAt = 0;
   private rotTouchPrevAngle: number | null = null;
   private rotAnimReq: number | null = null;
-  private readonly MANUAL_LOCK_MS = 5000;  // manual override duration
-  private readonly AUTO_ROTATE_DEG = 40;   // deviation threshold for auto-correct
 
   // User marker style
   private userArrowIcon = L.divIcon({
@@ -149,7 +145,7 @@ export class MapService {
     }).setView([lat, lng], 18);
 
     this.mapTilerKey = 'fFUNZQgQLPQX2iZWUJ8w';
-    this.setBaseLayer('maptiler', this.mapTilerKey);
+    this.setBaseLayer('maptiler-osm', this.mapTilerKey);
 
     this.setUserMarkerStyle(this.activeUserStyle);
     this.setupUserMarker(lat, lng);
@@ -342,15 +338,12 @@ export class MapService {
     const dt = this.lastFixAt ? now - this.lastFixAt : 1000;
     this.lastFixAt = now;
 
-    // Cover ~92% of the GPS interval so the marker never freezes waiting for the next fix
-    const durationMs = Math.max(200, Math.min(950, dt * 0.92));
-
     this.animFrom = this.userMarker.getLatLng();
     this.animTo = next;
     const distM = this.animFrom.distanceTo(next);
 
-    // Sub-meter noise: snap without animation or dead-reckoning to stop trembling
-    if (distM < 1.0) {
+    // Sub-meter noise: snap without animation
+    if (distM < 1.0 && !this.navCameraActive) {
       this.userMarker.setLatLng(next);
       this.animFrom = next;
       this.animTo = next;
@@ -360,7 +353,7 @@ export class MapService {
       return;
     }
 
-    // Only teleport for clearly unrealistic jumps (GPS glitch)
+    // GPS glitch: teleport
     if (distM > 30) {
       this.extrapolating = false;
       this.velLat = 0;
@@ -378,20 +371,40 @@ export class MapService {
       return;
     }
 
+    const dLat = next.lat - this.animFrom.lat;
+    const dLng = next.lng - this.animFrom.lng;
+
+    if (this.animReq) { cancelAnimationFrame(this.animReq); this.animReq = null; }
+
+    if (this.navCameraActive) {
+      // ── NAV MODE: snap to exact GPS fix immediately, no prediction ──
+      this.extrapolating = false;
+      this.velLat = 0;
+      this.velLng = 0;
+      this.userMarker.setLatLng(next);
+      this.animFrom = next;
+      this.animTo = next;
+
+      if (this.map && this.followUser) {
+        const z = this.followZoom ?? this.map.getZoom();
+        this.map.panTo(this.getNavCameraCenter(next), { animate: false });
+        if (this.map.getZoom() !== z) this.map.setZoom(z);
+      }
+      return;
+    }
+
+    // ── NORMAL MODE: smooth animation over ~92% of inter-fix interval ──
+    const durationMs = Math.max(200, Math.min(950, dt * 0.92));
+
     this.animStart = now;
     this.extrapolating = false;
-    if (this.animReq) cancelAnimationFrame(this.animReq);
-
-    const dLat = this.animTo.lat - this.animFrom.lat;
-    const dLng = this.animTo.lng - this.animFrom.lng;
 
     const step = (t: number) => {
       if (!this.animFrom || !this.animTo) return;
 
       const elapsed = t - this.animStart;
       const k = Math.min(1, elapsed / durationMs);
-      // ease-out for natural deceleration
-      const ek = 1 - (1 - k) * (1 - k);
+      const ek = 1 - (1 - k) * (1 - k); // ease-out
 
       let lat: number;
       let lng: number;
@@ -400,8 +413,6 @@ export class MapService {
         lat = this.animFrom.lat + dLat * ek;
         lng = this.animFrom.lng + dLng * ek;
       } else if (this.extrapolating) {
-        // Dead-reckoning: keep moving at the last velocity until next GPS fix,
-        // but stop after EXTRAP_MAX_MS to avoid drifting when stationary.
         const overshoot = elapsed - durationMs;
         if (overshoot > this.EXTRAP_MAX_MS) {
           this.extrapolating = false;
@@ -412,14 +423,9 @@ export class MapService {
           lng = this.animTo.lng + this.velLng * overshoot;
         }
       } else {
-        // Animation just finished — record velocity for dead-reckoning,
-        // but skip extrapolation when snap is engaged (snap is already stable).
-        const snapActive = this.routeSvc.isMapMatchEnabled() && this.routeSvc.isSnapEngaged();
-        if (!snapActive) {
-          this.velLat = dLat / durationMs;
-          this.velLng = dLng / durationMs;
-          this.extrapolating = true;
-        }
+        this.velLat = dLat / durationMs;
+        this.velLng = dLng / durationMs;
+        this.extrapolating = true;
         lat = this.animTo.lat;
         lng = this.animTo.lng;
       }
@@ -456,25 +462,7 @@ export class MapService {
       img.style.transform = `rotate(${deg}deg)`;
     }
 
-    this.gpsHeadingDeg_ = deg;
-
-    // Heading-up: update map bearing (auto-follow or manual override)
-    if (this.navCameraActive && this.map && !this.isFreePanning) {
-      const manualRecent = Date.now() - this.lastManualRotateAt < this.MANUAL_LOCK_MS;
-      if (!manualRecent) {
-        // Auto-follow: map bearing tracks GPS heading exactly
-        this.mapBearingDeg = deg;
-        this.applyMapRotationNow();
-      } else {
-        // Manual override active — only auto-correct if deviation is too large
-        const dev = Math.abs(this.normalizeAngleDeg(deg - this.mapBearingDeg));
-        if (dev > this.AUTO_ROTATE_DEG) {
-          this.lastManualRotateAt = 0; // end manual lock
-          this.animateMapBearingTo(deg);
-        }
-        // else: keep user's manual rotation
-      }
-    }
+    // Map stays north-up; only the arrow icon rotates.
   }
 
   /** Apply +deg to all Leaflet markers except the user marker, so they stay
@@ -487,11 +475,8 @@ export class MapService {
       '.leaflet-marker-icon:not(.user-marker):not(.user-dot)'
     );
     icons.forEach(el => {
-      // Apply rotation to the child element so Leaflet's translate3d on the
-      // parent (.leaflet-marker-icon) is not overwritten and markers stay visible.
-      const child = (el.firstElementChild ?? el) as HTMLElement;
-      child.style.transformOrigin = '50% 100%';
-      child.style.transform = `rotate(${deg}deg)`;
+      el.style.transformOrigin = '50% 100%';
+      el.style.transform = `rotate(${deg}deg)`;
     });
   }
 
@@ -516,13 +501,19 @@ export class MapService {
     this.setUserMarkerStyle(active ? 'arrow' : 'dot');
     this.routeSvc.setMapMatchEnabled(active);
     this.navCameraActive = active;
-    if (!active) this.resetMapRotation();
+    this.autoRecenterMs = active ? 2500 : 5000;
+    if (!active) {
+      this.resetMapRotation();
+    }
+  }
+
+  get isFollowingUser(): boolean {
+    return this.followUser && !this.isFreePanning;
   }
 
   private resetMapRotation(): void {
     if (!this.map) return;
     this.mapBearingDeg = 0;
-    this.lastManualRotateAt = 0;
     if (this.rotAnimReq) { cancelAnimationFrame(this.rotAnimReq); this.rotAnimReq = null; }
     const container = this.map.getContainer();
     container.style.transform = '';
@@ -532,9 +523,8 @@ export class MapService {
       '.leaflet-marker-icon:not(.user-marker):not(.user-dot)'
     );
     icons.forEach(el => {
-      const child = (el.firstElementChild ?? el) as HTMLElement;
-      child.style.transform = '';
-      child.style.transformOrigin = '';
+      el.style.transform = '';
+      el.style.transformOrigin = '';
     });
   }
 
@@ -580,7 +570,7 @@ export class MapService {
 
   // Base layer
   private setBaseLayer(
-    style: 'maptiler' | 'maptiler-basic',
+    style: 'osm' | 'positron' | 'dark' | 'maptiler-outdoor' | 'maptiler-osm',
     apiKey?: string
   ): void {
     if (!this.map) return;
@@ -593,16 +583,36 @@ export class MapService {
       keepBuffer: 6,
     };
 
-    const mtOpt = { attribution: '© MapTiler | © OpenStreetMap', tileSize: 512, zoomOffset: -1, ...commonOpt };
-
     const layers: Record<string, { url: string; opt: L.TileLayerOptions }> = {
-      'maptiler': {
-        url: `https://api.maptiler.com/maps/openstreetmap/{z}/{x}/{y}.png?key=${apiKey ?? ''}`,
-        opt: mtOpt,
+      osm: {
+        url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        opt: { attribution: '© OpenStreetMap contributors', ...commonOpt },
       },
-      'maptiler-basic': {
-        url: `https://api.maptiler.com/maps/basic-v2/{z}/{x}/{y}.png?key=${apiKey ?? ''}`,
-        opt: mtOpt,
+      positron: {
+        url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+        opt: { attribution: '© OpenStreetMap contributors, © CARTO', ...commonOpt },
+      },
+      dark: {
+        url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+        opt: { attribution: '© OpenStreetMap contributors, © CARTO', ...commonOpt },
+      },
+      'maptiler-outdoor': {
+        url: `https://api.maptiler.com/maps/outdoor-v2/{z}/{x}/{y}.png?key=${apiKey ?? ''}`,
+        opt: {
+          attribution: '© OpenStreetMap | © MapTiler',
+          tileSize: 512,
+          zoomOffset: -1,
+          ...commonOpt,
+        },
+      },
+      'maptiler-osm': {
+        url: `https://api.maptiler.com/maps/openstreetmap/{z}/{x}/{y}.png?key=${apiKey ?? ''}`,
+        opt: {
+          attribution: '© OpenStreetMap | © MapTiler',
+          tileSize: 512,
+          zoomOffset: -1,
+          ...commonOpt,
+        },
       },
     };
 
@@ -617,9 +627,22 @@ export class MapService {
   }
 
   public setBaseLayerFromSettings(mode: string): void {
-    const valid = ['maptiler', 'maptiler-basic'];
-    const style = valid.includes(mode) ? mode : 'maptiler';
-    const needsKey = true;
+    const style =
+      mode === 'osm'
+        ? 'osm'
+        : mode === 'positron'
+          ? 'positron'
+          : mode === 'dark'
+            ? 'dark'
+            : mode === 'maptiler-outdoor'
+              ? 'maptiler-outdoor'
+              : mode === 'maptiler-osm'
+                ? 'maptiler-osm'
+                : mode === 'maptiler'
+                  ? 'maptiler-osm'
+                  : 'osm';
+
+    const needsKey = style === 'maptiler-outdoor' || style === 'maptiler-osm';
     this.setBaseLayer(style as any, needsKey ? this.mapTilerKey ?? undefined : undefined);
     this.refreshMap();
   }
@@ -784,33 +807,6 @@ export class MapService {
     this.counterRotateMarkers(this.mapBearingDeg);
   }
 
-  private animateMapBearingTo(targetDeg: number): void {
-    if (this.rotAnimReq) cancelAnimationFrame(this.rotAnimReq);
-    const startDeg = this.mapBearingDeg;
-    const delta = this.normalizeAngleDeg(targetDeg - startDeg);
-    if (Math.abs(delta) < 0.5) {
-      this.mapBearingDeg = targetDeg;
-      this.applyMapRotationNow();
-      return;
-    }
-    const duration = Math.min(700, Math.abs(delta) * 6); // ~6ms/degree, max 700ms
-    const startAt = performance.now();
-    const step = (t: number) => {
-      const k = Math.min(1, (t - startAt) / duration);
-      const ek = 1 - (1 - k) * (1 - k); // ease-out
-      this.mapBearingDeg = startDeg + delta * ek;
-      this.applyMapRotationNow();
-      if (k < 1) {
-        this.rotAnimReq = requestAnimationFrame(step);
-      } else {
-        this.mapBearingDeg = targetDeg;
-        this.lastManualRotateAt = 0; // resume auto-follow after animation
-        this.applyMapRotationNow();
-      }
-    };
-    this.rotAnimReq = requestAnimationFrame(step);
-  }
-
   /** Detect two-finger rotation gesture and apply it as manual map bearing offset. */
   private setupRotationGesture(): void {
     if (!this.map) return;
@@ -829,7 +825,6 @@ export class MapService {
       const delta = angle - this.rotTouchPrevAngle;
       this.rotTouchPrevAngle = angle;
       this.mapBearingDeg = this.normalizeAngleDeg(this.mapBearingDeg - delta);
-      this.lastManualRotateAt = Date.now();
       this.applyMapRotationNow();
     }, { passive: true });
 
@@ -864,7 +859,7 @@ export class MapService {
         if (!this.isFreePanning) return;
         const zoom = this.followZoom ?? this.map?.getZoom();
         this.setFollowUser(true, zoom);
-      }, this.AUTO_RECENTER_MS);
+      }, this.autoRecenterMs);
     };
 
     this.map.on('dragstart', stopFollowIfUser);

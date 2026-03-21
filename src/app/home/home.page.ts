@@ -42,7 +42,7 @@ import { Network } from '@capacitor/network';
   ],
 })
 export class HomePage implements OnInit, OnDestroy, AfterViewInit {
-  private mapService = inject(MapService);
+  protected mapService = inject(MapService);
   private modalCtrl = inject(ModalController);
   private settingsSvc = inject(SettingsService);
   private translate = inject(TranslateService);
@@ -370,9 +370,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  private stopNavCameraMode(): void {
-    document.getElementById('map')?.classList.remove('nav-rotate');
-  }
+  private stopNavCameraMode(): void {}
 
   private resetForNewSelection() {
     this.navigationActive = false;
@@ -924,7 +922,6 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
 
     this.mapService.setNavigationMode(true);
     this.hasArrived = false;
-    document.getElementById('map')?.classList.add('nav-rotate');
 
     const destLat = this.currentDestination.entranceLat ?? this.currentDestination.lat;
     const destLng = this.currentDestination.entranceLng ?? this.currentDestination.lng;
