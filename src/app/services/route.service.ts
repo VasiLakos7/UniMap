@@ -44,6 +44,7 @@ export class RouteService {
   // Snap state
   private mapMatchEnabled = false;
   private snapEngaged = false;
+  private snapJustEngaged = false;
   private lastSnapLL: L.LatLng | null = null;
   private readonly SNAP_ENTER_M = 30;
   private readonly SNAP_EXIT_M = 45;
@@ -151,11 +152,13 @@ export class RouteService {
       if (!this.snapEngaged) {
         if (d <= this.SNAP_ENTER_M) {
           this.snapEngaged = true;
+          this.snapJustEngaged = true;
           this.lastSnapLL = snap.snapped;
         }
       } else {
         if (d >= this.SNAP_EXIT_M) {
           this.snapEngaged = false;
+          this.snapJustEngaged = false;
           this.lastSnapLL = null;
         }
       }
@@ -172,19 +175,18 @@ export class RouteService {
           );
         }
 
-        // Always derive heading from the route segment at the snap point,
-        // so the arrow always points along the route — even when stationary.
-        if (snapResult) {
+        // On the first fix after snap engages, immediately align to the route
+        // segment bearing so the arrow doesn't take many seconds to point right.
+        // When moving, GPS movement bearing (applied after this in gps.service)
+        // takes over. When stationary, keep the last known heading — don't drift.
+        if (snapResult && this.snapJustEngaged) {
+          this.snapJustEngaged = false;
           const segI = snapResult.segStartIndex;
           const pts = this.currentRoutePoints;
           const from = pts[segI];
           const to = pts[Math.min(segI + 1, pts.length - 1)];
           if (from && to && from.distanceTo(to) > 0.5) {
-            const routeDeg = bearingDeg(from, to);
-            // Moving: snap fast to route bearing. Stationary: ease in slowly.
-            const alpha = spd >= 0.6 ? 0.4 : 0.12;
-            const sm = smoothAngle(lastHeadingDeg, routeDeg, alpha);
-            applyHeadingCb(sm);
+            applyHeadingCb(bearingDeg(from, to)); // immediate, no smoothing
           }
         }
 
@@ -673,7 +675,9 @@ export class RouteService {
     this.currentRoutePoints = [];
 
     this.snapEngaged = false;
+    this.snapJustEngaged = false;
     this.lastSnapLL = null;
+    this.lastSnapSegIndex = 0;
 
     this.routeProgress.emit({ passedMeters: 0, remainingMeters: 0, totalMeters: 0, progress: 0 });
     this.lastRouteBounds = null;
@@ -805,6 +809,9 @@ export class RouteService {
     return { snapped: snappedLL, distM: bestD };
   }
 
+  // Last confirmed segment index — used to prevent snapping to parallel segments.
+  private lastSnapSegIndex = 0;
+
   private snapToRouteWithIndex(
     raw: L.LatLng
   ): { snap: L.LatLng; segStartIndex: number; distM: number } | null {
@@ -812,26 +819,39 @@ export class RouteService {
     if (!pts || pts.length < 2) return null;
 
     const P = L.CRS.EPSG3857.project(raw);
+    const n = pts.length - 1; // number of segments
 
-    let bestD = Infinity;
-    let bestPt: L.Point | null = null;
-    let bestI = -1;
-
-    for (let i = 0; i < pts.length - 1; i++) {
-      const A = L.CRS.EPSG3857.project(pts[i]);
-      const B = L.CRS.EPSG3857.project(pts[i + 1]);
-
-      const res = this.closestPointOnSegmentMeters(P, A, B);
-      if (res.dist < bestD) {
-        bestD = res.dist;
-        bestPt = res.pt;
-        bestI = i;
+    const searchWindow = (from: number, to: number) => {
+      let bestD = Infinity;
+      let bestPt: L.Point | null = null;
+      let bestI = -1;
+      for (let i = Math.max(0, from); i <= Math.min(n - 1, to); i++) {
+        const A = L.CRS.EPSG3857.project(pts[i]);
+        const B = L.CRS.EPSG3857.project(pts[i + 1]);
+        const res = this.closestPointOnSegmentMeters(P, A, B);
+        if (res.dist < bestD) { bestD = res.dist; bestPt = res.pt; bestI = i; }
       }
+      return bestPt && bestI >= 0
+        ? { snap: L.CRS.EPSG3857.unproject(bestPt), segStartIndex: bestI, distM: bestD }
+        : null;
+    };
+
+    // First try a tight window around the last known segment (prevent parallel-path jumps).
+    const WINDOW = 4;
+    const local = searchWindow(this.lastSnapSegIndex - 1, this.lastSnapSegIndex + WINDOW);
+
+    if (local && local.distM <= this.SNAP_EXIT_M) {
+      // Only allow advancing — prevent backwards jumps beyond 1 segment.
+      if (local.segStartIndex >= this.lastSnapSegIndex - 1) {
+        this.lastSnapSegIndex = Math.max(this.lastSnapSegIndex, local.segStartIndex);
+      }
+      return local;
     }
 
-    if (!bestPt || bestI < 0) return null;
-
-    return { snap: L.CRS.EPSG3857.unproject(bestPt), segStartIndex: bestI, distM: bestD };
+    // Fallback: full search (user is far off route or just started).
+    const full = searchWindow(0, n - 1);
+    if (full) this.lastSnapSegIndex = full.segStartIndex;
+    return full;
   }
 
   // Route layer helpers

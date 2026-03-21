@@ -532,7 +532,8 @@ export class GpsService {
       }
     }
 
-    const sm = smoothAngle(this.lastHeadingDeg, deg, 0.18);
+    const alpha = this.routeSvc.isMapMatchEnabled() && this.routeSvc.isSnapEngaged() ? 0.45 : 0.18;
+    const sm = smoothAngle(this.lastHeadingDeg, deg, alpha);
     this.applyHeadingInternal(sm);
     return true;
   }

@@ -728,6 +728,8 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
         this.mapService.setFollowUser(false);
         this.mapService.setNavigationMode(false);
         this.stopNavCameraMode();
+        this.mapService.removeRouting(true); // clear route lines, keep destination pin
+        this.resetNavConditions();
 
         this.resetTopNav();
 
