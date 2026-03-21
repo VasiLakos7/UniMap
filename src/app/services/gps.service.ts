@@ -34,7 +34,7 @@ export class GpsService {
   private smoothLL: L.LatLng | null = null;
   private readonly SMOOTH_ALPHA = 0.25;
   private lastMarkerLL: L.LatLng | null = null;
-  private readonly MARKER_MIN_MOVE_M = 1.2;
+  private readonly MARKER_MIN_MOVE_M = 0.5;
 
   public lastSpeedMps = 0;
   public lastAccM = 9999;
@@ -45,7 +45,7 @@ export class GpsService {
   private readonly ACC_MAX_NATIVE_M = 45;
   private readonly ACC_MAX_WEB_M = 800;
   private readonly SPEED_USE_GPS_HEADING_MPS = 0.8;
-  private readonly MIN_MOVE_FOR_BEARING_M = 2.5;
+  private readonly MIN_MOVE_FOR_BEARING_M = 1.0;
   private readonly SPEED_TRUST_BEARING_MPS = 0.45;
   private readonly ACC_TRUST_BEARING_M = 40;
   private readonly MAX_JUMP_DEG_WHEN_SLOW = 65;
@@ -57,14 +57,14 @@ export class GpsService {
   private compassHeadingAt = 0;
   private onDeviceOrientationAbs?: (e: DeviceOrientationEvent) => void;
   private onDeviceOrientation?: (e: DeviceOrientationEvent) => void;
-  private readonly COMPASS_MIN_INTERVAL_MS = 90;
+  private readonly COMPASS_MIN_INTERVAL_MS = 80;
   private readonly COMPASS_FRESH_MS = 900;
   private readonly COMPASS_DEADBAND_DEG = 4.0;
-  private readonly COMPASS_SMOOTH_ALPHA_ABS = 0.3;
-  private readonly COMPASS_SMOOTH_ALPHA_REL = 0.24;
+  private readonly COMPASS_SMOOTH_ALPHA_ABS = 0.38;
+  private readonly COMPASS_SMOOTH_ALPHA_REL = 0.30;
   private readonly COMPASS_MAX_TURN_DPS = 360;
   private readonly COMPASS_REJECT_SPIKE_DEG = 150;
-  private readonly NAV_COMPASS_INTERVAL_MS = 200; // max 5Hz in nav mode
+  private readonly NAV_COMPASS_INTERVAL_MS = 100; // max 10Hz in nav mode
   private lastNavCompassApplyAt = 0;
 
   // GPS staleness watchdog
@@ -368,19 +368,20 @@ export class GpsService {
       this.smoothLL = chosen;
     }
 
-    // When snap is engaged in nav mode the snap already provides stability —
-    // skip the extra smoothing layer to avoid the marker lagging behind the user.
+    // In nav mode skip all position smoothing — pass GPS position directly for real-time response.
     let smoothed: L.LatLng;
-    if (this.routeSvc.isMapMatchEnabled() && this.routeSvc.isSnapEngaged()) {
+    if (this.isNavModeCb?.()) {
       this.smoothLL = chosen;
       smoothed = chosen;
     } else {
       smoothed = this.smoothLatLng(chosen);
     }
 
-    // Position deadband: skip marker update if smoothed position hasn't moved enough
+    // Position deadband: skip marker update if position hasn't moved enough.
+    // In nav mode use a very small threshold so every fix is applied immediately.
+    const minMove = this.isNavModeCb?.() ? 0.1 : this.MARKER_MIN_MOVE_M;
     const markerMoved = !this.lastMarkerLL ||
-      this.lastMarkerLL.distanceTo(smoothed) >= this.MARKER_MIN_MOVE_M;
+      this.lastMarkerLL.distanceTo(smoothed) >= minMove;
     if (markerMoved) {
       this.lastMarkerLL = smoothed;
       this.updatePositionCb?.(smoothed.lat, smoothed.lng);
@@ -407,7 +408,7 @@ export class GpsService {
 
     if (!usedMovement) {
       if (typeof heading === 'number' && isFinite(heading) && spd > this.SPEED_USE_GPS_HEADING_MPS) {
-        const sm = smoothAngle(this.lastHeadingDeg, heading, 0.18);
+        const sm = smoothAngle(this.lastHeadingDeg, heading, 0.4);
         this.applyHeadingInternal(sm);
       }
       // Compass heading is applied continuously via applyIfDot in startCompass()
@@ -532,7 +533,7 @@ export class GpsService {
       }
     }
 
-    const alpha = this.routeSvc.isMapMatchEnabled() && this.routeSvc.isSnapEngaged() ? 0.45 : 0.18;
+    const alpha = this.routeSvc.isMapMatchEnabled() && this.routeSvc.isSnapEngaged() ? 0.65 : 0.4;
     const sm = smoothAngle(this.lastHeadingDeg, deg, alpha);
     this.applyHeadingInternal(sm);
     return true;
@@ -589,15 +590,14 @@ export class GpsService {
 
     const applyIfDot = (sm: number) => {
       if (this.isNavModeCb?.()) {
-        // When snap is engaged the route geometry drives heading — compass is irrelevant.
+        // When snap is engaged the route geometry drives heading — compass adds noise.
         if (this.routeSvc.isSnapEngaged()) return;
-        // Not snapped: allow compass at 5Hz with deadband to keep arrow responsive.
         const now = Date.now();
         if (now - this.lastNavCompassApplyAt < this.NAV_COMPASS_INTERVAL_MS) return;
         const diff = this.lastHeadingDeg != null
           ? Math.abs(angleDiffDeg(this.lastHeadingDeg, sm))
           : 360;
-        if (diff < 9) return;
+        if (diff < 6) return;
         this.lastNavCompassApplyAt = now;
       }
       requestAnimationFrame(() => this.applyHeadingInternal(sm));
