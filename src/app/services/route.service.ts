@@ -4,7 +4,7 @@ import * as L from 'leaflet';
 import { Destination, destinationList } from '../models/destination.model';
 import { ApiService } from './api.service';
 import { RoutingService } from './routing.service';
-import { bearingDeg, smoothAngle, sumDistanceMeters } from './map-geo.utils';
+import { bearingDeg, sumDistanceMeters } from './map-geo.utils';
 
 @Injectable({ providedIn: 'root' })
 export class RouteService {
@@ -32,28 +32,28 @@ export class RouteService {
   private lastRerouteAt = 0;
   private cumulativePassedM = 0;
   private lastOnRoutePassedM = 0;
-  private readonly REROUTE_COOLDOWN_MS = 3000;
-  private readonly REROUTE_CONFIRM_FIXES = 3;
-  private readonly REROUTE_OFF_M = 25;
-  private readonly REROUTE_ON_M = 10;
-  private readonly REROUTE_MAX_ACC_M = 22;
-  private readonly REROUTE_MIN_SPEED_MPS = 0.35;
+  private readonly REROUTE_COOLDOWN_MS = 12000;   // min 12s between reroutes
+  private readonly REROUTE_CONFIRM_FIXES = 8;      // 8 consecutive off-route fixes (~8s)
+  private readonly REROUTE_OFF_M = 35;             // must be >35m from route
+  private readonly REROUTE_ON_M = 15;              // back on route within 15m
+  private readonly REROUTE_MAX_ACC_M = 18;         // block reroute if GPS accuracy > 18m
+  private readonly REROUTE_MIN_SPEED_MPS = 0.5;    // must be walking (> 0.5 m/s)
   private readonly REROUTE_SKIP_NEAR_DEST_M = 45;
-  private readonly REROUTE_FULL_REBUILD_M = 0;
 
   // Snap state
   private mapMatchEnabled = false;
   private snapEngaged = false;
   private snapJustEngaged = false;
   private lastSnapLL: L.LatLng | null = null;
-  private readonly SNAP_ENTER_M = 30;
-  private readonly SNAP_EXIT_M = 45;
-  private readonly SNAP_FULL_M = 5;
-  private readonly SNAP_BLEND_M = 30;
+  private readonly SNAP_ENTER_M = 12;   // engage snap only when close to route
+  private readonly SNAP_EXIT_M  = 18;   // disengage quickly when user leaves route
+  private readonly SNAP_FULL_M  = 4;    // full snap within 4m
+  private readonly SNAP_BLEND_M = 12;   // blend zone matches enter zone
   private readonly SNAP_MIN_SPEED_MPS = 0.25;
 
   // Reroute offline circuit-breaker
   public rerouteOffline = new EventEmitter<void>();
+  public onReroute      = new EventEmitter<void>();
   private rerouteFailStreak = 0;
   private rerouteBlockedUntil = 0;
   private readonly REROUTE_BLOCK_MS = 30_000;
@@ -116,8 +116,10 @@ export class RouteService {
   }
 
   resetSnapState(): void {
-    this.snapEngaged = false;
-    this.lastSnapLL = null;
+    this.snapEngaged      = false;
+    this.snapJustEngaged  = false;
+    this.lastSnapLL       = null;
+    this.lastSnapSegIndex = 0;
   }
 
   computeSnappedPosition(
@@ -125,7 +127,7 @@ export class RouteService {
     spd: number,
     acc: number,
     applyHeadingCb: (deg: number) => void,
-    lastHeadingDeg: number | null,
+    _lastHeadingDeg: number | null,
     currentSmoothLL: L.LatLng | null
   ): { chosen: L.LatLng; resetSmooth: boolean } {
     let chosen = rawNow;
@@ -157,9 +159,10 @@ export class RouteService {
         }
       } else {
         if (d >= this.SNAP_EXIT_M) {
-          this.snapEngaged = false;
-          this.snapJustEngaged = false;
-          this.lastSnapLL = null;
+          this.snapEngaged      = false;
+          this.snapJustEngaged  = false;
+          this.lastSnapLL       = null;
+          this.lastSnapSegIndex = 0;   // fresh search next time snap re-engages
         }
       }
 
@@ -280,81 +283,22 @@ export class RouteService {
     this.cumulativePassedM += this.lastOnRoutePassedM;
     this.lastOnRoutePassedM = 0;
 
-    if (offM >= this.REROUTE_FULL_REBUILD_M) {
-      try {
-        await this.drawCustomRouteToDestination(this.activeDestination, rawNow, {
-          fit: false,
-          wheelchair: this.activeWheelchair,
-          isReroute: true,
-        });
+    try {
+      await this.drawCustomRouteToDestination(this.activeDestination, rawNow, {
+        fit: false,
+        wheelchair: this.activeWheelchair,
+        isReroute: true,
+      });
+      this.rerouteFailStreak = 0;
+      this.onReroute.emit();
+    } catch {
+      this.rerouteFailStreak++;
+      if (this.rerouteFailStreak >= 2) {
+        this.rerouteBlockedUntil = Date.now() + this.REROUTE_BLOCK_MS;
         this.rerouteFailStreak = 0;
-      } catch {
-        this.rerouteFailStreak++;
-        if (this.rerouteFailStreak >= 2) {
-          this.rerouteBlockedUntil = Date.now() + this.REROUTE_BLOCK_MS;
-          this.rerouteFailStreak = 0;
-          this.rerouteOffline.emit();
-        }
+        this.rerouteOffline.emit();
       }
-      return;
     }
-
-    this.applyPartialRerouteFromSnap(rawNow, snap.snap, snap.segStartIndex);
-  }
-
-  private applyPartialRerouteFromSnap(
-    rawNow: L.LatLng,
-    snapPoint: L.LatLng,
-    segStartIndex: number
-  ): void {
-    if (!this.map) return;
-
-    this.clearRouteLayers();
-
-    const rest: L.LatLng[] = [];
-    rest.push(snapPoint);
-
-    const tail = this.currentRoutePoints.slice(segStartIndex + 1);
-    for (const p of tail) {
-      if (rest.length === 0 || !this.almostSame(rest[rest.length - 1], p)) rest.push(p);
-    }
-
-    const newPts: L.LatLng[] = [];
-    newPts.push(rawNow);
-    for (const p of rest) {
-      if (newPts.length === 0 || !this.almostSame(newPts[newPts.length - 1], p)) newPts.push(p);
-    }
-    this.currentRoutePoints = newPts;
-
-    if (rawNow.distanceTo(snapPoint) > 1) {
-      this.approachPolyline = L.polyline([rawNow, snapPoint], {
-        color: '#666666',
-        weight: 3,
-        opacity: 0.75,
-        dashArray: '4 8',
-      }).addTo(this.map);
-    }
-
-    if (rest.length >= 3) {
-      const solid = rest.slice(0, -1);
-      this.currentPolyline = L.polyline(solid, {
-        color: '#007bff',
-        weight: 6,
-        opacity: 0.9,
-      }).addTo(this.map);
-
-      this.drawEndApproach(rest[rest.length - 2], rest[rest.length - 1]);
-    } else if (rest.length === 2) {
-      this.drawEndApproach(rest[0], rest[1]);
-    }
-
-    const totalMeters = this.getCurrentRouteDistanceMeters();
-    this.routeProgress.emit({
-      passedMeters: 0,
-      remainingMeters: totalMeters,
-      totalMeters,
-      progress: 0,
-    });
   }
 
   // Route drawing
@@ -589,13 +533,16 @@ export class RouteService {
     if (passedPoints && passedPoints.length >= 2) {
       if (!this.passedPolyline) {
         this.passedPolyline = L.polyline(passedPoints, {
-          color: '#777777',
+          color: '#aaaaaa',
           weight: 4,
-          opacity: 0.4,
+          opacity: 0.45,
         }).addTo(this.map);
       } else {
         this.passedPolyline.setLatLngs(passedPoints);
       }
+    } else if (this.passedPolyline) {
+      this.map.removeLayer(this.passedPolyline);
+      this.passedPolyline = null;
     }
 
     if (remainingPoints && remainingPoints.length >= 2) {
@@ -781,32 +728,6 @@ export class RouteService {
     const dy = p.y - cy;
 
     return { pt: L.point(cx, cy), dist: Math.sqrt(dx * dx + dy * dy) };
-  }
-
-  private snapToCurrentRoute(raw: L.LatLng): { snapped: L.LatLng; distM: number } | null {
-    const pts = this.currentRoutePoints;
-    if (!pts || pts.length < 2) return null;
-
-    const P = L.CRS.EPSG3857.project(raw);
-
-    let bestD = Infinity;
-    let bestPt: L.Point | null = null;
-
-    for (let i = 0; i < pts.length - 1; i++) {
-      const A = L.CRS.EPSG3857.project(pts[i]);
-      const B = L.CRS.EPSG3857.project(pts[i + 1]);
-
-      const res = this.closestPointOnSegmentMeters(P, A, B);
-      if (res.dist < bestD) {
-        bestD = res.dist;
-        bestPt = res.pt;
-      }
-    }
-
-    if (!bestPt) return null;
-
-    const snappedLL = L.CRS.EPSG3857.unproject(bestPt);
-    return { snapped: snappedLL, distM: bestD };
   }
 
   // Last confirmed segment index — used to prevent snapping to parallel segments.

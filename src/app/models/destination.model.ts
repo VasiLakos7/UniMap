@@ -79,8 +79,8 @@ export const destinationList: Destination[] = [
   {
     id: 'DIETETICS',
     name: 'Τμήμα Διατροφής και Διαιτολογίας',
-    lat: 40.658154624342295,
-    lng: 22.803683105931498,
+    lat: 40.658152,
+    lng: 22.803733,
     entranceLat: 40.658006430808285,
     entranceLng: 22.803597743580113,
     image: 'assets/images/departments/diaitologia.jpg',
@@ -194,8 +194,8 @@ export const destinationList: Destination[] = [
   {
     id: 'SDO',
     name: 'Τμήμα Διοίκησης Οργανισμών, Μάρκετινγκ και Τουρισμού',
-    lat: 40.656897284456505,
-    lng: 22.80372884206972,
+    lat: 40.656967,
+    lng: 22.803768,
     entranceLat: 40.65718391160669,
     entranceLng: 22.803757375002238,
     image: 'assets/images/departments/sdo.jpg',
@@ -213,8 +213,8 @@ export const destinationList: Destination[] = [
   {
     id: 'LIS',
     name: 'Τμήμα Βιβλιοθηκονομίας, Αρχειονομίας & Συστημάτων Πληροφόρησης',
-    lat: 40.657455215554,
-    lng: 22.80348788974662,
+    lat: 40.657456,
+    lng: 22.803505,
     entranceLat: 40.6572426564661,
     entranceLng: 22.803505173997745,
     image: 'assets/images/departments/dipae_logo.png',
