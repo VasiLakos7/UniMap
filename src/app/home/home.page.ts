@@ -103,9 +103,9 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
   hasArrived = false;
   hasUserFix = false;
 
-  // debug overlay
-  dbgAcc = 0; dbgSpd = 0; dbgHdg = 0; dbgSnap = '?'; dbgFixCount = 0;
-  dbgDt = 0; dbgDist = 0; dbgExtrap = false;
+  // debug overlay (disabled)
+  // dbgAcc = 0; dbgSpd = 0; dbgHdg = 0; dbgSnap = '?'; dbgFixCount = 0;
+  // dbgDt = 0; dbgDist = 0; dbgExtrap = false;
 
   // nav-box
   navEnabled = false;
@@ -685,15 +685,15 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
       this.outsideCampusKnown = true;
       this.outsideCampusOverlay = !inside;
 
-      // debug overlay
-      this.dbgAcc   = pos.accuracy ?? 0;
-      this.dbgSpd   = (this.mapService as any).gpsSvc?.lastSpeedMps ?? 0;
-      this.dbgHdg   = (this.mapService as any).gpsSvc?.lastHeadingDeg ?? 0;
-      this.dbgSnap  = (this.mapService as any).routeSvc?.isSnapEngaged?.() ? 'ON' : 'OFF';
-      this.dbgFixCount++;
-      this.dbgDt    = (this.mapService as any).dbgFixDtMs  ?? 0;
-      this.dbgDist  = (this.mapService as any).dbgFixDistM ?? 0;
-      this.dbgExtrap = (this.mapService as any).dbgExtrap  ?? false;
+      // debug overlay (disabled)
+      // this.dbgAcc   = pos.accuracy ?? 0;
+      // this.dbgSpd   = (this.mapService as any).gpsSvc?.lastSpeedMps ?? 0;
+      // this.dbgHdg   = (this.mapService as any).gpsSvc?.lastHeadingDeg ?? 0;
+      // this.dbgSnap  = (this.mapService as any).routeSvc?.isSnapEngaged?.() ? 'ON' : 'OFF';
+      // this.dbgFixCount++;
+      // this.dbgDt    = (this.mapService as any).dbgFixDtMs  ?? 0;
+      // this.dbgDist  = (this.mapService as any).dbgFixDistM ?? 0;
+      // this.dbgExtrap = (this.mapService as any).dbgExtrap  ?? false;
 
       if (!this.navigationActive) return;
 
