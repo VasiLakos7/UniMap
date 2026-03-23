@@ -9,7 +9,7 @@ import {
 } from '@angular/core';
 
 import * as L from 'leaflet';
-import { IonicModule, ModalController } from '@ionic/angular';
+import { IonicModule, ModalController, NavController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription, firstValueFrom } from 'rxjs';
@@ -44,6 +44,7 @@ import { Network } from '@capacitor/network';
 export class HomePage implements OnInit, OnDestroy, AfterViewInit {
   protected mapService = inject(MapService);
   private modalCtrl = inject(ModalController);
+  private navCtrl = inject(NavController);
   private settingsSvc = inject(SettingsService);
   private translate = inject(TranslateService);
   private uiDialog = inject(UiDialogService);
@@ -182,12 +183,8 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
 
     App.addListener('appStateChange', ({ isActive }) => {
       if (isActive) {
-        if (!this.mapService.isGpsWatching()) {
-          void this.mapService.startGpsWatch(false);
-        }
-        if (this.hasUserFix) {
-          this.mapService.recenterToUser({ zoom: 19, follow: true, animate: true });
-        }
+        // Always go back to splash on resume so GPS and route start fresh.
+        void this.navCtrl.navigateRoot('/splash', { animated: false });
       }
     }).then(h => (this.appStateListener = h));
 
