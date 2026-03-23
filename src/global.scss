@@ -371,4 +371,32 @@ ion-button {
   pointer-events: none;
 }
 
+/* ── Building labels (permanent, clipped to building width) ─────────── */
+.building-label-icon {
+  background: none !important;
+  border: none !important;
+  overflow: visible !important;
+}
+
+.building-label {
+  position: absolute;
+  transform-origin: center center;
+  font-family: 'Manrope', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  color: #1e293b;
+  text-align: center;
+  line-height: 1.25;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
+  overflow: hidden;
+  pointer-events: none;
+  max-width: 80px;
+  text-shadow:
+    0 0 3px #fff,
+    0 0 3px #fff,
+    0 0 5px rgba(255, 255, 255, 0.9);
+}
+
 

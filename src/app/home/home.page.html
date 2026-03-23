@@ -32,6 +32,22 @@
   <!-- MAP -->
   <div id="map"></div>
 
+  <!-- DEBUG OVERLAY (remove before release) -->
+  <div *ngIf="navigationActive" style="
+    position:fixed; top:50%; left:10px; transform:translateY(-50%);
+    z-index:9999; background:rgba(0,0,0,0.82); color:#7dd3fc;
+    font-family:monospace; font-size:12px; line-height:2;
+    padding:10px 14px; border-radius:10px; pointer-events:none;">
+    acc: <b>{{ dbgAcc | number:'1.0-0' }}m</b><br>
+    spd: <b>{{ dbgSpd | number:'1.1-1' }} m/s</b><br>
+    hdg: <b>{{ dbgHdg | number:'1.0-0' }}°</b><br>
+    snap: <b>{{ dbgSnap }}</b><br>
+    fix#: <b>{{ dbgFixCount }}</b><br>
+    dt: <b>{{ dbgDt }}ms</b><br>
+    dist: <b>{{ dbgDist }}m</b><br>
+    xtrp: <b>{{ dbgExtrap ? 'YES' : 'no' }}</b>
+  </div>
+
   <!-- ROUTE LOADING OVERLAY -->
   <div
     class="map-loading-overlay"

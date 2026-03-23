@@ -102,6 +102,10 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
   hasArrived = false;
   hasUserFix = false;
 
+  // debug overlay
+  dbgAcc = 0; dbgSpd = 0; dbgHdg = 0; dbgSnap = '?'; dbgFixCount = 0;
+  dbgDt = 0; dbgDist = 0; dbgExtrap = false;
+
   // nav-box
   navEnabled = false;
   navInstructionKey = 'NAV.PLACEHOLDER';
@@ -136,7 +140,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
 
   private readonly PROGRESS_MIN_INTERVAL_MS = 220;
   private readonly NAV_MIN_INTERVAL_MS = 260;
-  private readonly HERE_MIN_MOVE_M = 0.9;
+  private readonly HERE_MIN_MOVE_M = 0.3;
 
   private readonly WINDOW_BACK = 25;
   private readonly WINDOW_FWD = 90;
@@ -684,6 +688,16 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
       this.outsideCampusKnown = true;
       this.outsideCampusOverlay = !inside;
 
+      // debug overlay
+      this.dbgAcc   = pos.accuracy ?? 0;
+      this.dbgSpd   = (this.mapService as any).gpsSvc?.lastSpeedMps ?? 0;
+      this.dbgHdg   = (this.mapService as any).gpsSvc?.lastHeadingDeg ?? 0;
+      this.dbgSnap  = (this.mapService as any).routeSvc?.isSnapEngaged?.() ? 'ON' : 'OFF';
+      this.dbgFixCount++;
+      this.dbgDt    = (this.mapService as any).dbgFixDtMs  ?? 0;
+      this.dbgDist  = (this.mapService as any).dbgFixDistM ?? 0;
+      this.dbgExtrap = (this.mapService as any).dbgExtrap  ?? false;
+
       if (!this.navigationActive) return;
 
       const route = this.mapService.getCurrentRoutePoints();
@@ -781,8 +795,14 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
       this.showNavBanner('NAV_STATUS.NO_INTERNET_REROUTE', 5000);
     });
 
+    const rerouteSub = this.mapService.onReroute.subscribe(() => {
+      // Reset progress tracking so the new route starts fresh (no stale gray segments)
+      this.lastRouteIndex       = 0;
+      this.lastHereForProgress  = null;
+    });
+
     if (loadSub) this.mapSubscriptions.push(loadSub);
-    this.mapSubscriptions.push(tileFailSub, locSub, errSub, outSub, clickSub, progSub, staleSub, rerouteOfflineSub);
+    this.mapSubscriptions.push(tileFailSub, locSub, errSub, outSub, clickSub, progSub, staleSub, rerouteOfflineSub, rerouteSub);
   }
 
   async onDestinationSelected(destination: Destination) {
