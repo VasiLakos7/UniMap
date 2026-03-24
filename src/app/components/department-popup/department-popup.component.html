@@ -1,37 +1,35 @@
 <div #sheet class="um-sheet" [class.um-sheet--compact]="routeReady || navigationActive">
 
-  <!-- Absolute X: only in browse and arrived -->
-  <button
-    *ngIf="isBrowseMode"
-    class="um-x-top"
-    type="button"
-    (click)="onClose()"
-    [attr.aria-label]="'COMMON.CLOSE' | translate"
-  >
-    <ion-icon name="close"></ion-icon>
-  </button>
-
   <div class="um-sheet__scroll">
 
     <!-- ── STATE 1: BROWSE ── -->
     <ng-container *ngIf="isBrowseMode">
-      <div class="um-head">
-        <div class="um-avatar-wrap">
-          <img class="um-avatar" [src]="getImage()" [attr.alt]="'POPUP.IMAGE_ALT' | translate"/>
-        </div>
-        <div class="um-title">
-          <div class="um-name">{{ ('DEST.' + destination.id + '.NAME') | translate }}</div>
-          <div class="um-meta">
-            <span>
-              <ng-container *ngIf="meters !== null; else dashM1">{{ formatDistance(meters) }}</ng-container>
-              <ng-template #dashM1>—</ng-template>
-            </span>
-            <span class="dot">•</span>
-            <span>
-              <ng-container *ngIf="etaMin !== null; else dashE1">{{ 'POPUP.MINUTES' | translate:{ value: etaMin } }}</ng-container>
-              <ng-template #dashE1>—</ng-template>
-            </span>
-          </div>
+
+      <!-- Banner image with X on top -->
+      <div class="um-banner" *ngIf="destination?.image">
+        <img class="um-banner__img" [src]="getImage()" [attr.alt]="'POPUP.IMAGE_ALT' | translate"/>
+        <button class="um-banner__close" type="button" (click)="onClose()" [attr.aria-label]="'COMMON.CLOSE' | translate">
+          <ion-icon name="close"></ion-icon>
+        </button>
+      </div>
+
+      <div class="um-info" [class.um-info--no-banner]="!destination?.image">
+        <!-- X for destinations without image -->
+        <button *ngIf="!destination?.image" class="um-x-top" type="button" (click)="onClose()" [attr.aria-label]="'COMMON.CLOSE' | translate">
+          <ion-icon name="close"></ion-icon>
+        </button>
+
+        <div class="um-name">{{ ('DEST.' + destination.id + '.NAME') | translate }}</div>
+        <div class="um-meta">
+          <span>
+            <ng-container *ngIf="meters !== null; else dashM1">{{ formatDistance(meters) }}</ng-container>
+            <ng-template #dashM1>—</ng-template>
+          </span>
+          <span class="dot">•</span>
+          <span>
+            <ng-container *ngIf="etaMin !== null; else dashE1">{{ 'POPUP.MINUTES' | translate:{ value: etaMin } }}</ng-container>
+            <ng-template #dashE1>—</ng-template>
+          </span>
         </div>
       </div>
 

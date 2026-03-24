@@ -6,7 +6,6 @@
   left: 0; right: 0; bottom: 0;
   display: flex;
   flex-direction: column;
-  padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
   background: rgba(255,255,255,0.98);
   border-top-left-radius: 24px;
   border-top-right-radius: 24px;
@@ -19,15 +18,62 @@
 
 .um-sheet--compact{
   max-height: 220px;
+  padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
 }
 
 .um-sheet__scroll{
   overflow: auto;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: 2px;
 }
 
-/* ── Absolute X (browse + arrived only) ── */
+/* ═══════════════════════════════
+   BROWSE STATE
+═══════════════════════════════ */
+
+/* Banner image */
+.um-banner{
+  position: relative;
+  width: 100%;
+  border-top-left-radius: 24px;
+  border-top-right-radius: 24px;
+  overflow: hidden;
+  background: #f1f5f9;
+  flex-shrink: 0;
+}
+
+.um-banner__img{
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  display: block;
+}
+
+.um-banner__close{
+  position: absolute;
+  top: 10px; right: 10px;
+  width: 34px; height: 34px;
+  background: rgba(0,0,0,0.40);
+  border: none; border-radius: 50%;
+  display: grid; place-items: center;
+  padding: 0; cursor: pointer;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 3;
+  ion-icon{ font-size: 18px; color: #fff; }
+  &:active{ background: rgba(0,0,0,0.60); }
+}
+
+/* Info block (name + meta) */
+.um-info{
+  padding: 14px 16px 0;
+  position: relative;
+}
+
+.um-info--no-banner{
+  padding-right: 52px; /* leave room for X */
+}
+
+/* X for no-image destinations */
 .um-x-top{
   position: absolute;
   top: 12px; right: 12px;
@@ -40,37 +86,8 @@
 .um-x-top ion-icon{ font-size: 18px; color: rgba(0,0,0,0.55); }
 .um-x-top:active{ background: rgba(0,0,0,0.11); }
 
-/* ═══════════════════════════════
-   BROWSE STATE
-═══════════════════════════════ */
-.um-head{
-  display: flex;
-  gap: 14px;
-  align-items: center;
-  padding-right: 44px;
-}
-
-.um-avatar-wrap{
-  flex: 0 0 auto;
-  width: 64px; height: 64px;
-  border-radius: 18px;
-  background: #f8fafc;
-  border: 1px solid rgba(0,0,0,0.07);
-  box-shadow: 0 4px 14px rgba(0,0,0,0.08);
-  overflow: hidden;
-  display: grid; place-items: center;
-}
-
-.um-avatar{
-  width: 100%; height: 100%;
-  object-fit: contain;
-  padding: 8px;
-}
-
-.um-title{ min-width: 0; flex: 1 1 auto; }
-
 .um-name{
-  font-size: 16px; font-weight: 800;
+  font-size: 17px; font-weight: 800;
   line-height: 1.25; color: #0f172a;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -86,7 +103,9 @@
 }
 .dot{ opacity: .5; }
 
-.um-actions{ margin-top: 14px; }
+.um-actions{
+  padding: 12px 16px calc(14px + env(safe-area-inset-bottom));
+}
 
 .um-row{
   display: flex; align-items: center;
@@ -234,7 +253,7 @@ ion-button.um-cta--exit::part(native){
 
 /* ── Small phones ── */
 @media (max-width: 360px){
-  .um-avatar-wrap{ width: 56px; height: 56px; border-radius: 14px; }
+  .um-banner__img{ height: 170px; }
   .um-mini{ width: 42px; height: 42px; flex-basis: 42px; }
   .um-minis{ gap: 8px; }
 }
@@ -244,16 +263,12 @@ ion-button.um-cta--exit::part(native){
   .um-sheet__scroll{
     display: flex; flex-direction: column; align-items: center;
   }
-  .um-head, .um-actions, .um-compact, .um-arrived{
+  .um-banner, .um-info, .um-actions, .um-compact, .um-arrived{
     width: min(820px, 100%);
     margin-left: auto; margin-right: auto;
   }
-  .um-head{
-    flex-direction: column; justify-content: center;
-    align-items: center; text-align: center; padding-right: 0;
-  }
-  .um-title{ text-align: center; display: grid; justify-items: center; }
-  .um-meta{ justify-content: center; }
+  .um-banner{ border-radius: 18px; }
+  .um-meta{ justify-content: flex-start; }
   .um-actions{ display: flex; justify-content: center; }
   .um-row{ width: 100%; justify-content: center; }
   .um-start{ max-width: 520px; }
