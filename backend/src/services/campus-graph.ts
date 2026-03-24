@@ -244,6 +244,31 @@ function getSnapCandidates(wheelchair: boolean): string[] {
   return wheelchairSnap;
 }
 
+// Project point P onto segment AB, return closest point on segment + parameter t ∈ [0,1]
+function projectPointOnSegment(
+  p: LatLng,
+  a: LatLng,
+  b: LatLng
+): { point: LatLng; t: number; distM: number } {
+  const latToM = (Math.PI / 180) * 6371000;
+  const lngToM = latToM * Math.cos(((a.lat + b.lat) / 2) * Math.PI / 180);
+
+  const px = (p.lng - a.lng) * lngToM;
+  const py = (p.lat - a.lat) * latToM;
+  const bx = (b.lng - a.lng) * lngToM;
+  const by = (b.lat - a.lat) * latToM;
+  const len2 = bx * bx + by * by;
+
+  if (len2 < 1e-10) return { point: a, t: 0, distM: distanceTo(p, a) };
+
+  const t = Math.max(0, Math.min(1, (px * bx + py * by) / len2));
+  const point: LatLng = {
+    lat: a.lat + t * (b.lat - a.lat),
+    lng: a.lng + t * (b.lng - a.lng),
+  };
+  return { point, t, distM: distanceTo(p, point) };
+}
+
 // Public API
 const MAX_SNAP_METERS = 90;
 const MAX_START_RADIUS = 120;
@@ -305,13 +330,16 @@ export function calculatePathWithLength(
 }
 
 const VIRTUAL_START = '__USER__';
-const VIRTUAL_CONNECT_K = 3; // top-K nearest nodes to connect the virtual node
+const VIRTUAL_PROJ  = '__PROJ__';
 
 /**
  * Calculates a route from the user's exact GPS position to endNodeId.
- * A virtual node is injected at (lat, lng), connected to the K nearest
- * snap candidates, so the returned path starts at the user's real position
- * with no diagonal offset.
+ *
+ * Instead of connecting the virtual start to the K nearest nodes (which can
+ * produce a first segment that cuts through buildings), we project the user's
+ * position onto the nearest graph edge.  The route then goes:
+ *   user → projection_point (perpendicular to nearest path) → graph nodes → destination
+ * This keeps the first segment short and on-path, avoiding buildings/obstacles.
  */
 export function calculateRouteFromPosition(
   lat: number,
@@ -320,30 +348,60 @@ export function calculateRouteFromPosition(
   opts?: { wheelchair?: boolean }
 ): RouteResult | null {
   const here: LatLng = { lat, lng };
-  const candidates = getSnapCandidates(!!opts?.wheelchair);
-
-  // Find K nearest reachable candidates
-  const nearest = candidates
-    .map(id => ({ id, d: distanceTo(here, MERGED.coords[id] ?? here) }))
-    .filter(x => x.d <= MAX_START_RADIUS && MERGED.coords[x.id])
-    .sort((a, b) => a.d - b.d)
-    .slice(0, VIRTUAL_CONNECT_K);
-
-  if (nearest.length === 0) return null;
-
   const baseAdj = getAdjacency(!!opts?.wheelchair);
 
-  // Shallow-copy adjacency and inject virtual node (outgoing edges only)
+  // Find the nearest graph edge by perpendicular distance from the user
+  const seen = new Set<string>();
+  let best: { u: string; v: string; proj: LatLng; t: number; distM: number; w: number } | null = null;
+
+  for (const u of Object.keys(baseAdj)) {
+    const a = MERGED.coords[u];
+    if (!a) continue;
+    for (const [v, w] of Object.entries(baseAdj[u])) {
+      const key = u < v ? `${u}|${v}` : `${v}|${u}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const b = MERGED.coords[v];
+      if (!b) continue;
+      const { point, t, distM } = projectPointOnSegment(here, a, b);
+      if (distM <= MAX_START_RADIUS && (!best || distM < best.distM)) {
+        best = { u, v, proj: point, t, distM, w };
+      }
+    }
+  }
+
+  if (!best) return null;
+
+  const { u, v, proj, t, distM, w } = best;
+  const virtCoords: Record<string, LatLng> = { [VIRTUAL_START]: here };
+
+  // Build a shallow-copy adjacency and inject virtual nodes
   const adj: Adjacency = { ...baseAdj, [VIRTUAL_START]: {} };
-  for (const { id, d } of nearest) {
-    adj[VIRTUAL_START][id] = Math.round(d) || 1;
+
+  if (t < 0.02) {
+    // User projects almost onto node u — connect directly
+    adj[VIRTUAL_START][u] = Math.round(distM) || 1;
+  } else if (t > 0.98) {
+    // User projects almost onto node v — connect directly
+    adj[VIRTUAL_START][v] = Math.round(distM) || 1;
+  } else {
+    // Split the edge at the projection point and route through it
+    virtCoords[VIRTUAL_PROJ] = proj;
+    adj[VIRTUAL_START][VIRTUAL_PROJ] = Math.round(distM) || 1;
+    adj[VIRTUAL_PROJ] = {
+      [u]: Math.round(t * w) || 1,
+      [v]: Math.round((1 - t) * w) || 1,
+    };
+    // Add back-edges so dijkstra can reach VIRTUAL_PROJ from either side
+    adj[u] = { ...adj[u], [VIRTUAL_PROJ]: Math.round(t * w) || 1 };
+    adj[v] = { ...adj[v], [VIRTUAL_PROJ]: Math.round((1 - t) * w) || 1 };
   }
 
   try {
     const nodePath: string[] = find_path(adj, VIRTUAL_START, endNodeId);
-    const points: LatLng[] = nodePath.map(id =>
-      id === VIRTUAL_START ? here : MERGED.coords[id]
-    ).filter((p): p is LatLng => !!p);
+    const points: LatLng[] = nodePath
+      .map(id => virtCoords[id] ?? MERGED.coords[id])
+      .filter((p): p is LatLng => !!p);
 
     if (points.length < 2) return null;
 

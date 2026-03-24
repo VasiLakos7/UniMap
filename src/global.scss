@@ -28,6 +28,14 @@ html, body, ion-app, ion-content {
   height: 100%;
 }
 
+/* Background behind the Leaflet map container.
+   When the map is CSS-rotated (heading-up mode) the rotated rectangle
+   exposes the page background in the corners/edges. Setting a neutral
+   color that approximates the OSM tile background prevents the white flash. */
+html, body, ion-app {
+  background-color: #ede8e0;
+}
+
 /* App font */
 :root{
   --ion-font-family: "Manrope", -apple-system, BlinkMacSystemFont, "SF Pro Display",
