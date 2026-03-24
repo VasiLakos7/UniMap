@@ -281,34 +281,10 @@ function countApproachCrossings(
   return n;
 }
 
-// Project point P onto segment AB, return closest point on segment + parameter t ∈ [0,1]
-function projectPointOnSegment(
-  p: LatLng,
-  a: LatLng,
-  b: LatLng
-): { point: LatLng; t: number; distM: number } {
-  const latToM = (Math.PI / 180) * 6371000;
-  const lngToM = latToM * Math.cos(((a.lat + b.lat) / 2) * Math.PI / 180);
-
-  const px = (p.lng - a.lng) * lngToM;
-  const py = (p.lat - a.lat) * latToM;
-  const bx = (b.lng - a.lng) * lngToM;
-  const by = (b.lat - a.lat) * latToM;
-  const len2 = bx * bx + by * by;
-
-  if (len2 < 1e-10) return { point: a, t: 0, distM: distanceTo(p, a) };
-
-  const t = Math.max(0, Math.min(1, (px * bx + py * by) / len2));
-  const point: LatLng = {
-    lat: a.lat + t * (b.lat - a.lat),
-    lng: a.lng + t * (b.lng - a.lng),
-  };
-  return { point, t, distM: distanceTo(p, point) };
-}
 
 // Public API
 const MAX_SNAP_METERS = 90;
-const MAX_START_RADIUS = 120;
+const MAX_START_RADIUS = 150;
 
 
 export function getNodeIdForName(destinationName: string): string | null {
@@ -367,16 +343,20 @@ export function calculatePathWithLength(
 }
 
 const VIRTUAL_START = '__USER__';
-const VIRTUAL_PROJ  = '__PROJ__';
 
 /**
  * Calculates a route from the user's exact GPS position to endNodeId.
  *
- * Instead of connecting the virtual start to the K nearest nodes (which can
- * produce a first segment that cuts through buildings), we project the user's
- * position onto the nearest graph edge.  The route then goes:
- *   user → projection_point (perpendicular to nearest path) → graph nodes → destination
- * This keeps the first segment short and on-path, avoiding buildings/obstacles.
+ * Connects the virtual start only to EXISTING graph nodes — no virtual
+ * projection points are created. The best entry node is chosen by scoring:
+ *   score = distanceToNode + crossings * CROSSING_PENALTY_M
+ * where "crossings" counts how many other graph edges the straight-line
+ * approach segment would cross. Each crossing likely means the line passes
+ * through a building or obstacle, so we strongly prefer nodes that are
+ * reachable without crossing any path.
+ *
+ * The top-N scoring nodes are connected to __USER__ so that Dijkstra can
+ * pick whichever leads to the shortest overall route.
  */
 export function calculateRouteFromPosition(
   lat: number,
@@ -386,63 +366,39 @@ export function calculateRouteFromPosition(
 ): RouteResult | null {
   const here: LatLng = { lat, lng };
   const baseAdj = getAdjacency(!!opts?.wheelchair);
+  const snapCands = getSnapCandidates(!!opts?.wheelchair);
 
-  // Find the best graph edge to project onto.
-  // Score = perpendicular distance + penalty for each other graph edge the approach
-  // segment crosses. Crossings indicate the straight line likely passes through a
-  // building or obstacle, so we prefer edges reachable without crossings.
   const CROSSING_PENALTY_M = 150;
-  const seen = new Set<string>();
-  let best: { u: string; v: string; proj: LatLng; t: number; distM: number; w: number; score: number } | null = null;
+  const MAX_CONNECT_NODES = 4;
 
-  for (const u of Object.keys(baseAdj)) {
-    const a = MERGED.coords[u];
-    if (!a) continue;
-    for (const [v, w] of Object.entries(baseAdj[u])) {
-      const key = u < v ? `${u}|${v}` : `${v}|${u}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      const b = MERGED.coords[v];
-      if (!b) continue;
-      const { point, t, distM } = projectPointOnSegment(here, a, b);
-      if (distM > MAX_START_RADIUS) continue;
-      const crossings = countApproachCrossings(here, point, u, v, baseAdj, MERGED.coords);
-      const score = distM + crossings * CROSSING_PENALTY_M;
-      if (!best || score < best.score) {
-        best = { u, v, proj: point, t, distM, w, score };
-      }
-    }
+  type Candidate = { id: string; distM: number; score: number };
+  const candidates: Candidate[] = [];
+
+  for (const id of snapCands) {
+    const nodeLL = MERGED.coords[id];
+    if (!nodeLL) continue;
+    const distM = distanceTo(here, nodeLL);
+    if (distM > MAX_START_RADIUS) continue;
+    // Pass '' as skip params — we are approaching a node directly, not an edge midpoint,
+    // so all edge crossings are meaningful (no edge to skip).
+    const crossings = countApproachCrossings(here, nodeLL, '', '', baseAdj, MERGED.coords);
+    const score = distM + crossings * CROSSING_PENALTY_M;
+    candidates.push({ id, distM, score });
   }
 
-  if (!best) return null;
+  if (candidates.length === 0) return null;
 
-  const { u, v, proj, t, distM, w } = best;
-  const virtCoords: Record<string, LatLng> = { [VIRTUAL_START]: here };
+  candidates.sort((a, b) => a.score - b.score);
+  const top = candidates.slice(0, MAX_CONNECT_NODES);
 
-  // Build a shallow-copy adjacency and inject virtual nodes
   const adj: Adjacency = { ...baseAdj, [VIRTUAL_START]: {} };
-
-  if (t < 0.02) {
-    // User projects almost onto node u — connect directly
-    adj[VIRTUAL_START][u] = Math.round(distM) || 1;
-  } else if (t > 0.98) {
-    // User projects almost onto node v — connect directly
-    adj[VIRTUAL_START][v] = Math.round(distM) || 1;
-  } else {
-    // Split the edge at the projection point and route through it
-    virtCoords[VIRTUAL_PROJ] = proj;
-    adj[VIRTUAL_START][VIRTUAL_PROJ] = Math.round(distM) || 1;
-    adj[VIRTUAL_PROJ] = {
-      [u]: Math.round(t * w) || 1,
-      [v]: Math.round((1 - t) * w) || 1,
-    };
-    // Add back-edges so dijkstra can reach VIRTUAL_PROJ from either side
-    adj[u] = { ...adj[u], [VIRTUAL_PROJ]: Math.round(t * w) || 1 };
-    adj[v] = { ...adj[v], [VIRTUAL_PROJ]: Math.round((1 - t) * w) || 1 };
+  for (const c of top) {
+    adj[VIRTUAL_START][c.id] = Math.round(c.distM) || 1;
   }
 
   try {
     const nodePath: string[] = find_path(adj, VIRTUAL_START, endNodeId);
+    const virtCoords: Record<string, LatLng> = { [VIRTUAL_START]: here };
     const points: LatLng[] = nodePath
       .map(id => virtCoords[id] ?? MERGED.coords[id])
       .filter((p): p is LatLng => !!p);
