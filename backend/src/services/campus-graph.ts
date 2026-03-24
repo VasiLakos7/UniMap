@@ -345,18 +345,37 @@ export function calculatePathWithLength(
 const VIRTUAL_START = '__USER__';
 
 /**
+ * Projects point p onto segment a-b.
+ * Returns the projection LatLng, parameter t (0-1 along segment), and perpendicular distance.
+ * Returns null if projection falls outside the segment (t ≤ 0.02 or t ≥ 0.98).
+ */
+function projectPointOntoSegment(
+  p: LatLng, a: LatLng, b: LatLng
+): { proj: LatLng; t: number; perpM: number } | null {
+  const dx = b.lng - a.lng;
+  const dy = b.lat - a.lat;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq < 1e-18) return null;
+  const t = ((p.lng - a.lng) * dx + (p.lat - a.lat) * dy) / lenSq;
+  if (t <= 0.02 || t >= 0.98) return null;
+  const proj: LatLng = { lat: a.lat + t * dy, lng: a.lng + t * dx };
+  return { proj, t, perpM: distanceTo(p, proj) };
+}
+
+/**
  * Calculates a route from the user's exact GPS position to endNodeId.
  *
- * Connects the virtual start only to EXISTING graph nodes — no virtual
- * projection points are created. The best entry node is chosen by scoring:
- *   score = distanceToNode + crossings * CROSSING_PENALTY_M
- * where "crossings" counts how many other graph edges the straight-line
- * approach segment would cross. Each crossing likely means the line passes
- * through a building or obstacle, so we strongly prefer nodes that are
- * reachable without crossing any path.
+ * Strategy:
+ * 1. Connects __USER__ to nearby graph nodes (existing behaviour).
+ * 2. Additionally, for every graph edge close to the user, projects the user's
+ *    position onto that edge and injects a virtual projection node __PROJ_U_V__.
+ *    __PROJ_U_V__ connects to both edge endpoints with the correct sub-edge
+ *    distances, so Dijkstra can choose the correct direction along the edge
+ *    instead of blindly routing to the nearest endpoint.
  *
- * The top-N scoring nodes are connected to __USER__ so that Dijkstra can
- * pick whichever leads to the shortest overall route.
+ * This fixes the "wrong initial direction" bug that occurred when the user was
+ * standing between two nodes: without projection, the route would start toward
+ * the nearest node regardless of which direction leads to the destination.
  */
 export function calculateRouteFromPosition(
   lat: number,
@@ -370,7 +389,10 @@ export function calculateRouteFromPosition(
 
   const CROSSING_PENALTY_M = 150;
   const MAX_CONNECT_NODES = 4;
+  const MAX_PROJ_DIST_M = 25;   // max perpendicular distance to snap onto an edge
+  const MAX_PROJ_NODES = 3;     // top projection candidates to inject
 
+  // --- 1. Node candidates (existing logic) ---
   type Candidate = { id: string; distM: number; score: number };
   const candidates: Candidate[] = [];
 
@@ -379,8 +401,6 @@ export function calculateRouteFromPosition(
     if (!nodeLL) continue;
     const distM = distanceTo(here, nodeLL);
     if (distM > MAX_START_RADIUS) continue;
-    // Pass '' as skip params — we are approaching a node directly, not an edge midpoint,
-    // so all edge crossings are meaningful (no edge to skip).
     const crossings = countApproachCrossings(here, nodeLL, '', '', baseAdj, MERGED.coords);
     const score = distM + crossings * CROSSING_PENALTY_M;
     candidates.push({ id, distM, score });
@@ -391,14 +411,65 @@ export function calculateRouteFromPosition(
   candidates.sort((a, b) => a.score - b.score);
   const top = candidates.slice(0, MAX_CONNECT_NODES);
 
+  // --- 2. Edge projection candidates ---
+  type ProjCandidate = {
+    projId: string;
+    proj: LatLng;
+    nodeU: string;
+    nodeV: string;
+    distU: number;
+    distV: number;
+    perpM: number;
+  };
+  const projCandidates: ProjCandidate[] = [];
+  const seenEdges = new Set<string>();
+
+  for (const u of Object.keys(baseAdj)) {
+    const a = MERGED.coords[u];
+    if (!a) continue;
+    for (const v of Object.keys(baseAdj[u])) {
+      const key = u < v ? `${u}|${v}` : `${v}|${u}`;
+      if (seenEdges.has(key)) continue;
+      seenEdges.add(key);
+      const b = MERGED.coords[v];
+      if (!b) continue;
+      const res = projectPointOntoSegment(here, a, b);
+      if (!res || res.perpM > MAX_PROJ_DIST_M) continue;
+      const edgeLen = distanceTo(a, b);
+      projCandidates.push({
+        projId: `__PROJ_${u}_${v}__`,
+        proj: res.proj,
+        nodeU: u,
+        nodeV: v,
+        distU: res.t * edgeLen,
+        distV: (1 - res.t) * edgeLen,
+        perpM: res.perpM,
+      });
+    }
+  }
+
+  projCandidates.sort((a, b) => a.perpM - b.perpM);
+  const topProj = projCandidates.slice(0, MAX_PROJ_NODES);
+
+  // --- 3. Build augmented adjacency ---
   const adj: Adjacency = { ...baseAdj, [VIRTUAL_START]: {} };
+  const virtCoords: Record<string, LatLng> = { [VIRTUAL_START]: here };
+
   for (const c of top) {
     adj[VIRTUAL_START][c.id] = Math.round(c.distM) || 1;
   }
 
+  for (const pc of topProj) {
+    virtCoords[pc.projId] = pc.proj;
+    adj[pc.projId] = {
+      [pc.nodeU]: Math.round(pc.distU) || 1,
+      [pc.nodeV]: Math.round(pc.distV) || 1,
+    };
+    adj[VIRTUAL_START][pc.projId] = Math.round(pc.perpM) || 1;
+  }
+
   try {
     const nodePath: string[] = find_path(adj, VIRTUAL_START, endNodeId);
-    const virtCoords: Record<string, LatLng> = { [VIRTUAL_START]: here };
     const points: LatLng[] = nodePath
       .map(id => virtCoords[id] ?? MERGED.coords[id])
       .filter((p): p is LatLng => !!p);

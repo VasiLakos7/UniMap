@@ -21,7 +21,9 @@ export class MapService {
   private autoRecenterMs = 5000;   // 5s; 2.5s during navigation
 
   // ── Free-pan mode: user dragged during navigation ──────────────────────────
-  private isFreePanning = false;
+  private isFreePanning    = false;
+  // Set when user manually pans during navigation; cleared only by recenterToUser().
+  private userPannedInNav  = false;
 
   // ── Navigation camera (heading-up) ─────────────────────────────────────────
   private navCameraActive = false;
@@ -445,7 +447,7 @@ export class MapService {
   // works (Leaflet uses CSS transforms internally, it's GPU-accelerated).
 
   private updateCamera(cur: L.LatLng): void {
-    if (!this.map || !this.followUser) return;
+    if (!this.map || !this.followUser || this.userPannedInNav) return;
     const zoom = this.followZoom ?? this.map.getZoom();
     this.map.setView(cur, zoom, { animate: false });
   }
@@ -495,7 +497,7 @@ export class MapService {
     this.routeSvc.setMapMatchEnabled(active);
     this.navCameraActive = active;
     this.autoRecenterMs  = active ? 2500 : 5000;
-    if (!active) this.resetMapRotation();
+    if (!active) { this.userPannedInNav = false; this.resetMapRotation(); }
   }
 
   get isFollowingUser(): boolean { return this.followUser && !this.isFreePanning; }
@@ -526,6 +528,7 @@ export class MapService {
     if (!this.map || !this.lastUserLatLng) return false;
     const zoom    = opts?.zoom    ?? Math.max(this.map.getZoom(), 18);
     const animate = opts?.animate ?? true;
+    this.userPannedInNav = false;
     this.map.setView(this.lastUserLatLng, zoom, { animate });
     if (opts?.follow) this.setFollowUser(true, zoom);
     return true;
@@ -734,6 +737,12 @@ export class MapService {
     this.map.on('zoomstart',  stopFollow);
     this.map.on('movestart',  stopFollow);
     this.map.on('dragend',    scheduleResume);
+
+    // Nav-mode pan detection: independent of stopFollow/followUser state.
+    // dragstart fires only for real user drags, never for programmatic setView.
+    this.map.on('dragstart', () => {
+      if (this.navCameraActive) this.userPannedInNav = true;
+    });
 
     // Correct drag deltas when map container is CSS-rotated (heading-up mode).
     // Leaflet computes deltas in screen-pixel space; we rotate them by the bearing
