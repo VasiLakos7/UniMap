@@ -244,6 +244,43 @@ function getSnapCandidates(wheelchair: boolean): string[] {
   return wheelchairSnap;
 }
 
+// Returns true if segments p1-p2 and p3-p4 properly cross (not just touch at endpoints)
+function segmentsProperlyIntersect(p1: LatLng, p2: LatLng, p3: LatLng, p4: LatLng): boolean {
+  const cross = (o: LatLng, a: LatLng, b: LatLng): number =>
+    (a.lng - o.lng) * (b.lat - o.lat) - (a.lat - o.lat) * (b.lng - o.lng);
+  const d1 = cross(p3, p4, p1);
+  const d2 = cross(p3, p4, p2);
+  const d3 = cross(p1, p2, p3);
+  const d4 = cross(p1, p2, p4);
+  return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
+         ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
+}
+
+// Count how many graph edges the segment from→to crosses (excluding the target edge skipU-skipV).
+// Each crossing likely means the approach passes through a non-walkable area (building/obstacle).
+function countApproachCrossings(
+  from: LatLng, to: LatLng,
+  skipU: string, skipV: string,
+  adj: Adjacency, coords: Record<string, LatLng>
+): number {
+  let n = 0;
+  const seen = new Set<string>();
+  for (const u of Object.keys(adj)) {
+    const a = coords[u];
+    if (!a) continue;
+    for (const v of Object.keys(adj[u])) {
+      const key = u < v ? `${u}|${v}` : `${v}|${u}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      if ((u === skipU && v === skipV) || (u === skipV && v === skipU)) continue;
+      const b = coords[v];
+      if (!b) continue;
+      if (segmentsProperlyIntersect(from, to, a, b)) n++;
+    }
+  }
+  return n;
+}
+
 // Project point P onto segment AB, return closest point on segment + parameter t ∈ [0,1]
 function projectPointOnSegment(
   p: LatLng,
@@ -350,9 +387,13 @@ export function calculateRouteFromPosition(
   const here: LatLng = { lat, lng };
   const baseAdj = getAdjacency(!!opts?.wheelchair);
 
-  // Find the nearest graph edge by perpendicular distance from the user
+  // Find the best graph edge to project onto.
+  // Score = perpendicular distance + penalty for each other graph edge the approach
+  // segment crosses. Crossings indicate the straight line likely passes through a
+  // building or obstacle, so we prefer edges reachable without crossings.
+  const CROSSING_PENALTY_M = 150;
   const seen = new Set<string>();
-  let best: { u: string; v: string; proj: LatLng; t: number; distM: number; w: number } | null = null;
+  let best: { u: string; v: string; proj: LatLng; t: number; distM: number; w: number; score: number } | null = null;
 
   for (const u of Object.keys(baseAdj)) {
     const a = MERGED.coords[u];
@@ -364,8 +405,11 @@ export function calculateRouteFromPosition(
       const b = MERGED.coords[v];
       if (!b) continue;
       const { point, t, distM } = projectPointOnSegment(here, a, b);
-      if (distM <= MAX_START_RADIUS && (!best || distM < best.distM)) {
-        best = { u, v, proj: point, t, distM, w };
+      if (distM > MAX_START_RADIUS) continue;
+      const crossings = countApproachCrossings(here, point, u, v, baseAdj, MERGED.coords);
+      const score = distM + crossings * CROSSING_PENALTY_M;
+      if (!best || score < best.score) {
+        best = { u, v, proj: point, t, distM, w, score };
       }
     }
   }
