@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  apiUrl: 'https://unimap-production.up.railway.app'
+  apiUrl: 'https://unimap-fdg3.onrender.com'
 };

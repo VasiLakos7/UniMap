@@ -6,7 +6,7 @@ export const environment = {
   production: false,
   // Για Android emulator: 10.0.2.2 → localhost του host PC
   // Για φυσική συσκευή: βάλε την IP του server (π.χ. 'http://192.168.1.x:3000')
-  apiUrl: 'https://unimap-production.up.railway.app'
+  apiUrl: 'https://unimap-fdg3.onrender.com'
 };
 
 /*
