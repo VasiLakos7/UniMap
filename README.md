@@ -1,6 +1,6 @@
 # UniMap
 
-A mobile indoor navigation and campus mapping application for the Aristotle University of Thessaloniki (IHU) campus, built with Angular/Ionic and powered by Dijkstra's algorithm for real-time pathfinding.
+A mobile indoor navigation and campus mapping application for the International Hellenic University (IHU) campus (Sindos, Thessaloniki, Greece), built with Angular/Ionic and powered by Dijkstra's algorithm for real-time pathfinding.
 
 ## Features
 
