@@ -33,6 +33,7 @@ export class DepartmentPopupComponent implements AfterViewInit, OnDestroy {
   @Output() cancel = new EventEmitter<void>();
   @Output() close = new EventEmitter<void>();
   @Output() heightChange = new EventEmitter<number>();
+  @Output() openingBrowser = new EventEmitter<void>();
 
   @ViewChild('sheet', { read: ElementRef }) sheetRef!: ElementRef<HTMLElement>;
 
@@ -86,6 +87,7 @@ export class DepartmentPopupComponent implements AfterViewInit, OnDestroy {
     const lng = this.destination?.entranceLng ?? this.destination?.lng;
     if (lat == null || lng == null) return;
     const url = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+    this.openingBrowser.emit();
     await Browser.open({ url });
   }
 
@@ -104,6 +106,7 @@ export class DepartmentPopupComponent implements AfterViewInit, OnDestroy {
   async openWebsite(): Promise<void> {
     const url = this.destination?.website;
     if (!url) return;
+    this.openingBrowser.emit();
     await Browser.open({ url });
   }
 }

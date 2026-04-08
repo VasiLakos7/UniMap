@@ -102,6 +102,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
   isSearchOpen = false;
   hasArrived = false;
   hasUserFix = false;
+  private navStartDistToEndM = 0;
 
   // debug overlay (disabled)
   // dbgAcc = 0; dbgSpd = 0; dbgHdg = 0; dbgSnap = '?'; dbgFixCount = 0;
@@ -124,6 +125,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
   private mapSubscriptions: Subscription[] = [];
   private appStateListener?: any;
   private netListener?: any;
+  skipNextResume = false;
 
   navBannerKey: string | null = null;
   private navBannerTimer: any = null;
@@ -138,10 +140,10 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
   private lastProgressAt = 0;
   private lastNavAt = 0;
   private lastHereForProgress: L.LatLng | null = null;
-
   private readonly PROGRESS_MIN_INTERVAL_MS = 220;
   private readonly NAV_MIN_INTERVAL_MS = 260;
   private readonly HERE_MIN_MOVE_M = 0.3;
+  private readonly PREVIEW_REROUTE_DIST_M = 30;
 
   private readonly WINDOW_BACK = 25;
   private readonly WINDOW_FWD = 90;
@@ -183,6 +185,10 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
 
     App.addListener('appStateChange', ({ isActive }) => {
       if (isActive) {
+        if (this.skipNextResume) {
+          this.skipNextResume = false;
+          return;
+        }
         // Always go back to splash on resume so GPS and route start fresh.
         void this.navCtrl.navigateRoot('/splash', { animated: false });
       }
@@ -695,7 +701,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
       // this.dbgDist  = (this.mapService as any).dbgFixDistM ?? 0;
       // this.dbgExtrap = (this.mapService as any).dbgExtrap  ?? false;
 
-      if (!this.navigationActive) return;
+      if (!this.navigationActive && !this.routeReady) return;
 
       const route = this.mapService.getCurrentRoutePoints();
       if (!route || route.length < 2) return;
@@ -706,23 +712,38 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
         return;
       }
 
-      if (this.prevFix) {
+      if (this.navigationActive && this.prevFix) {
         const heading = this.bearing(this.prevFix, here);
         this.mapService.setUserHeading(heading);
       }
-      this.prevFix = here;
+      if (this.navigationActive) this.prevFix = here;
 
       const now = Date.now();
       const canProgress = now - this.lastProgressAt >= this.PROGRESS_MIN_INTERVAL_MS;
 
       if (canProgress) {
         const split = this.buildProgressSplit(here, route);
-        if (split) {
+        if (!split || split.bestDistM > this.PREVIEW_REROUTE_DIST_M) {
+          // User walked off the route in preview mode — clear the line
+          if (!this.navigationActive) {
+            this.mapService.removeRouting(true);
+            this.routeReady = false;
+            this.hasRoutePreview = false;
+            this.maneuvers = [];
+            this.lockIfHasDirections();
+            const dest = this.currentDestination!;
+            const destLL = L.latLng(dest.entranceLat ?? dest.lat, dest.entranceLng ?? dest.lng);
+            this.setDistanceUiFromDirect(here, destLL);
+            return;
+          }
+        } else {
           this.mapService.updateRouteProgress(split.passed, split.remaining);
           this.lastProgressAt = now;
           this.lastHereForProgress = here;
         }
       }
+
+      if (!this.navigationActive) return;
 
       if (now - this.lastNavAt >= this.NAV_MIN_INTERVAL_MS) {
         this.updateNavInstruction(here, route);
@@ -730,7 +751,8 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
       }
 
       const last = route[route.length - 1];
-      if (here.distanceTo(last) <= 25) {
+      const distToEnd = here.distanceTo(last);
+      if (distToEnd <= 25 && (this.navStartDistToEndM - distToEnd) >= 10) {
         this.navigationActive = false;
         this.hasArrived = true;
 
@@ -834,7 +856,11 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
 
     this.mapService.pinDestination(centerLL.lat, centerLL.lng, dest.name);
     this.mapService.setFollowUser(false);
-    this.mapService.focusOn(centerLL.lat, centerLL.lng, 19);
+    if (this.hasUserFix && inside && L.latLng(this.userLat, this.userLng).distanceTo(centerLL) <= 120) {
+      this.mapService.previewRouteBounds(L.latLng(this.userLat, this.userLng), centerLL);
+    } else {
+      this.mapService.focusOn(centerLL.lat, centerLL.lng, 19);
+    }
 
     if (!this.hasUserFix || !inside) {
       this.routeTotalMeters = 0;
@@ -894,6 +920,8 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
 
     const routePts = this.mapService.getCurrentRoutePoints();
     if (routePts && routePts.length >= 2) {
+      this.lastRouteIndex = 0;
+      this.lastHereForProgress = null;
       this.maneuvers = this.buildManeuvers(routePts);
 
       const meters = Math.max(0, Math.ceil(this.mapService.getCurrentRouteDistanceMeters()));
@@ -958,6 +986,9 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
     this.lastProgressAt = 0;
     this.lastNavAt = 0;
     this.lastHereForProgress = null;
+    const startLL = L.latLng(this.userLat, this.userLng);
+    const endLL = route.length >= 1 ? route[route.length - 1] : startLL;
+    this.navStartDistToEndM = startLL.distanceTo(endLL);
 
     this.updateNavInstruction(L.latLng(this.userLat, this.userLng), route);
   }

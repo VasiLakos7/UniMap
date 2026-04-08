@@ -181,6 +181,7 @@
       (cancel)="cancelRouteKeepPopup()"
       (close)="onPopupClose()"
       (directions)="onDirections()"
+      (openingBrowser)="skipNextResume = true"
       [startDisabled]="mapLoadingVisible || outsideCampus || !routeReady"
     >
     </app-department-popup>

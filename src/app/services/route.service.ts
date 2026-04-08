@@ -326,40 +326,6 @@ export class RouteService {
     const endPoint = L.latLng(destLat, destLng);
     this.activeEndPoint = endPoint;
 
-    const APPROACH_START_M = 38;
-    const distToDestNow = startPoint.distanceTo(endPoint);
-
-    if (isFinite(distToDestNow) && distToDestNow <= APPROACH_START_M) {
-      this.clearRouteLayers();
-      this.pinDestination(destLat, destLng, dest.name);
-      this.currentRoutePoints = [startPoint, endPoint];
-
-      this.drawEndApproach(startPoint, endPoint);
-
-      const bounds = L.latLngBounds([startPoint, endPoint]);
-      this.lastRouteBounds = bounds;
-
-      if (opts?.fit !== false) {
-        this.map.fitBounds(bounds, {
-          paddingTopLeft: [30, 140],
-          paddingBottomRight: [30, 260],
-          maxZoom: 19,
-          animate: true,
-          duration: 0.7,
-        });
-      }
-
-      const remainingMeters = this.getCurrentRouteDistanceMeters();
-      const totalMeters = this.cumulativePassedM + remainingMeters;
-      this.routeProgress.emit({
-        passedMeters: this.cumulativePassedM,
-        remainingMeters,
-        totalMeters,
-        progress: totalMeters > 0 ? this.cumulativePassedM / totalMeters : 0,
-      });
-      return;
-    }
-
     // Fetch new route — keep old layers visible during the API call
     let routeResult: { path: { lat: number; lng: number }[]; lengthM: number };
     try {
@@ -456,7 +422,27 @@ export class RouteService {
 
     // ── Solid blue route: from approachEnd onward (skip startPoint if prepended) ─
     const solidStart = approachDist > 1 ? 1 : 0;
-    if (drawPts.length - solidStart >= 2) {
+    const NEAR_DEST_M = 38; // draw everything as dashed when very close to destination
+    const nearDest = startPoint.distanceTo(endPoint) <= NEAR_DEST_M;
+
+    if (nearDest) {
+      // Entire path is the "end approach" — draw as dashed polyline following real path
+      const dashedPts = drawPts.slice(solidStart);
+      if (dashedPts.length >= 2) {
+        if (this.endApproachPolyline) {
+          try { this.map.removeLayer(this.endApproachPolyline); } catch {}
+          this.endApproachPolyline = null;
+        }
+        this.endApproachPolyline = L.polyline(dashedPts, {
+          color: '#007bff',
+          weight: 6,
+          opacity: 0.9,
+          dashArray: '10 14',
+          lineCap: 'round',
+          lineJoin: 'round',
+        }).addTo(this.map);
+      }
+    } else if (drawPts.length - solidStart >= 2) {
       if (drawPts.length - solidStart >= 3) {
         const solid = drawPts.slice(solidStart, -1);
 

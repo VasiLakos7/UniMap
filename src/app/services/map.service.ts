@@ -22,6 +22,7 @@ export class MapService {
 
   // ── Free-pan mode: user dragged during navigation ──────────────────────────
   private isFreePanning    = false;
+  private cameraUpdating   = false;  // true only while updateCamera calls setView
   // Set when user manually pans during navigation; cleared only by recenterToUser().
   private userPannedInNav  = false;
 
@@ -364,14 +365,22 @@ export class MapService {
 
     // GPS-to-GPS velocity — real walking speed regardless of where the
     // animated marker happens to be right now.
+    // Zero out velocity when nearly stationary: GPS jitter (~1-4m) would otherwise
+    // cause dead-reckoning to extrapolate in a random direction, creating trembling.
     const dtSafe  = Math.max(500, dt);
-    this.velLat   = (next.lat - this.animTo.lat) / dtSafe;
-    this.velLng   = (next.lng - this.animTo.lng) / dtSafe;
-    // Isotropic speed magnitude (deg/ms) used when compass redirects DR direction.
-    const cosLat  = Math.cos(next.lat * Math.PI / 180);
-    this.velSpeedDegMs = Math.sqrt(
-      this.velLat * this.velLat + (this.velLng * cosLat) * (this.velLng * cosLat)
-    );
+    if (distM < 3) {
+      this.velLat        = 0;
+      this.velLng        = 0;
+      this.velSpeedDegMs = 0;
+    } else {
+      this.velLat   = (next.lat - this.animTo.lat) / dtSafe;
+      this.velLng   = (next.lng - this.animTo.lng) / dtSafe;
+      // Isotropic speed magnitude (deg/ms) used when compass redirects DR direction.
+      const cosLat  = Math.cos(next.lat * Math.PI / 180);
+      this.velSpeedDegMs = Math.sqrt(
+        this.velLat * this.velLat + (this.velLng * cosLat) * (this.velLng * cosLat)
+      );
+    }
 
     this.animTo        = next;
     this.animFrom      = from;
@@ -449,7 +458,9 @@ export class MapService {
   private updateCamera(cur: L.LatLng): void {
     if (!this.map || !this.followUser || this.userPannedInNav) return;
     const zoom = this.followZoom ?? this.map.getZoom();
+    this.cameraUpdating = true;
     this.map.setView(cur, zoom, { animate: false });
+    this.cameraUpdating = false;
   }
 
   // ── Heading ────────────────────────────────────────────────────────────────
@@ -717,8 +728,8 @@ export class MapService {
   private setupFreePanHandlers(): void {
     if (!this.map) return;
 
-    const stopFollow = (e: any) => {
-      if (!this.followUser || !e?.originalEvent) return;
+    const stopFollow = (_e: any) => {
+      if (!this.followUser || this.cameraUpdating) return;
       this.isFreePanning = true;
       this.setFollowUser(false);
       clearTimeout(this.autoRecenterTimer);
@@ -726,6 +737,8 @@ export class MapService {
 
     const scheduleResume = () => {
       if (!this.isFreePanning) return;
+      // Outside navigation mode, panning permanently stops following — no auto-resume.
+      if (!this.navCameraActive) return;
       clearTimeout(this.autoRecenterTimer);
       this.autoRecenterTimer = setTimeout(() => {
         if (!this.isFreePanning) return;
@@ -862,4 +875,5 @@ export class MapService {
       el.style.transform = `translate(-50%, -50%) scale(${scale.toFixed(3)})`;
     }
   }
+
 }
