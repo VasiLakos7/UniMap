@@ -166,11 +166,11 @@
   </div>
 
   <!-- POPUP -->
-  <div *ngIf="showModal && currentDestination" slot="fixed" class="popup-overlay">
+  <div *ngIf="showModal && currentDestination as dest" slot="fixed" class="popup-overlay">
     <app-department-popup
       #popupCard
       (heightChange)="popupHeightPx = $event"
-      [destination]="currentDestination"
+      [destination]="dest"
       [routeReady]="routeReady"
       [navigationActive]="navigationActive"
       [hasArrived]="hasArrived"
