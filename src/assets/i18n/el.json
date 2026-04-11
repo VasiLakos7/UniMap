@@ -82,8 +82,8 @@
       "NORTH_LOCK_SUB": "Χωρίς περιστροφές",
       "MAP_TYPE": "Στυλ χάρτη",
       "MAP_TYPE_SUB": "Επιλογή εμφάνισης",
-      "MAPTILER": "MapTiler",
-      "MT_BASIC": "MapTiler Basic"
+      "MT_BASIC": "MapTiler Basic",
+      "CARTODB": "CartoDB"
     },
     "RESET": {
       "TITLE": "Επαναφορά",

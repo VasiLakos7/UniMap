@@ -553,7 +553,7 @@ export class MapService {
   // ── Base layer ─────────────────────────────────────────────────────────────
 
   private setBaseLayer(
-    style: 'osm' | 'positron' | 'dark' | 'maptiler-outdoor' | 'maptiler-osm',
+    style: 'osm' | 'positron' | 'dark' | 'maptiler-outdoor' | 'maptiler-osm' | 'maptiler-basic' | 'cartodb-nolabels',
     apiKey?: string
   ): void {
     if (!this.map) return;
@@ -573,12 +573,20 @@ export class MapService {
         url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
         opt: { attribution: '© OpenStreetMap contributors, © CARTO', ...common },
       },
+      'cartodb-nolabels': {
+        url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png',
+        opt: { attribution: '© OpenStreetMap contributors, © CARTO', ...common },
+      },
       'maptiler-outdoor': {
         url: `https://api.maptiler.com/maps/outdoor-v2/{z}/{x}/{y}.png?key=${apiKey ?? ''}`,
         opt: { attribution: '© OpenStreetMap | © MapTiler', tileSize: 512, zoomOffset: -1, ...common },
       },
       'maptiler-osm': {
         url: `https://api.maptiler.com/maps/openstreetmap/{z}/{x}/{y}.png?key=${apiKey ?? ''}`,
+        opt: { attribution: '© OpenStreetMap | © MapTiler', tileSize: 512, zoomOffset: -1, ...common },
+      },
+      'maptiler-basic': {
+        url: `https://api.maptiler.com/maps/basic-v2/{z}/{x}/{y}.png?key=${apiKey ?? ''}`,
         opt: { attribution: '© OpenStreetMap | © MapTiler', tileSize: 512, zoomOffset: -1, ...common },
       },
     };
@@ -594,9 +602,11 @@ export class MapService {
       osm: 'osm', positron: 'positron', dark: 'dark',
       'maptiler-outdoor': 'maptiler-outdoor',
       'maptiler-osm': 'maptiler-osm', maptiler: 'maptiler-osm',
+      'maptiler-basic': 'maptiler-basic',
+      cartodb: 'cartodb-nolabels',
     };
-    const style = (map[mode] ?? 'osm') as Parameters<typeof this.setBaseLayer>[0];
-    const needsKey = style === 'maptiler-outdoor' || style === 'maptiler-osm';
+    const style = (map[mode] ?? 'maptiler-basic') as Parameters<typeof this.setBaseLayer>[0];
+    const needsKey = style === 'maptiler-outdoor' || style === 'maptiler-osm' || style === 'maptiler-basic';
     this.setBaseLayer(style, needsKey ? this.mapTilerKey ?? undefined : undefined);
     this.refreshMap();
   }

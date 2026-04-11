@@ -3,7 +3,7 @@ import { Preferences } from '@capacitor/preferences';
 
 export type AppLanguage = 'el' | 'en';
 export type UnitsMode = 'm' | 'km';
-export type BaseLayerMode = 'maptiler' | 'maptiler-basic';
+export type BaseLayerMode = 'maptiler-basic' | 'cartodb';
 
 export interface AppSettings {
   // Γενικά
@@ -19,7 +19,7 @@ const DEFAULTS: AppSettings = {
   language: 'el',
   units: 'm',
   northLock: false,
-  baseLayer: 'maptiler',
+  baseLayer: 'maptiler-basic',
 };
 
 @Injectable({ providedIn: 'root' })
