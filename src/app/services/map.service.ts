@@ -848,7 +848,9 @@ export class MapService {
       const marker = L.marker([dest.lat, dest.lng], {
         icon: L.divIcon({
           className: 'building-label-icon',
-          html: `<div class="building-label" data-did="${dest.id}">${dest.name}</div>`,
+          html: dest.mapIcon
+            ? `<div class="building-label building-label--icon" data-did="${dest.id}">${dest.mapIcon}</div>`
+            : `<div class="building-label" data-did="${dest.id}">${dest.name}</div>`,
           iconSize:   [0, 0],
           iconAnchor: [0, 0],
         }),

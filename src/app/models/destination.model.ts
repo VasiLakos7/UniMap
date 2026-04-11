@@ -6,9 +6,10 @@ export interface Destination {
   entranceLat?: number;
   entranceLng?: number;
   image?: string;
-  description?: string; 
+  mapIcon?: string;
+  description?: string;
   phone?: string;
-  website?: string; 
+  website?: string;
   bounds?: {
     north: number;
     south: number;
@@ -245,6 +246,29 @@ export const destinationList: Destination[] = [
       south: 40.65628077985187,
       east: 22.80322134626219,
       west: 22.802591883026672,
+    },
+  },
+
+  {
+    id: 'UNIVERSITY_HOSPITAL',
+    name: 'Ιατρείο',
+    lat: 40.657238,
+    lng: 22.803100,
+    entranceLat: 40.657234,
+    entranceLng: 22.803218,
+    image: 'assets/images/departments/hospital.svg',
+    mapIcon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22">
+      <rect width="24" height="24" rx="5" fill="#c0392b"/>
+      <rect x="10" y="4" width="4" height="16" fill="white"/>
+      <rect x="4" y="10" width="16" height="4" fill="white"/>
+    </svg>`,
+    description: 'Ιατρείο του Πανεπιστημίου.',
+    phone: '2310013665',
+    bounds: {
+      north: 40.657285,
+      south: 40.657175,
+      east: 22.803234,
+      west: 22.803003,
     },
   },
 
