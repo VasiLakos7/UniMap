@@ -15,6 +15,9 @@ exports.POI_NODE_COORDS = {
     ENV_ENT: { lat: 40.656512671672225, lng: 22.802679487255652 },
     LOG_ENT: { lat: 40.656488, lng: 22.803707 },
     GEOPONIA_ENT: { lat: 40.658552, lng: 22.803704 },
+    HOSPITAL_ENT: { lat: 40.657234, lng: 22.803218 },
+    CANTEEN_ENT: { lat: 40.658105, lng: 22.802703 },
+    CLASSROOMS_300_ENT: { lat: 40.656917, lng: 22.802483 },
 };
 exports.POI_ALIAS = new Map([
     ['ΜΑΙΕΥΤΙΚΗΣ', 'MAIEUTIKI_ENT'],
@@ -31,4 +34,7 @@ exports.POI_ALIAS = new Map([
     ['ΜΗΧΑΝΙΚΩΝ ΠΕΡΙΒΑΛΛΟΝΤΟΣ', 'ENV_ENT'],
     ['ΛΟΓΙΣΤΙΚΗΣ ΚΑΙ ΠΛΗΡΟΦΟΡΙΑΚΩΝ ΣΥΣΤΗΜΑΤΩΝ', 'LOG_ENT'],
     ['ΓΕΩΠΟΝΙΑΣ', 'GEOPONIA_ENT'],
+    ['ΙΑΤΡΕΙΟ', 'HOSPITAL_ENT'],
+    ['ΚΥΛΙΚΕΙΟ', 'CANTEEN_ENT'],
+    ['ΑΙΘΟΥΣΕΣ 300 (2ΟΣ ΟΡΟΦΟΣ)', 'CLASSROOMS_300_ENT'],
 ]);

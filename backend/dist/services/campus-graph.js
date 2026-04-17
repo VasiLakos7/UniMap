@@ -5,16 +5,14 @@ exports.getNodeCoords = getNodeCoords;
 exports.findNearestNodeId = findNearestNodeId;
 exports.calculatePath = calculatePath;
 exports.calculatePathWithLength = calculatePathWithLength;
-exports.findBestStartNode = findBestStartNode;
+exports.calculateRouteFromPosition = calculateRouteFromPosition;
 const dijkstrajs_1 = require("dijkstrajs");
 const osm_nodes_1 = require("../data/osm-nodes");
 const manual_nodes_1 = require("../data/manual-nodes");
 const poi_nodes_1 = require("../data/poi-nodes");
 const geo_1 = require("./geo");
 const accessibility_1 = require("./accessibility");
-// -------------------------------------------------------
 // Normalizer ονομάτων
-// -------------------------------------------------------
 function norm(s) {
     return s
         .toUpperCase()
@@ -26,9 +24,7 @@ function norm(s) {
         .replace(/\s+/g, ' ')
         .trim();
 }
-// -------------------------------------------------------
 // Graph building utilities
-// -------------------------------------------------------
 function computeBBox(points) {
     let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
     for (const p of points) {
@@ -180,16 +176,17 @@ function buildMergedGraph() {
             console.warn(`[CampusGraph] POI ${poiId} είναι ${Math.round(distM)}m από το ${nearId}.`);
         addUndirectedEdge(g, ALL, poiId, nearId);
     }
-    return { coords: ALL, adjacency: g, snapCandidates };
+    // POI entrance nodes συμμετέχουν ως snap candidates: αν ο χρήστης
+    // είναι πλησιέστερα σε είσοδο κτιρίου από οποιονδήποτε άλλο node,
+    // η διαδρομή ξεκινά από εκεί (φυσική συμπεριφορά, χωρίς magic radius).
+    const poiIds = Object.keys(poi_nodes_1.POI_NODE_COORDS);
+    const allSnapCandidates = [...snapCandidates, ...poiIds];
+    return { coords: ALL, adjacency: g, snapCandidates: allSnapCandidates };
 }
-// -------------------------------------------------------
 // Singleton — φτιάχνεται μία φορά
-// -------------------------------------------------------
 (0, accessibility_1.registerAccessibilityEdges)();
 const MERGED = buildMergedGraph();
-// -------------------------------------------------------
 // Wheelchair-filtered graph (lazy)
-// -------------------------------------------------------
 let wheelchairAdj;
 let wheelchairSnap;
 function getAdjacency(wheelchair) {
@@ -217,11 +214,44 @@ function getSnapCandidates(wheelchair) {
     wheelchairSnap = MERGED.snapCandidates.filter((id) => g[id] && Object.keys(g[id]).length > 0);
     return wheelchairSnap;
 }
-// -------------------------------------------------------
+// Returns true if segments p1-p2 and p3-p4 properly cross (not just touch at endpoints)
+function segmentsProperlyIntersect(p1, p2, p3, p4) {
+    const cross = (o, a, b) => (a.lng - o.lng) * (b.lat - o.lat) - (a.lat - o.lat) * (b.lng - o.lng);
+    const d1 = cross(p3, p4, p1);
+    const d2 = cross(p3, p4, p2);
+    const d3 = cross(p1, p2, p3);
+    const d4 = cross(p1, p2, p4);
+    return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
+        ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
+}
+// Count how many graph edges the segment from→to crosses (excluding the target edge skipU-skipV).
+// Each crossing likely means the approach passes through a non-walkable area (building/obstacle).
+function countApproachCrossings(from, to, skipU, skipV, adj, coords) {
+    let n = 0;
+    const seen = new Set();
+    for (const u of Object.keys(adj)) {
+        const a = coords[u];
+        if (!a)
+            continue;
+        for (const v of Object.keys(adj[u])) {
+            const key = u < v ? `${u}|${v}` : `${v}|${u}`;
+            if (seen.has(key))
+                continue;
+            seen.add(key);
+            if ((u === skipU && v === skipV) || (u === skipV && v === skipU))
+                continue;
+            const b = coords[v];
+            if (!b)
+                continue;
+            if (segmentsProperlyIntersect(from, to, a, b))
+                n++;
+        }
+    }
+    return n;
+}
 // Public API
-// -------------------------------------------------------
 const MAX_SNAP_METERS = 90;
-const MAX_START_RADIUS = 120;
+const MAX_START_RADIUS = 150;
 function getNodeIdForName(destinationName) {
     return poi_nodes_1.POI_ALIAS.get(norm(destinationName)) ?? null;
 }
@@ -264,33 +294,121 @@ function calculatePathWithLength(startNodeId, endNodeId, opts) {
         len += (0, geo_1.distanceTo)(points[i - 1], points[i]);
     return { path: points, lengthM: Math.round(len) };
 }
-function findBestStartNode(lat, lng, endNodeId, opts) {
+const VIRTUAL_START = '__USER__';
+/**
+ * Projects point p onto segment a-b.
+ * Returns the projection LatLng, parameter t (0-1 along segment), and perpendicular distance.
+ * Returns null if projection falls outside the segment (t ≤ 0.02 or t ≥ 0.98).
+ */
+function projectPointOntoSegment(p, a, b) {
+    const dx = b.lng - a.lng;
+    const dy = b.lat - a.lat;
+    const lenSq = dx * dx + dy * dy;
+    if (lenSq < 1e-18)
+        return null;
+    const t = ((p.lng - a.lng) * dx + (p.lat - a.lat) * dy) / lenSq;
+    if (t <= 0.02 || t >= 0.98)
+        return null;
+    const proj = { lat: a.lat + t * dy, lng: a.lng + t * dx };
+    return { proj, t, perpM: (0, geo_1.distanceTo)(p, proj) };
+}
+/**
+ * Calculates a route from the user's exact GPS position to endNodeId.
+ *
+ * Strategy:
+ * 1. Connects __USER__ to nearby graph nodes (existing behaviour).
+ * 2. Additionally, for every graph edge close to the user, projects the user's
+ *    position onto that edge and injects a virtual projection node __PROJ_U_V__.
+ *    __PROJ_U_V__ connects to both edge endpoints with the correct sub-edge
+ *    distances, so Dijkstra can choose the correct direction along the edge
+ *    instead of blindly routing to the nearest endpoint.
+ *
+ * This fixes the "wrong initial direction" bug that occurred when the user was
+ * standing between two nodes: without projection, the route would start toward
+ * the nearest node regardless of which direction leads to the destination.
+ */
+function calculateRouteFromPosition(lat, lng, endNodeId, opts) {
     const here = { lat, lng };
-    const candidates = getSnapCandidates(!!opts?.wheelchair);
-    const cache = new Map();
-    let bestNode = null;
-    let bestCost = Infinity;
-    for (const id of candidates) {
-        const ll = MERGED.coords[id];
-        if (!ll)
+    const baseAdj = getAdjacency(!!opts?.wheelchair);
+    const snapCands = getSnapCandidates(!!opts?.wheelchair);
+    const CROSSING_PENALTY_M = 150;
+    const MAX_CONNECT_NODES = 4;
+    const MAX_PROJ_DIST_M = 25; // max perpendicular distance to snap onto an edge
+    const MAX_PROJ_NODES = 3; // top projection candidates to inject
+    const candidates = [];
+    for (const id of snapCands) {
+        const nodeLL = MERGED.coords[id];
+        if (!nodeLL)
             continue;
-        const dUser = (0, geo_1.distanceTo)(here, ll);
-        if (dUser > MAX_START_RADIUS)
+        const distM = (0, geo_1.distanceTo)(here, nodeLL);
+        if (distM > MAX_START_RADIUS)
             continue;
-        let pathLen = cache.get(id);
-        if (pathLen === undefined) {
-            const res = calculatePathWithLength(id, endNodeId, opts);
-            pathLen = res ? res.lengthM : Infinity;
-            cache.set(id, pathLen);
-        }
-        if (pathLen === Infinity)
+        const crossings = countApproachCrossings(here, nodeLL, '', '', baseAdj, MERGED.coords);
+        const score = distM + crossings * CROSSING_PENALTY_M;
+        candidates.push({ id, distM, score });
+    }
+    if (candidates.length === 0)
+        return null;
+    candidates.sort((a, b) => a.score - b.score);
+    const top = candidates.slice(0, MAX_CONNECT_NODES);
+    const projCandidates = [];
+    const seenEdges = new Set();
+    for (const u of Object.keys(baseAdj)) {
+        const a = MERGED.coords[u];
+        if (!a)
             continue;
-        // Penalise straight-line distance (real walking paths are ~1.5× longer than crow-flies)
-        const cost = dUser * 1.5 + pathLen;
-        if (cost < bestCost) {
-            bestCost = cost;
-            bestNode = id;
+        for (const v of Object.keys(baseAdj[u])) {
+            const key = u < v ? `${u}|${v}` : `${v}|${u}`;
+            if (seenEdges.has(key))
+                continue;
+            seenEdges.add(key);
+            const b = MERGED.coords[v];
+            if (!b)
+                continue;
+            const res = projectPointOntoSegment(here, a, b);
+            if (!res || res.perpM > MAX_PROJ_DIST_M)
+                continue;
+            const edgeLen = (0, geo_1.distanceTo)(a, b);
+            projCandidates.push({
+                projId: `__PROJ_${u}_${v}__`,
+                proj: res.proj,
+                nodeU: u,
+                nodeV: v,
+                distU: res.t * edgeLen,
+                distV: (1 - res.t) * edgeLen,
+                perpM: res.perpM,
+            });
         }
     }
-    return bestNode;
+    projCandidates.sort((a, b) => a.perpM - b.perpM);
+    const topProj = projCandidates.slice(0, MAX_PROJ_NODES);
+    // --- 3. Build augmented adjacency ---
+    const adj = { ...baseAdj, [VIRTUAL_START]: {} };
+    const virtCoords = { [VIRTUAL_START]: here };
+    for (const c of top) {
+        adj[VIRTUAL_START][c.id] = Math.round(c.distM) || 1;
+    }
+    for (const pc of topProj) {
+        virtCoords[pc.projId] = pc.proj;
+        adj[pc.projId] = {
+            [pc.nodeU]: Math.round(pc.distU) || 1,
+            [pc.nodeV]: Math.round(pc.distV) || 1,
+        };
+        adj[VIRTUAL_START][pc.projId] = Math.round(pc.perpM) || 1;
+    }
+    try {
+        const nodePath = (0, dijkstrajs_1.find_path)(adj, VIRTUAL_START, endNodeId);
+        const points = nodePath
+            .map(id => virtCoords[id] ?? MERGED.coords[id])
+            .filter((p) => !!p);
+        if (points.length < 2)
+            return null;
+        let len = 0;
+        for (let i = 1; i < points.length; i++)
+            len += (0, geo_1.distanceTo)(points[i - 1], points[i]);
+        return { path: points, lengthM: Math.round(len) };
+    }
+    catch {
+        return null;
+    }
 }
