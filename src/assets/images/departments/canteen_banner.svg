@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200">
+  <rect width="400" height="200" fill="#e67e22"/>
+  <!-- Fork left -->
+  <rect x="148" y="40" width="10" height="70" rx="5" fill="white"/>
+  <rect x="135" y="40" width="7" height="35" rx="3.5" fill="white"/>
+  <rect x="162" y="40" width="7" height="35" rx="3.5" fill="white"/>
+  <rect x="148" y="70" width="10" height="10" rx="2" fill="white"/>
+  <rect x="148" y="108" width="10" height="55" rx="5" fill="white"/>
+  <!-- Knife right -->
+  <rect x="215" y="40" width="10" height="123" rx="5" fill="white"/>
+  <path d="M215 40 Q240 55 225 95 L215 95 Z" fill="white"/>
+  <!-- Spoon center -->
+  <ellipse cx="200" cy="62" rx="14" ry="20" fill="white"/>
+  <rect x="193" y="80" width="14" height="85" rx="7" fill="white"/>
+</svg>

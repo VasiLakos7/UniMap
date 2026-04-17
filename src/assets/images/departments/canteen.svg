@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- Background -->
+  <rect width="200" height="200" rx="24" fill="#e67e22"/>
+
+  <!-- Plate (circle) -->
+  <circle cx="100" cy="110" r="60" fill="white" opacity="0.15"/>
+  <circle cx="100" cy="110" r="50" fill="white" opacity="0.15"/>
+
+  <!-- Fork -->
+  <rect x="70" y="45" width="6" height="50" rx="3" fill="white"/>
+  <rect x="64" y="45" width="4" height="22" rx="2" fill="white"/>
+  <rect x="78" y="45" width="4" height="22" rx="2" fill="white"/>
+  <rect x="70" y="62" width="6" height="6" rx="1" fill="white"/>
+  <rect x="70" y="95" width="6" height="55" rx="3" fill="white"/>
+
+  <!-- Knife -->
+  <rect x="122" y="45" width="6" height="105" rx="3" fill="white"/>
+  <path d="M122 45 Q140 55 128 90 L122 90 Z" fill="white"/>
+
+  <!-- Spoon -->
+  <ellipse cx="100" cy="58" rx="10" ry="14" fill="white"/>
+  <rect x="96" y="70" width="8" height="75" rx="4" fill="white"/>
+</svg>

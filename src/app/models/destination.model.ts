@@ -252,13 +252,13 @@ export const destinationList: Destination[] = [
   {
     id: 'UNIVERSITY_HOSPITAL',
     name: 'Ιατρείο',
-    lat: 40.657238,
-    lng: 22.803100,
+    lat: 40.657291,
+    lng: 22.803148,
     entranceLat: 40.657234,
     entranceLng: 22.803218,
-    image: 'assets/images/departments/hospital.svg',
+    image: 'assets/images/departments/hospital_banner.svg',
     mapIcon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22">
-      <rect width="24" height="24" rx="5" fill="#c0392b"/>
+      <rect width="24" height="24" fill="#c0392b"/>
       <rect x="10" y="4" width="4" height="16" fill="white"/>
       <rect x="4" y="10" width="16" height="4" fill="white"/>
     </svg>`,
@@ -269,6 +269,53 @@ export const destinationList: Destination[] = [
       south: 40.657175,
       east: 22.803234,
       west: 22.803003,
+    },
+  },
+
+  {
+    id: 'CANTEEN',
+    name: 'Κυλικείο',
+    lat: 40.658139,
+    lng: 22.802758,
+    entranceLat: 40.658105,
+    entranceLng: 22.802703,
+    image: 'assets/images/departments/canteen_banner.svg',
+    mapIcon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22">
+      <rect width="24" height="24" fill="#e67e22"/>
+      <path d="M9 3v7a3 3 0 0 0 2 2.83V21h2v-8.17A3 3 0 0 0 15 10V3h-1.5v4h-1V3H11v4h-1V3H9zm6 0h1a1 1 0 0 1 1 1v5a3 3 0 0 1-2 2.83V21h-2V3h2z" fill="white"/>
+    </svg>`,
+    description: 'Κυλικείο του Πανεπιστημίου. Φαγητό, ποτό και χαλάρωση.',
+    bounds: {
+      north: 40.658184,
+      south: 40.658095,
+      east: 22.802893,
+      west: 22.802617,
+    },
+  },
+
+  {
+    id: 'CLASSROOMS_300',
+    name: 'Αίθουσες 300 (2ος Όροφος)',
+    lat: 40.656917,
+    lng: 22.802346,
+    entranceLat: 40.656917,
+    entranceLng: 22.802483,
+    image: 'assets/images/departments/classroom_banner.svg',
+    mapIcon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22">
+      <rect width="24" height="24" rx="4" fill="#1a237e"/>
+      <rect x="2" y="3" width="20" height="10" rx="2" fill="white" opacity="0.95"/>
+      <text x="12" y="11" font-family="Arial,sans-serif" font-size="6" font-weight="bold" fill="#1a237e" text-anchor="middle">300</text>
+      <circle cx="8" cy="19" r="2.5" fill="#9fa8da"/>
+      <path d="M5 24 Q5 20 8 20 Q11 20 11 24 Z" fill="#9fa8da"/>
+      <circle cx="16" cy="19" r="2.5" fill="#9fa8da"/>
+      <path d="M13 24 Q13 20 16 20 Q19 20 19 24 Z" fill="#9fa8da"/>
+    </svg>`,
+    description: 'Αίθουσες διδασκαλίας 300. Βρίσκονται στον 2ο όροφο του κτιρίου.',
+    bounds: {
+      north: 40.656967,
+      south: 40.656847,
+      east: 22.802494,
+      west: 22.802191,
     },
   },
 

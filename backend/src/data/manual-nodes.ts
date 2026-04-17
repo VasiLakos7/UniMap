@@ -72,7 +72,7 @@ export const MANUAL_EDGES: Array<[string, string]> = [
   ['M_CENTRAL_TO_DOWN_1', 'M_DOWN_1'],
   ['M_DOWN_1', 'M_BOTTOM_MID'],
   ['M_DOWN_1', 'N0151'], ['N0151', 'N0150'],
-  ['M_TOP_7', 'N0149'], ['N0149', 'N0134'],
+  ['N0149', 'N0134'],
   ['M_TOP_6', 'N0020'],
   ['M_TOP_5', 'N0148'], ['N0148', 'M_SCHOOL_ENT_1'],
   ['M_SCHOOL_ENT_1', 'N0134'],

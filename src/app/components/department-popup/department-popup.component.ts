@@ -8,6 +8,7 @@ import { IonicModule } from '@ionic/angular';
 import { Destination } from '../../models/destination.model';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Browser } from '@capacitor/browser';
+import { DomSanitizer, SafeHtml, SafeStyle } from '@angular/platform-browser';
 
 @Component({
   standalone: true,
@@ -39,7 +40,7 @@ export class DepartmentPopupComponent implements AfterViewInit, OnDestroy {
 
   private sheetRO?: ResizeObserver;
 
-  constructor(private zone: NgZone, private translate: TranslateService) {}
+  constructor(private zone: NgZone, private translate: TranslateService, private sanitizer: DomSanitizer) {}
 
   get isBrowseMode(): boolean {
     return !this.routeReady && !this.navigationActive && !this.hasArrived;
@@ -70,6 +71,22 @@ export class DepartmentPopupComponent implements AfterViewInit, OnDestroy {
 
   getImage(): string {
     return this.destination?.image ?? 'assets/images/branding/logo.svg';
+  }
+
+  get hasBanner(): boolean {
+    return !!(this.destination?.image || this.destination?.mapIcon);
+  }
+
+  get mapIconHtml(): SafeHtml {
+    return this.sanitizer.bypassSecurityTrustHtml(this.destination?.mapIcon ?? '');
+  }
+
+  get mapIconBg(): SafeStyle {
+    const svg = this.destination?.mapIcon ?? '';
+    const url = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+    return this.sanitizer.bypassSecurityTrustStyle(
+      `${url} / 100% 100% no-repeat`
+    );
   }
 
   getPhone(): string | null {
