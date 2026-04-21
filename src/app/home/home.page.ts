@@ -780,7 +780,6 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
     const clickSub = this.mapService.mapClicked.subscribe((data) => {
       if (this.selectionLocked) return;
       if (this.mapLoadingVisible) return;
-      if (this.isSearchOpen) return;
 
       const fallbackName = this.translate.instant('DEST.CUSTOM.NAME') || 'Επιλεγμένος προορισμός';
       const name = data.name || fallbackName;
@@ -855,11 +854,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
 
     this.mapService.pinDestination(centerLL.lat, centerLL.lng, dest.name);
     this.mapService.setFollowUser(false);
-    if (this.hasUserFix && inside && L.latLng(this.userLat, this.userLng).distanceTo(centerLL) <= 120) {
-      this.mapService.previewRouteBounds(L.latLng(this.userLat, this.userLng), centerLL);
-    } else {
-      this.mapService.focusOn(centerLL.lat, centerLL.lng, 19);
-    }
+    this.mapService.focusOn(centerLL.lat, centerLL.lng, 19);
 
     if (!this.hasUserFix || !inside) {
       this.routeTotalMeters = 0;
