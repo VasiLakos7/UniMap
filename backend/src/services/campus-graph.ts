@@ -393,7 +393,7 @@ export function calculateRouteFromPosition(
   const MAX_PROJ_NODES = 3;     // top projection candidates to inject
 
   // --- 1. Node candidates (existing logic) ---
-  type Candidate = { id: string; distM: number; score: number };
+  type Candidate = { id: string; distM: number; score: number; crossings: number };
   const candidates: Candidate[] = [];
 
   for (const id of snapCands) {
@@ -403,13 +403,18 @@ export function calculateRouteFromPosition(
     if (distM > MAX_START_RADIUS) continue;
     const crossings = countApproachCrossings(here, nodeLL, '', '', baseAdj, MERGED.coords);
     const score = distM + crossings * CROSSING_PENALTY_M;
-    candidates.push({ id, distM, score });
+    candidates.push({ id, distM, score, crossings });
   }
 
   if (candidates.length === 0) return null;
 
-  candidates.sort((a, b) => a.score - b.score);
-  const top = candidates.slice(0, MAX_CONNECT_NODES);
+  // Prefer nodes reachable without crossing any graph edge (wall-free approach).
+  // Only fall back to crossing candidates if no clean alternative exists.
+  const cleanCandidates = candidates.filter(c => c.crossings === 0);
+  const effectiveCandidates = cleanCandidates.length > 0 ? cleanCandidates : candidates;
+
+  effectiveCandidates.sort((a, b) => a.score - b.score);
+  const top = effectiveCandidates.slice(0, MAX_CONNECT_NODES);
 
   // --- 2. Edge projection candidates ---
   type ProjCandidate = {
