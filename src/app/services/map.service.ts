@@ -509,6 +509,7 @@ export class MapService {
     this.navCameraActive = active;
     this.autoRecenterMs  = active ? 2500 : 5000;
     if (!active) { this.userPannedInNav = false; this.resetMapRotation(); }
+    if (active)  { this.gpsSvc.reprocessLastFix(); }
   }
 
   get isFollowingUser(): boolean { return this.followUser && !this.isFreePanning; }

@@ -112,6 +112,27 @@ export class GpsService {
     this.applyHeadingInternal(deg);
   }
 
+  /**
+   * Re-run the last accepted GPS fix through the current pipeline state.
+   * Called at navigation start so map-matching snaps the marker to the route
+   * immediately — without waiting for the next poll cycle (up to 2+ seconds).
+   * Also clears the EMA so accumulated stationary smoothing doesn't lag.
+   */
+  public reprocessLastFix(): void {
+    if (!this.hasInitialFix || !this.prevAcceptedLL) return;
+    this.smoothLL   = null;   // discard EMA from stationary period
+    this.lastEmitAt = 0;      // allow locationFound to fire immediately
+    this.handleFix(
+      this.prevAcceptedLL.lat,
+      this.prevAcceptedLL.lng,
+      this.lastAccM,
+      null,
+      this.lastSpeedMps,
+      false,
+      0
+    );
+  }
+
   // ── Permissions ────────────────────────────────────────────────────────────
 
   public async requestLocationPermission(): Promise<boolean> {
@@ -464,6 +485,7 @@ export class GpsService {
     const applyIfDot = (sm: number) => {
       if (this.isNavModeCb?.()) {
         if (this.routeSvc.isSnapEngaged()) return;
+        if (this.lastSpeedMps >= this.SPEED_TRUST_BEARING_MPS) return;
         const now = Date.now();
         if (now - this.lastNavCompassApplyAt < this.NAV_COMPASS_INTERVAL_MS) return;
         if (this.lastHeadingDeg != null &&
