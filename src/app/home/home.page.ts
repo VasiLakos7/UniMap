@@ -319,6 +319,12 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
       this.userLng = st.lng;
     }
 
+    // Initialize map immediately so routeService.map is never null when the
+    // user taps "Directions" while GPS is still being fetched.
+    this.mapService.initializeMap(this.userLat, this.userLng, 'map');
+    this.mapService.setNavigationMode(false);
+    this.applyMapSettings();
+
     const first = await this.mapService.getInitialPosition(15000);
     if (first) {
       this.userLat = first.lat;
@@ -328,9 +334,6 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
       this.hasUserFix = false;
     }
 
-    this.mapService.initializeMap(this.userLat, this.userLng, 'map');
-    this.mapService.setNavigationMode(false);
-    this.applyMapSettings();
     await this.mapService.startGpsWatch(!this.hasUserFix, 18);
     void this.checkOutsideAfterTiles(9000);
   }
@@ -377,6 +380,30 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private stopNavCameraMode(): void {}
+
+  private handleArrival(): void {
+    if (!this.navigationActive) return;
+
+    this.navigationActive = false;
+    this.hasArrived = true;
+
+    this.mapService.setFollowUser(false);
+    this.mapService.setNavigationMode(false);
+    this.stopNavCameraMode();
+    this.mapService.removeRouting(true);
+
+    if (this.currentDestination) {
+      const destLat = this.currentDestination.entranceLat ?? this.currentDestination.lat;
+      const destLng = this.currentDestination.entranceLng ?? this.currentDestination.lng;
+      this.mapService.pinDestination(destLat, destLng, this.currentDestination.name);
+    }
+
+    this.resetNavConditions();
+    this.resetTopNav();
+    this.routeReady = false;
+    this.selectionLocked = false;
+    this.lockIfHasDirections();
+  }
 
   private resetForNewSelection() {
     this.navigationActive = false;
@@ -752,20 +779,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
       const last = route[route.length - 1];
       const distToEnd = here.distanceTo(last);
       if (distToEnd <= 25 && (this.navStartDistToEndM - distToEnd) >= 10) {
-        this.navigationActive = false;
-        this.hasArrived = true;
-
-        this.mapService.setFollowUser(false);
-        this.mapService.setNavigationMode(false);
-        this.stopNavCameraMode();
-        this.mapService.removeRouting(true); // clear route lines, keep destination pin
-        this.resetNavConditions();
-
-        this.resetTopNav();
-
-        this.routeReady = false;
-        this.selectionLocked = false;
-        this.lockIfHasDirections();
+        this.handleArrival();
       }
     });
 
@@ -818,8 +832,12 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
       this.lastHereForProgress  = null;
     });
 
+    const arrivedSub = this.mapService.arrivedNearPin.subscribe(() => {
+      this.handleArrival();
+    });
+
     if (loadSub) this.mapSubscriptions.push(loadSub);
-    this.mapSubscriptions.push(tileFailSub, locSub, errSub, outSub, clickSub, progSub, staleSub, rerouteOfflineSub, rerouteSub);
+    this.mapSubscriptions.push(tileFailSub, locSub, errSub, outSub, clickSub, progSub, staleSub, rerouteOfflineSub, rerouteSub, arrivedSub);
   }
 
   async onDestinationSelected(destination: Destination) {
