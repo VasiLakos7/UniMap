@@ -114,18 +114,17 @@ export class MapService {
 
   // ── Map init ───────────────────────────────────────────────────────────────
 
-  initializeMap(lat: number, lng: number, elementId: string): void {
+  initializeMap(elementId: string): void {
     if (this.map) {
       this.map.off();
       this.map.remove();
     }
 
-    // Always cancel any running animation before re-init
     this.resetAnimState();
 
-    this.firstTilesLoadedFired    = false;
-    this.bootLoadSessionActive    = true;
-    this.bootLoadingStartedAt     = 0;
+    this.firstTilesLoadedFired = false;
+    this.bootLoadSessionActive = true;
+    this.bootLoadingStartedAt  = 0;
 
     if (this.bootOffTimer) { clearTimeout(this.bootOffTimer); this.bootOffTimer = null; }
     this.setMapLoading(true, 2);
@@ -139,23 +138,21 @@ export class MapService {
       }
     }, 12000);
 
+    // No setView here — the first view is set by showUserAt once GPS arrives,
+    // so tiles only load for the user's real position (no wasted campus-center load).
     this.map = L.map(elementId, {
       zoomControl: false,
       keyboard:    true,
       maxZoom:     22,
       zoomSnap:    0.5,
       zoomDelta:   0.5,
-      // Extra SVG padding so route polylines stay visible when map container is
-      // CSS-rotated (heading-up mode). Default 0.1 clips lines at viewport edges.
       renderer: L.svg({ padding: 1.0 }),
-    }).setView([lat, lng], 18);
+    });
 
     this.mapTilerKey = 'fFUNZQgQLPQX2iZWUJ8w';
     this.setBaseLayer('maptiler-osm', this.mapTilerKey);
 
     this.setUserMarkerStyle(this.activeUserStyle);
-    this.setupUserMarker(lat, lng);
-    this.updateUserPosition(lat, lng);
 
     this.setupMapClickEvent();
     this.setupFreePanHandlers();
@@ -167,7 +164,6 @@ export class MapService {
       (deg)           => this.applyHeading(deg),
       (lt, ln, zoom)  => {
         try {
-          // First GPS fix: center map and start following
           this.setFollowUser(true, zoom);
           this.map.setView([lt, ln], zoom, { animate: true });
         } catch {}
@@ -301,9 +297,18 @@ export class MapService {
     }).addTo(this.map);
   }
 
+  public showUserAt(lat: number, lng: number): void {
+    try { this.map.setView([lat, lng], 18, { animate: false }); } catch {}
+    this.setupUserMarker(lat, lng);
+    const ll = L.latLng(lat, lng);
+    this.lastUserLatLng = ll;
+    this.animateMarkerTo(ll);
+  }
+
   private updateUserPosition(lat: number, lng: number): void {
     const ll = L.latLng(lat, lng);
     this.lastUserLatLng = ll;
+    this.setupUserMarker(lat, lng);
     this.animateMarkerTo(ll);
   }
 

@@ -154,7 +154,7 @@ export class GpsService {
         navigator.geolocation.getCurrentPosition(
           (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
           () => resolve(null),
-          { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 0 }
+          { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 10000 }
         )
       );
     }
@@ -163,7 +163,7 @@ export class GpsService {
       const pos = await Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
         timeout: Math.min(timeoutMs, 10000),
-        maximumAge: 0,
+        maximumAge: 10000,
       });
       return { lat: pos.coords.latitude, lng: pos.coords.longitude };
     } catch {
