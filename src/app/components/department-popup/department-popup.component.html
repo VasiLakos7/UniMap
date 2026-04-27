@@ -13,7 +13,7 @@
         </button>
       </div>
 
-      <div class="um-info" [class.um-info--no-banner]="!destination?.image">
+      <div class="um-info" [class.um-info--no-banner]="!destination.image">
         <!-- X for destinations without image -->
         <button *ngIf="!destination?.image" class="um-x-top" type="button" (click)="onClose()" [attr.aria-label]="'COMMON.CLOSE' | translate">
           <ion-icon name="close"></ion-icon>
@@ -30,6 +30,21 @@
             <ng-container *ngIf="etaMin !== null; else dashE1">{{ 'POPUP.MINUTES' | translate:{ value: etaMin } }}</ng-container>
             <ng-template #dashE1>—</ng-template>
           </span>
+        </div>
+      </div>
+
+      <div class="um-floors" *ngIf="destination?.floors?.length">
+        <div class="um-floors__header">
+          <span class="um-floors__label">{{ 'POPUP.FLOORS' | translate }}</span>
+          <button class="um-floors__toggle" type="button" (click)="toggleFloors()" [attr.aria-label]="'POPUP.TOGGLE_FLOORS' | translate">
+            <ion-icon name="chevron-down-outline" [class.rotated]="floorsOpen"></ion-icon>
+          </button>
+        </div>
+        <div class="um-floors__body" [class.open]="floorsOpen">
+          <ng-container *ngFor="let floor of destination.floors">
+            <div class="um-floor-header">{{ floor.label }}</div>
+            <div class="um-floor-room" *ngFor="let room of floor.rooms">{{ room }}</div>
+          </ng-container>
         </div>
       </div>
 

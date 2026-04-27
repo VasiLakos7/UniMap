@@ -111,7 +111,9 @@
     "ARRIVED": "End of route",
     "EXIT": "EXIT",
     "MINUTES": "{{value}} min",
-    "DIRECTIONS": "Directions"
+    "DIRECTIONS": "Directions",
+    "FLOORS": "Rooms & Floors",
+    "TOGGLE_FLOORS": "Toggle floors"
   },
 
   "SEARCH": {

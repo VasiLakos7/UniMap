@@ -42,6 +42,9 @@ export class DepartmentPopupComponent implements AfterViewInit, OnDestroy {
 
   constructor(private zone: NgZone, private translate: TranslateService, private sanitizer: DomSanitizer) {}
 
+  floorsOpen = false;
+  toggleFloors() { this.floorsOpen = !this.floorsOpen; }
+
   get isBrowseMode(): boolean {
     return !this.routeReady && !this.navigationActive && !this.hasArrived;
   }

@@ -111,7 +111,9 @@
     "ARRIVED": "Τέλος διαδρομής",
     "EXIT": "ΕΞΟΔΟΣ",
     "MINUTES": "{{value}} λεπτά",
-    "DIRECTIONS": "Οδηγίες"
+    "DIRECTIONS": "Οδηγίες",
+    "FLOORS": "Αίθουσες & Όροφοι",
+    "TOGGLE_FLOORS": "Εμφάνιση/Απόκρυψη ορόφων"
   },
 
   "SEARCH": {
