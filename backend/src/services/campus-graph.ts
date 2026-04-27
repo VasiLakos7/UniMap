@@ -444,10 +444,6 @@ export function calculateRouteFromPosition(
       if (!b) continue;
       const res = projectPointOntoSegment(here, a, b);
       if (!res || res.perpM > MAX_PROJ_DIST_M) continue;
-      // Check that the perpendicular approach to the projection point
-      // does not cross any OTHER graph edge (skip the edge being projected onto).
-      const approachCrossings = countApproachCrossings(here, res.proj, u, v, baseAdj, MERGED.coords);
-      if (approachCrossings > 0) continue;
       const edgeLen = distanceTo(a, b);
       projCandidates.push({
         projId: `__PROJ_${u}_${v}__`,
