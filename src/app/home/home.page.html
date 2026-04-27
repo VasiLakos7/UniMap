@@ -93,6 +93,7 @@
         <app-search-bar
           [locked]="selectionLocked || mapLoadingVisible"
           [placeholderText]="'HOME.SEARCH_PLACEHOLDER' | translate"
+          [lockBadgeText]="'HOME.LOCK_BADGE' | translate"
           (destinationSelected)="onDestinationSelected($event)"
           (searchOpenChange)="onSearchOpenChange($event)"
           (lockedAttempt)="onSearchLockedAttempt()"
@@ -133,7 +134,7 @@
       fill="solid"
       (click)="onFitRoute()"
       [disabled]="!canFitRoute || mapLoadingVisible"
-      aria-label="Δείξε όλη τη διαδρομή"
+      [attr.aria-label]="'A11Y.FIT_ROUTE' | translate"
     >
       <ion-icon name="git-network-outline"></ion-icon>
     </ion-button>
@@ -147,7 +148,7 @@
       fill="solid"
       (click)="onRecenter()"
       [disabled]="!hasUserFix || mapLoadingVisible"
-      aria-label="Επανεστίαση πλοήγησης"
+      [attr.aria-label]="'A11Y.NAV_RECENTER' | translate"
     >
       <ion-icon [name]="mapService.isFollowingUser ? 'navigate' : 'navigate-outline'"></ion-icon>
     </ion-button>
@@ -159,7 +160,7 @@
       fill="solid"
       (click)="onRecenter()"
       [disabled]="!hasUserFix || mapLoadingVisible"
-      aria-label="Επανεστίαση"
+      [attr.aria-label]="'A11Y.RECENTER' | translate"
     >
       <ion-icon name="paper-plane-outline"></ion-icon>
     </ion-button>

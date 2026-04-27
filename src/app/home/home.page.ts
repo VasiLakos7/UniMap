@@ -795,7 +795,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
       if (this.selectionLocked) return;
       if (this.mapLoadingVisible) return;
 
-      const fallbackName = this.translate.instant('DEST.CUSTOM.NAME') || 'Επιλεγμένος προορισμός';
+      const fallbackName = this.translate.instant('DEST.CUSTOM.NAME');
       const name = data.name || fallbackName;
 
       void this.handleMapClick(data.lat, data.lng, name);
@@ -850,14 +850,15 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
     this.isSearchOpen = open;
   }
 
-  async handleMapClick(lat: number, lng: number, name: string = 'Επιλεγμένος προορισμός') {
+  async handleMapClick(lat: number, lng: number, name: string = '') {
     const ok = await this.ensureUnlockedOrCancel();
     if (!ok) return;
 
     this.resetForNewSelection();
 
-    const found = this.destinationList.find((d) => d.name === name);
-    const dest: Destination = found ? found : { id: 'CUSTOM', name, lat, lng };
+    const resolvedName = name || this.translate.instant('DEST.CUSTOM.NAME');
+    const found = this.destinationList.find((d) => d.name === resolvedName);
+    const dest: Destination = found ? found : { id: 'CUSTOM', name: resolvedName, lat, lng };
     this.currentDestination = dest;
 
     this.hasArrived = false;

@@ -6,7 +6,12 @@
     "CLOSE": "Close"
   },
 
-  "A11Y": { "AMEA_MODE": "Accessibility" },
+  "A11Y": {
+    "AMEA_MODE": "Accessibility",
+    "FIT_ROUTE": "Show full route",
+    "NAV_RECENTER": "Recenter navigation",
+    "RECENTER": "Recenter"
+  },
 
   "DEST": {
     "CUSTOM": { "NAME": "Selected destination" },
@@ -30,6 +35,7 @@
 
   "HOME": {
     "SEARCH_PLACEHOLDER": "Destination...",
+    "LOCK_BADGE": "🔒 Route active",
     "MAP_LOADING": "Loading map…",
     "MAP_LOADING_SUB": "Please wait..."
   },

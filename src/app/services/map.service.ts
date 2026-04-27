@@ -4,6 +4,7 @@ import * as L from 'leaflet';
 import { Destination, destinationList } from '../models/destination.model';
 import { GpsService } from './gps.service';
 import { RouteService } from './route.service';
+import { TranslateService } from '@ngx-translate/core';
 
 @Injectable({ providedIn: 'root' })
 export class MapService {
@@ -99,7 +100,13 @@ export class MapService {
 
   private destinationList = destinationList;
 
-  constructor(private gpsSvc: GpsService, private routeSvc: RouteService) {}
+  constructor(
+    private gpsSvc: GpsService,
+    private routeSvc: RouteService,
+    private translate: TranslateService,
+  ) {
+    this.translate.onLangChange.subscribe(() => this.refreshBuildingLabelTexts());
+  }
 
   // ── Forwarded events ───────────────────────────────────────────────────────
   get locationFound()  { return this.gpsSvc.locationFound; }
@@ -866,7 +873,7 @@ export class MapService {
           className: 'building-label-icon',
           html: dest.mapIcon
             ? `<div class="building-label building-label--icon" data-did="${dest.id}">${dest.mapIcon}</div>`
-            : `<div class="building-label" data-did="${dest.id}">${dest.name}</div>`,
+            : `<div class="building-label" data-did="${dest.id}">${this.translate.instant('DEST.' + dest.id + '.NAME')}</div>`,
           iconSize:   [0, 0],
           iconAnchor: [0, 0],
         }),
@@ -877,8 +884,17 @@ export class MapService {
       this.buildingLabelMarkers.push({ marker, dest });
     }
 
-    this.updateBuildingLabelSizes();
+    setTimeout(() => this.updateBuildingLabelSizes(), 0);
     this.map.on('zoomend', () => this.updateBuildingLabelSizes());
+  }
+
+  private refreshBuildingLabelTexts(): void {
+    for (const { dest } of this.buildingLabelMarkers) {
+      if (dest.mapIcon) continue;
+      const el = document.querySelector(`.building-label[data-did="${dest.id}"]`) as HTMLElement | null;
+      if (!el) continue;
+      el.textContent = this.translate.instant(`DEST.${dest.id}.NAME`);
+    }
   }
 
   private updateBuildingLabelSizes(): void {

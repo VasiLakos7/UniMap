@@ -33,8 +33,8 @@ export class SearchBarComponent implements OnInit, OnDestroy {
   @Input() locked = false;
 
   @Input() showLockBadge = false;
-  @Input() lockBadgeText = '🔒 Διαδρομή ενεργή';
-  @Input() placeholderText = 'Προορισμός...';
+  @Input() lockBadgeText = '';
+  @Input() placeholderText = '';
 
   @ViewChild(IonSearchbar) sb?: IonSearchbar;
 
