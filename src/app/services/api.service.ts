@@ -32,15 +32,22 @@ export class ApiService {
   constructor(private http: HttpClient) {}
 
   getCampusRoute(params: CampusRouteParams): Promise<CampusRouteResponse> {
-    if (Capacitor.isNativePlatform()) {
-      return CapacitorHttp.post({
-        url: `${this.baseUrl}/api/route/campus`,
-        headers: { 'Content-Type': 'application/json' },
-        data: params,
-      }).then(r => r.data as CampusRouteResponse);
-    }
-    return firstValueFrom(
-      this.http.post<CampusRouteResponse>(`${this.baseUrl}/api/route/campus`, params)
+    const TIMEOUT_MS = 10000;
+
+    const req: Promise<CampusRouteResponse> = Capacitor.isNativePlatform()
+      ? CapacitorHttp.post({
+          url: `${this.baseUrl}/api/route/campus`,
+          headers: { 'Content-Type': 'application/json' },
+          data: params,
+        }).then(r => r.data as CampusRouteResponse)
+      : firstValueFrom(
+          this.http.post<CampusRouteResponse>(`${this.baseUrl}/api/route/campus`, params)
+        );
+
+    const timeoutP = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Route request timed out')), TIMEOUT_MS)
     );
+
+    return Promise.race([req, timeoutP]);
   }
 }

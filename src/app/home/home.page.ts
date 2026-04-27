@@ -321,7 +321,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
 
     // Initialize map immediately so routeService.map is never null when the
     // user taps "Directions" while GPS is still being fetched.
-    this.mapService.initializeMap(this.userLat, this.userLng, 'map');
+    this.mapService.initializeMap('map');
     this.mapService.setNavigationMode(false);
     this.applyMapSettings();
 
