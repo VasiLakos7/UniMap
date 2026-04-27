@@ -284,7 +284,7 @@ function countApproachCrossings(
 
 // Public API
 const MAX_SNAP_METERS = 90;
-const MAX_START_RADIUS = 150;
+const MAX_START_RADIUS = 80;
 
 
 export function getNodeIdForName(destinationName: string): string | null {
@@ -392,7 +392,7 @@ export function calculateRouteFromPosition(
   const MAX_PROJ_DIST_M = 25;   // max perpendicular distance to snap onto an edge
   const MAX_PROJ_NODES = 3;     // top projection candidates to inject
 
-  // --- 1. Node candidates (existing logic) ---
+  // --- 1. Node candidates ---
   type Candidate = { id: string; distM: number; score: number; crossings: number };
   const candidates: Candidate[] = [];
 
@@ -406,15 +406,19 @@ export function calculateRouteFromPosition(
     candidates.push({ id, distM, score, crossings });
   }
 
-  if (candidates.length === 0) return null;
-
   // Prefer nodes reachable without crossing any graph edge (wall-free approach).
-  // Only fall back to crossing candidates if no clean alternative exists.
+  // If no clean candidates exist, use only the single nearest to limit wall crossings.
   const cleanCandidates = candidates.filter(c => c.crossings === 0);
-  const effectiveCandidates = cleanCandidates.length > 0 ? cleanCandidates : candidates;
-
-  effectiveCandidates.sort((a, b) => a.score - b.score);
-  const top = effectiveCandidates.slice(0, MAX_CONNECT_NODES);
+  let top: Candidate[];
+  if (cleanCandidates.length > 0) {
+    cleanCandidates.sort((a, b) => a.score - b.score);
+    top = cleanCandidates.slice(0, MAX_CONNECT_NODES);
+  } else if (candidates.length > 0) {
+    candidates.sort((a, b) => a.score - b.score);
+    top = [candidates[0]]; // single nearest fallback only
+  } else {
+    top = [];
+  }
 
   // --- 2. Edge projection candidates ---
   type ProjCandidate = {
@@ -440,6 +444,10 @@ export function calculateRouteFromPosition(
       if (!b) continue;
       const res = projectPointOntoSegment(here, a, b);
       if (!res || res.perpM > MAX_PROJ_DIST_M) continue;
+      // Check that the perpendicular approach to the projection point
+      // does not cross any OTHER graph edge (skip the edge being projected onto).
+      const approachCrossings = countApproachCrossings(here, res.proj, u, v, baseAdj, MERGED.coords);
+      if (approachCrossings > 0) continue;
       const edgeLen = distanceTo(a, b);
       projCandidates.push({
         projId: `__PROJ_${u}_${v}__`,
@@ -455,6 +463,8 @@ export function calculateRouteFromPosition(
 
   projCandidates.sort((a, b) => a.perpM - b.perpM);
   const topProj = projCandidates.slice(0, MAX_PROJ_NODES);
+
+  if (top.length === 0 && topProj.length === 0) return null;
 
   // --- 3. Build augmented adjacency ---
   const adj: Adjacency = { ...baseAdj, [VIRTUAL_START]: {} };
@@ -475,11 +485,16 @@ export function calculateRouteFromPosition(
 
   try {
     const nodePath: string[] = find_path(adj, VIRTUAL_START, endNodeId);
+    // Skip VIRTUAL_START (user's raw GPS position): the frontend handles the
+    // approach segment separately as a grey dashed line, so the returned path
+    // must contain only real graph points.  Including the raw GPS position
+    // caused a straight blue line from the user through walls to the first node.
     const points: LatLng[] = nodePath
+      .slice(1)
       .map(id => virtCoords[id] ?? MERGED.coords[id])
       .filter((p): p is LatLng => !!p);
 
-    if (points.length < 2) return null;
+    if (points.length < 1) return null;
 
     let len = 0;
     for (let i = 1; i < points.length; i++) len += distanceTo(points[i - 1], points[i]);
