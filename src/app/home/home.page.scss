@@ -259,12 +259,24 @@ ion-content {
   box-shadow: none;
 }
 
-/* Nav follow button — active follow state */
+/* Nav follow button — orange pulsing when not following, green when following */
 .fab-btn.nav-follow-btn {
-  --background: var(--ion-color-primary);
-  transition: --background 0.2s ease;
+  --background: #e67e22;
+}
+
+.fab-btn.nav-follow-btn::part(native) {
+  animation: follow-pulse 1.6s ease-in-out infinite;
 }
 
 .fab-btn.nav-follow-btn.is-following {
   --background: #27ae60;
+}
+
+.fab-btn.nav-follow-btn.is-following::part(native) {
+  animation: none;
+}
+
+@keyframes follow-pulse {
+  0%, 100% { box-shadow: 0 16px 38px rgba(0, 0, 0, 0.3), 0 0 0 0 rgba(230, 126, 34, 0.6); }
+  50%       { box-shadow: 0 16px 38px rgba(0, 0, 0, 0.3), 0 0 0 9px rgba(230, 126, 34, 0); }
 }

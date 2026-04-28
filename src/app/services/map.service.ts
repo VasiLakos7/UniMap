@@ -763,14 +763,8 @@ export class MapService {
     };
 
     const scheduleResume = () => {
-      if (!this.isFreePanning) return;
-      // Outside navigation mode, panning permanently stops following — no auto-resume.
-      if (!this.navCameraActive) return;
-      clearTimeout(this.autoRecenterTimer);
-      this.autoRecenterTimer = setTimeout(() => {
-        if (!this.isFreePanning) return;
-        this.setFollowUser(true, this.followZoom ?? this.map?.getZoom());
-      }, this.autoRecenterMs);
+      // No auto-resume: during navigation the user presses the recenter button to follow again;
+      // outside navigation, panning permanently stops following.
     };
 
     this.map.on('dragstart',  stopFollow);
