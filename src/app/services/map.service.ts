@@ -121,7 +121,7 @@ export class MapService {
 
   // ── Map init ───────────────────────────────────────────────────────────────
 
-  initializeMap(elementId: string): void {
+  initializeMap(elementId: string, initialLat?: number, initialLng?: number): void {
     if (this.map) {
       this.map.off();
       this.map.remove();
@@ -145,8 +145,6 @@ export class MapService {
       }
     }, 12000);
 
-    // No setView here — the first view is set by showUserAt once GPS arrives,
-    // so tiles only load for the user's real position (no wasted campus-center load).
     this.map = L.map(elementId, {
       zoomControl: false,
       keyboard:    true,
@@ -156,7 +154,11 @@ export class MapService {
       renderer: L.svg({ padding: 1.0 }),
     });
 
-    this.mapTilerKey = 'fFUNZQgQLPQX2iZWUJ8w';
+    if (initialLat != null && initialLng != null) {
+      this.map.setView([initialLat, initialLng], 18);
+    }
+
+    this.mapTilerKey = 'ZgAb9QJL4ZgnATBmpQf5';
     this.setBaseLayer('maptiler-osm', this.mapTilerKey);
 
     this.setUserMarkerStyle(this.activeUserStyle);
