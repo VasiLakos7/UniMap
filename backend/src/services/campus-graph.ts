@@ -192,7 +192,7 @@ function buildMergedGraph(): MergedGraph {
   splitEdgeWithChain(g, ALL, 'N0036', 'N0067', ['M_36_TO_67_PRE_1', 'M_36_TO_67_1']);
 
   const baseIds = [...keptOSMIds, ...manualIds];
-  healCloseNodes(baseIds, ALL, g, 6);
+  healCloseNodes(baseIds, ALL, g, 1.5);
 
   const largest = getLargestComponent(baseIds, g);
   const snapCandidates = baseIds.filter((id) => largest.has(id));
@@ -460,13 +460,19 @@ export function calculateRouteFromPosition(
   projCandidates.sort((a, b) => a.perpM - b.perpM);
   const topProj = projCandidates.slice(0, MAX_PROJ_NODES);
 
-  if (top.length === 0 && topProj.length === 0) return null;
+  // If projection candidates exist, suppress direct node connections entirely:
+  // the projection point is guaranteed to lie ON a verified walkable edge, so
+  // connecting to it never jumps over a wall.  Direct node connections are only
+  // used when there is no nearby edge to project onto.
+  const activeTop = topProj.length > 0 ? [] : top;
+
+  if (activeTop.length === 0 && topProj.length === 0) return null;
 
   // --- 3. Build augmented adjacency ---
   const adj: Adjacency = { ...baseAdj, [VIRTUAL_START]: {} };
   const virtCoords: Record<string, LatLng> = { [VIRTUAL_START]: here };
 
-  for (const c of top) {
+  for (const c of activeTop) {
     adj[VIRTUAL_START][c.id] = Math.round(c.distM) || 1;
   }
 
