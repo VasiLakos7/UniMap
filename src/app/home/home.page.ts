@@ -61,10 +61,6 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
   hasRoutePreview = false;
   outsideCampus = false;
 
-  simulateMovement = false;
-  simulationInterval: any = null;
-  simulationStepMs = 1200;
-
   userLat = 40.656115;
   userLng = 22.803626;
 
@@ -102,10 +98,6 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
   hasArrived = false;
   hasUserFix = false;
   private navStartDistToEndM = 0;
-
-  // debug overlay (disabled)
-  // dbgAcc = 0; dbgSpd = 0; dbgHdg = 0; dbgSnap = '?'; dbgFixCount = 0;
-  // dbgDt = 0; dbgDist = 0; dbgExtrap = false;
 
   // nav-box
   navEnabled = false;
@@ -161,8 +153,6 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
   private async ensureUnlockedOrCancel(): Promise<boolean> {
     return !this.selectionLocked;
   }
-  async onSearchLockedAttempt() {}
-
   get recenterBottom(): number {
     const base = 14;
     const popupOpen = this.showModal && !!this.currentDestination;
@@ -202,7 +192,6 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
 
   ngOnDestroy() {
     this.mapSubscriptions.forEach((s) => s.unsubscribe());
-    if (this.simulationInterval) clearInterval(this.simulationInterval);
 
     if (this.mapLoadingOffTimer) clearTimeout(this.mapLoadingOffTimer);
     if (this.mapLoadingMinTimer) clearTimeout(this.mapLoadingMinTimer);
@@ -289,8 +278,6 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
 
     if (!inside) {
       this.startOutsideDialogShown = true;
-      //akuro dialog isws balw kati allo
-      //await this.uiDialog.info('DIALOG.OUTSIDE_CAMPUS_TITLE', 'DIALOG.OUTSIDE_CAMPUS_ON_START_MSG');
     }
   }
 
@@ -380,8 +367,6 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
-  private stopNavCameraMode(): void {}
-
   private handleArrival(): void {
     if (!this.navigationActive) return;
 
@@ -390,7 +375,6 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
 
     this.mapService.setFollowUser(false);
     this.mapService.setNavigationMode(false);
-    this.stopNavCameraMode();
     this.mapService.removeRouting(true);
 
     if (this.currentDestination) {
@@ -412,9 +396,6 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
 
     this.mapService.setNavigationMode(false);
     this.mapService.setFollowUser(false);
-    this.stopNavCameraMode();
-
-    if (this.simulationInterval) clearInterval(this.simulationInterval);
 
     this.mapService.removeRouting(true);
 
@@ -718,16 +699,6 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
       this.outsideCampusKnown = true;
       this.outsideCampusOverlay = !inside;
 
-      // debug overlay (disabled)
-      // this.dbgAcc   = pos.accuracy ?? 0;
-      // this.dbgSpd   = (this.mapService as any).gpsSvc?.lastSpeedMps ?? 0;
-      // this.dbgHdg   = (this.mapService as any).gpsSvc?.lastHeadingDeg ?? 0;
-      // this.dbgSnap  = (this.mapService as any).routeSvc?.isSnapEngaged?.() ? 'ON' : 'OFF';
-      // this.dbgFixCount++;
-      // this.dbgDt    = (this.mapService as any).dbgFixDtMs  ?? 0;
-      // this.dbgDist  = (this.mapService as any).dbgFixDistM ?? 0;
-      // this.dbgExtrap = (this.mapService as any).dbgExtrap  ?? false;
-
       if (!this.navigationActive && !this.routeReady) return;
 
       const route = this.mapService.getCurrentRoutePoints();
@@ -1016,9 +987,6 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
 
     this.mapService.setNavigationMode(false);
     this.mapService.setFollowUser(false);
-    this.stopNavCameraMode();
-
-    if (this.simulationInterval) clearInterval(this.simulationInterval);
 
     const dest = this.currentDestination;
 
@@ -1060,11 +1028,9 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
 
     this.navigationActive = false;
     this.resetNavConditions();
-    if (this.simulationInterval) clearInterval(this.simulationInterval);
 
     this.mapService.setNavigationMode(false);
     this.mapService.setFollowUser(false);
-    this.stopNavCameraMode();
     this.mapService.removeRouting();
 
     this.routeReady = false;
