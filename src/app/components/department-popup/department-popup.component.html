@@ -136,10 +136,15 @@
           </span>
         </div>
 
-        <ion-button expand="block" class="um-cta um-cta--exit" color="danger" (click)="onExit()">
-          <ion-icon name="close-circle-outline" slot="start"></ion-icon>
-          {{ 'POPUP.EXIT' | translate }}
-        </ion-button>
+        <div class="um-cta-row">
+          <ion-button class="um-mini um-mini--overview" fill="outline" (click)="onFitRoute()" [attr.aria-label]="'A11Y.FIT_ROUTE' | translate">
+            <ion-icon name="git-network-outline"></ion-icon>
+          </ion-button>
+          <ion-button class="um-cta um-cta--exit" color="danger" (click)="onExit()">
+            <ion-icon name="close-circle-outline" slot="start"></ion-icon>
+            {{ 'POPUP.EXIT' | translate }}
+          </ion-button>
+        </div>
 
       </div>
     </ng-container>

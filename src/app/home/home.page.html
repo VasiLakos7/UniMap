@@ -128,6 +128,7 @@
     [style.right.px]="12"
   >
     <ion-button
+      *ngIf="!navigationActive"
       class="fab-btn"
       shape="round"
       fill="solid"
@@ -138,14 +139,27 @@
       <ion-icon name="git-network-outline"></ion-icon>
     </ion-button>
 
-    <!-- Nav follow button: visible only during navigation -->
+    <!-- Nav recenter: one-time jump to user position -->
+    <ion-button
+      *ngIf="navigationActive"
+      class="fab-btn"
+      shape="round"
+      fill="solid"
+      (click)="onRecenter()"
+      [disabled]="!hasUserFix || mapLoadingVisible"
+      [attr.aria-label]="'A11Y.RECENTER' | translate"
+    >
+      <ion-icon name="locate-outline"></ion-icon>
+    </ion-button>
+
+    <!-- Nav follow toggle: green=following, orange=not following -->
     <ion-button
       *ngIf="navigationActive"
       class="fab-btn nav-follow-btn"
       [class.is-following]="mapService.isFollowingUser"
       shape="round"
       fill="solid"
-      (click)="onRecenter()"
+      (click)="onToggleFollow()"
       [disabled]="!hasUserFix || mapLoadingVisible"
       [attr.aria-label]="'A11Y.NAV_RECENTER' | translate"
     >
@@ -181,6 +195,7 @@
       (cancel)="cancelRouteKeepPopup()"
       (close)="onPopupClose()"
       (directions)="onDirections()"
+      (fitRoute)="onFitRoute()"
       (openingBrowser)="skipNextResume = true"
       [startDisabled]="mapLoadingVisible || outsideCampus || !routeReady"
     >

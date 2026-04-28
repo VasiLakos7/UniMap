@@ -328,11 +328,20 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
 
   onRecenter() {
     if (!this.hasUserFix) return;
+    this.mapService.focusOn(this.userLat, this.userLng, 19);
+  }
 
-    const ok = this.mapService.recenterToUser({ zoom: 19, follow: true, animate: true });
-    if (!ok) {
-      this.mapService.focusOn(this.userLat, this.userLng, 19);
-      this.mapService.setFollowUser(true, 19);
+  onToggleFollow() {
+    if (!this.hasUserFix) return;
+    const newState = !this.mapService.isFollowingUser;
+    if (newState) {
+      const ok = this.mapService.recenterToUser({ zoom: 19, follow: true, animate: true });
+      if (!ok) {
+        this.mapService.focusOn(this.userLat, this.userLng, 19);
+        this.mapService.setFollowUser(true, 19);
+      }
+    } else {
+      this.mapService.setFollowUser(false);
     }
   }
 

@@ -33,6 +33,7 @@ export class DepartmentPopupComponent implements AfterViewInit, OnDestroy {
   @Output() navigate = new EventEmitter<void>();
   @Output() cancel = new EventEmitter<void>();
   @Output() close = new EventEmitter<void>();
+  @Output() fitRoute = new EventEmitter<void>();
   @Output() heightChange = new EventEmitter<number>();
   @Output() openingBrowser = new EventEmitter<void>();
 
@@ -71,6 +72,7 @@ export class DepartmentPopupComponent implements AfterViewInit, OnDestroy {
   onExit()  { this.cancel.emit(); }
   onStart() { if (!this.startDisabled) this.navigate.emit(); }
   onDirections() { this.directions.emit(); }
+  onFitRoute() { this.fitRoute.emit(); }
 
   getImage(): string {
     return this.destination?.image ?? 'assets/images/branding/logo.svg';

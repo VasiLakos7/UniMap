@@ -244,6 +244,13 @@ ion-button.um-mini--share::part(native){
 }
 ion-button.um-mini--share ion-icon{ color: rgb(30,41,59) !important; }
 
+ion-button.um-mini--overview::part(native){
+  background: rgba(220,38,38,0.06) !important;
+  border-color: rgba(220,38,38,0.30) !important;
+  color: rgb(220,38,38) !important;
+}
+ion-button.um-mini--overview ion-icon{ color: rgb(220,38,38) !important; }
+
 /* ═══════════════════════════════
    COMPACT STATES (route-ready + nav)
    Vertical stack: header → metrics → button
