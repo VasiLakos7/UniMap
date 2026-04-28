@@ -949,6 +949,8 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
       this.routeReady = true;
       this.hasRoutePreview = false;
 
+      this.mapService.pinStart(startLL.lat, startLL.lng);
+
       this.lockIfHasDirections();
       this.resetTopNav();
       this.onFitRoute();

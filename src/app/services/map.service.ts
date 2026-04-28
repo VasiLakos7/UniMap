@@ -839,6 +839,9 @@ export class MapService {
   public pinDestination(lat: number, lng: number, label?: string): void {
     this.routeSvc.pinDestination(lat, lng, label);
   }
+  public pinStart(lat: number, lng: number): void {
+    this.routeSvc.pinStart(lat, lng);
+  }
   public pinDestinationByMode(dest: Destination, mode: 'center' | 'entrance' = 'center', label?: string): void {
     this.routeSvc.pinDestinationByMode(dest, mode, label);
   }

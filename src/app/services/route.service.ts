@@ -16,6 +16,7 @@ export class RouteService {
   private approachPolyline: L.Polyline | null = null;
   private endApproachPolyline: L.Polyline | null = null;
   private destinationMarker: L.Marker | null = null;
+  private startMarker: L.CircleMarker | null = null;
 
   // Route data
   public currentRoutePoints: L.LatLng[] = [];
@@ -597,6 +598,11 @@ export class RouteService {
       this.endApproachPolyline = null;
     }
 
+    if (this.startMarker) {
+      this.map.removeLayer(this.startMarker);
+      this.startMarker = null;
+    }
+
     if (!keepDestinationPin) {
       if (this.destinationMarker) {
         this.map.removeLayer(this.destinationMarker);
@@ -648,6 +654,22 @@ export class RouteService {
       this.destinationMarker.setLatLng(to);
       this.destinationMarker.setIcon(icon);
     }
+  }
+
+  public pinStart(lat: number, lng: number): void {
+    if (!this.map) return;
+    if (this.startMarker) {
+      this.startMarker.setLatLng([lat, lng]);
+      return;
+    }
+    this.startMarker = L.circleMarker([lat, lng], {
+      radius: 7,
+      fillColor: '#4CAF50',
+      fillOpacity: 1,
+      color: '#ffffff',
+      weight: 2,
+      interactive: false,
+    }).addTo(this.map);
   }
 
   public pinDestinationByMode(
