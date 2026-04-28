@@ -200,8 +200,8 @@ export class RouteService {
           d <= this.SNAP_FULL_M
             ? 0.97
             : d >= this.SNAP_BLEND_M
-              ? 0.80
-              : 0.97 - (d - this.SNAP_FULL_M) * (0.17 / (this.SNAP_BLEND_M - this.SNAP_FULL_M));
+              ? 0.60
+              : 0.97 - (d - this.SNAP_FULL_M) * (0.37 / (this.SNAP_BLEND_M - this.SNAP_FULL_M));
 
         chosen = L.latLng(
           rawNow.lat + (target.lat - rawNow.lat) * w,

@@ -46,7 +46,7 @@ export class MapService {
   public dbgFixDtMs   = 0;   // ms between last two GPS fixes
   public dbgFixDistM  = 0;   // metres between last two GPS positions
   public dbgExtrap    = false; // true while dead-reckoning
-  private readonly EXTRAP_MAX_MS = 1500;  // max dead-reckoning time (GPS now ~1s, 1.5 cycles)
+  private readonly EXTRAP_MAX_MS = 900;   // max dead-reckoning time (GPS ~800ms, park quickly if GPS lost)
 
   // ── Map bearing & two-finger rotation ──────────────────────────────────────
   private mapBearingDeg     = 0;
@@ -357,7 +357,9 @@ export class MapService {
     this.lastFixAt = now;
 
     const from  = this.userMarker.getLatLng();
-    const distM = this.animTo ? this.animTo.distanceTo(next) : from.distanceTo(next);
+    // Use actual marker position (not last GPS fix) so dead-reckoning overshoot
+    // doesn't trigger a false teleport when the next fix corrects direction.
+    const distM = from.distanceTo(next);
 
     // Debug
     this.dbgFixDtMs  = Math.round(dt);
