@@ -128,12 +128,12 @@
     [style.right.px]="12"
   >
     <ion-button
-      *ngIf="!navigationActive"
+      *ngIf="!navigationActive && canFitRoute"
       class="fab-btn"
       shape="round"
       fill="solid"
       (click)="onFitRoute()"
-      [disabled]="!canFitRoute || mapLoadingVisible"
+      [disabled]="mapLoadingVisible"
       [attr.aria-label]="'A11Y.FIT_ROUTE' | translate"
     >
       <ion-icon name="git-network-outline"></ion-icon>
@@ -175,7 +175,7 @@
       [disabled]="!hasUserFix || mapLoadingVisible"
       [attr.aria-label]="'A11Y.RECENTER' | translate"
     >
-      <ion-icon name="paper-plane-outline"></ion-icon>
+      <ion-icon name="locate-outline"></ion-icon>
     </ion-button>
   </div>
 
