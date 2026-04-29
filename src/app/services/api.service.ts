@@ -31,6 +31,11 @@ export class ApiService {
 
   constructor(private http: HttpClient) {}
 
+  warmup(): void {
+    if (!Capacitor.isNativePlatform()) return;
+    CapacitorHttp.get({ url: this.baseUrl, headers: {} }).catch(() => {});
+  }
+
   getCampusRoute(params: CampusRouteParams): Promise<CampusRouteResponse> {
     const TIMEOUT_MS = 10000;
 
@@ -39,7 +44,12 @@ export class ApiService {
           url: `${this.baseUrl}/api/route/campus`,
           headers: { 'Content-Type': 'application/json' },
           data: params,
-        }).then(r => r.data as CampusRouteResponse)
+        }).then(r => {
+          if (r.status < 200 || r.status >= 300) {
+            throw Object.assign(new Error(`HTTP ${r.status}`), { status: r.status });
+          }
+          return r.data as CampusRouteResponse;
+        })
       : firstValueFrom(
           this.http.post<CampusRouteResponse>(`${this.baseUrl}/api/route/campus`, params)
         );

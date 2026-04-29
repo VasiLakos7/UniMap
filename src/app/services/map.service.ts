@@ -159,7 +159,6 @@ export class MapService {
     }
 
     this.mapTilerKey = 'ZgAb9QJL4ZgnATBmpQf5';
-    this.setBaseLayer('maptiler-osm', this.mapTilerKey);
 
     this.setUserMarkerStyle(this.activeUserStyle);
 
@@ -285,14 +284,14 @@ export class MapService {
     layer.on('tileerror', () => { this.tileErrorCount++; onTileDone(); });
     layer.on('load', () => {
       if (!this.bootLoadSessionActive) return;
+      this.bootLoadSessionActive = false;
+      if (this.bootFailsafeTimer) { clearTimeout(this.bootFailsafeTimer); this.bootFailsafeTimer = null; }
       this.tileInflight = 0;
       this.setMapLoading(false, 100);
       const total = this.tileLoaded;
       if (total >= 4 && this.tileErrorCount / total > 0.4) {
         setTimeout(() => this.tileLoadFailed.emit(), 800);
       }
-      if (this.bootFailsafeTimer) { clearTimeout(this.bootFailsafeTimer); this.bootFailsafeTimer = null; }
-      setTimeout(() => { this.bootLoadSessionActive = false; }, 150);
     });
   }
 
@@ -625,7 +624,7 @@ export class MapService {
     const style = (map[mode] ?? 'maptiler-basic') as Parameters<typeof this.setBaseLayer>[0];
     const needsKey = style === 'maptiler-outdoor' || style === 'maptiler-osm' || style === 'maptiler-basic';
     this.setBaseLayer(style, needsKey ? this.mapTilerKey ?? undefined : undefined);
-    this.refreshMap();
+    setTimeout(() => this.invalidateSizeSafe(), 60);
   }
 
   public refreshMap(): void {

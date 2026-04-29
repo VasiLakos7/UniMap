@@ -343,9 +343,8 @@ export class RouteService {
       throw err;
     }
 
-    if (!routeResult.path || routeResult.path.length < 1) {
-      console.warn('[RouteService] API returned empty path');
-      return;
+    if (!routeResult || typeof routeResult !== 'object' || !Array.isArray(routeResult.path) || routeResult.path.length < 1) {
+      throw new Error('No route found');
     }
 
     // Swap layers now that new route is ready
