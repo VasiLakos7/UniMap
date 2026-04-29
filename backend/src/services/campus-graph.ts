@@ -441,13 +441,9 @@ export function calculateRouteFromPosition(
   const seenEdges = new Set<string>();
 
   for (const u of Object.keys(baseAdj)) {
-    // Skip edges that touch a non-destination POI entrance — projecting onto
-    // them would make the route appear to start from the wrong building's door.
-    if (poiIdSet.has(u) && u !== endNodeId) continue;
     const a = MERGED.coords[u];
     if (!a) continue;
     for (const v of Object.keys(baseAdj[u])) {
-      if (poiIdSet.has(v) && v !== endNodeId) continue;
       const key = u < v ? `${u}|${v}` : `${v}|${u}`;
       if (seenEdges.has(key)) continue;
       seenEdges.add(key);
@@ -504,7 +500,24 @@ export function calculateRouteFromPosition(
     // caused a straight blue line from the user through walls to the first node.
     const points: LatLng[] = nodePath
       .slice(1)
-      .map(id => virtCoords[id] ?? MERGED.coords[id])
+      .map(id => {
+        // Non-destination POI nodes (start-snap candidates within 5 m) and projection
+        // nodes that land on non-destination POI edges must not appear as path
+        // waypoints: their physical coordinates are at a wrong building entrance.
+        // Dijkstra still uses them internally (wall-safe routing is preserved);
+        // we just omit them from the returned coordinates so the frontend draws
+        // the approach line to the first real graph node instead.
+        if (poiIdSet.has(id) && id !== endNodeId) return null;
+        if (id.startsWith('__PROJ_')) {
+          const pc = topProj.find(p => p.projId === id);
+          if (pc) {
+            const uOther = poiIdSet.has(pc.nodeU) && pc.nodeU !== endNodeId;
+            const vOther = poiIdSet.has(pc.nodeV) && pc.nodeV !== endNodeId;
+            if (uOther || vOther) return null;
+          }
+        }
+        return virtCoords[id] ?? MERGED.coords[id];
+      })
       .filter((p): p is LatLng => !!p);
 
     if (points.length < 1) return null;
