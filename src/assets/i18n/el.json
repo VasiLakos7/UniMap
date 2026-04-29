@@ -28,9 +28,11 @@
     "LIS":           { "NAME": "Τμήμα Βιβλιοθηκονομίας, Αρχειονομίας & Συστημάτων Πληροφόρησης" },
     "ENV_ENGINEERING": { "NAME": "Τμήμα Μηχανικών Περιβάλλοντος" },
     "ACCOUNTING_IS":    { "NAME": "Τμήμα Λογιστικής και Πληροφοριακών Συστημάτων" },
-    "UNIVERSITY_HOSPITAL": { "NAME": "Ιατρείο" },
-    "CANTEEN":             { "NAME": "Κυλικείο" },
-    "CLASSROOMS_300":      { "NAME": "Αίθουσες 300 (2ος Όροφος)" }
+    "UNIVERSITY_HOSPITAL":  { "NAME": "Ιατρείο" },
+    "CANTEEN":              { "NAME": "Κυλικείο" },
+    "CLASSROOMS_300":       { "NAME": "Αίθουσες 300 (2ος Όροφος)" },
+    "AMPHITHEATER_ALEX":    { "NAME": "Αμφιθέατρο Αλέξανδρος" },
+    "LIBRARY":              { "NAME": "Βιβλιοθήκη" }
   },
 
   "HOME": {

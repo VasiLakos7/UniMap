@@ -28,9 +28,11 @@
     "LIS":           { "NAME": "Department of Library, Archival & Information Studies" },
     "ENV_ENGINEERING": { "NAME": "Department of Environmental Engineering" },
     "ACCOUNTING_IS":    { "NAME": "Department of Accounting and Information Systems" },
-    "UNIVERSITY_HOSPITAL": { "NAME": "Medical Office" },
-    "CANTEEN":             { "NAME": "Canteen" },
-    "CLASSROOMS_300":      { "NAME": "Classrooms 300 (2nd Floor)" }
+    "UNIVERSITY_HOSPITAL":  { "NAME": "Medical Office" },
+    "CANTEEN":              { "NAME": "Canteen" },
+    "CLASSROOMS_300":       { "NAME": "Classrooms 300 (2nd Floor)" },
+    "AMPHITHEATER_ALEX":    { "NAME": "Alexandros Amphitheatre" },
+    "LIBRARY":              { "NAME": "Library" }
   },
 
   "HOME": {

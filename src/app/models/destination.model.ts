@@ -385,6 +385,49 @@ export const destinationList: Destination[] = [
   },
 
   {
+    id: 'AMPHITHEATER_ALEX',
+    name: 'Αμφιθέατρο Αλέξανδρος',
+    lat: 40.658062,
+    lng: 22.803081,
+    entranceLat: 40.658046,
+    entranceLng: 22.803017,
+    image: 'assets/images/departments/dipae_logo.png',
+    description: 'Αμφιθέατρο Αλέξανδρος.',
+    bounds: {
+      north: 40.658072,
+      south: 40.657975,
+      east:  22.803172,
+      west:  22.802993,
+    },
+  },
+
+  {
+    id: 'LIBRARY',
+    name: 'Βιβλιοθήκη',
+    lat: 40.657971,
+    lng: 22.802459,
+    entranceLat: 40.657960,
+    entranceLng: 22.802513,
+    image: 'assets/images/departments/dipae_logo.png',
+    mapIcon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22">
+      <rect width="24" height="24" rx="3" fill="#1565c0"/>
+      <path d="M5 5h6a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" fill="white" opacity="0.9"/>
+      <path d="M12 6h2a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1h-2V6z" fill="white" opacity="0.5"/>
+      <path d="M14 5h5a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" fill="white" opacity="0.75"/>
+      <line x1="6" y1="9" x2="10" y2="9" stroke="#1565c0" stroke-width="1"/>
+      <line x1="6" y1="11" x2="10" y2="11" stroke="#1565c0" stroke-width="1"/>
+      <line x1="6" y1="13" x2="10" y2="13" stroke="#1565c0" stroke-width="1"/>
+    </svg>`,
+    description: 'Βιβλιοθήκη του Πανεπιστημίου.',
+    bounds: {
+      north: 40.658028,
+      south: 40.657922,
+      east: 22.802531,
+      west: 22.802384,
+    },
+  },
+
+  {
     id: 'ACCOUNTING_IS',
     name: 'Τμήμα Λογιστικής και Πληροφοριακών Συστημάτων',
     lat: 40.656515612057085,

@@ -17,6 +17,8 @@ export const POI_NODE_COORDS: Record<string, LatLng> = {
   HOSPITAL_ENT: { lat: 40.657234, lng: 22.803218 },
   CANTEEN_ENT: { lat: 40.658105, lng: 22.802703 },
   CLASSROOMS_300_ENT: { lat: 40.656917, lng: 22.802483 },
+  AMPHITHEATER_ALEX_ENT: { lat: 40.658046, lng: 22.803017 },
+  LIBRARY_ENT: { lat: 40.657960, lng: 22.802513 },
 };
 
 export const POI_ALIAS = new Map<string, string>([
@@ -37,4 +39,6 @@ export const POI_ALIAS = new Map<string, string>([
   ['ΙΑΤΡΕΙΟ', 'HOSPITAL_ENT'],
   ['ΚΥΛΙΚΕΙΟ', 'CANTEEN_ENT'],
   ['ΑΙΘΟΥΣΕΣ 300 (2ΟΣ ΟΡΟΦΟΣ)', 'CLASSROOMS_300_ENT'],
+  ['ΑΜΦΙΘΕΑΤΡΟ ΑΛΕΞΑΝΔΡΟΣ', 'AMPHITHEATER_ALEX_ENT'],
+  ['ΒΙΒΛΙΟΘΗΚΗ', 'LIBRARY_ENT'],
 ]);
