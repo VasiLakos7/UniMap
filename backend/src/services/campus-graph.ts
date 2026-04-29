@@ -467,11 +467,10 @@ export function calculateRouteFromPosition(
   projCandidates.sort((a, b) => a.perpM - b.perpM);
   const topProj = projCandidates.slice(0, MAX_PROJ_NODES);
 
-  // If projection candidates exist, suppress direct node connections entirely:
-  // the projection point is guaranteed to lie ON a verified walkable edge, so
-  // connecting to it never jumps over a wall.  Direct node connections are only
-  // used when there is no nearby edge to project onto.
-  const activeTop = topProj.length > 0 ? [] : top;
+  // When projections exist, suppress only the risky fallback (single node with crossings>0).
+  // Clean node candidates (crossings===0) are wall-safe and can coexist with projections,
+  // letting Dijkstra pick the globally optimal entry point.
+  const activeTop = (topProj.length > 0 && cleanCandidates.length === 0) ? [] : top;
 
   if (activeTop.length === 0 && topProj.length === 0) return null;
 
