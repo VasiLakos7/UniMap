@@ -391,6 +391,12 @@ export function calculateRouteFromPosition(
   const MAX_CONNECT_NODES = 4;
   const MAX_PROJ_DIST_M = 25;   // max perpendicular distance to snap onto an edge
   const MAX_PROJ_NODES = 3;     // top projection candidates to inject
+  // POI entrance nodes are only valid start-snap targets when the user is
+  // literally standing at the entrance.  Using them beyond this radius causes
+  // routes to appear to start from the wrong building's entrance.
+  const MAX_POI_START_RADIUS_M = 5;
+
+  const poiIdSet = new Set(Object.keys(POI_NODE_COORDS));
 
   // --- 1. Node candidates ---
   type Candidate = { id: string; distM: number; score: number; crossings: number };
@@ -400,7 +406,8 @@ export function calculateRouteFromPosition(
     const nodeLL = MERGED.coords[id];
     if (!nodeLL) continue;
     const distM = distanceTo(here, nodeLL);
-    if (distM > MAX_START_RADIUS) continue;
+    const maxRadius = poiIdSet.has(id) ? MAX_POI_START_RADIUS_M : MAX_START_RADIUS;
+    if (distM > maxRadius) continue;
     const crossings = countApproachCrossings(here, nodeLL, '', '', baseAdj, MERGED.coords);
     const score = distM + crossings * CROSSING_PENALTY_M;
     candidates.push({ id, distM, score, crossings });
