@@ -441,9 +441,13 @@ export function calculateRouteFromPosition(
   const seenEdges = new Set<string>();
 
   for (const u of Object.keys(baseAdj)) {
+    // Skip edges that touch a non-destination POI entrance — projecting onto
+    // them would make the route appear to start from the wrong building's door.
+    if (poiIdSet.has(u) && u !== endNodeId) continue;
     const a = MERGED.coords[u];
     if (!a) continue;
     for (const v of Object.keys(baseAdj[u])) {
+      if (poiIdSet.has(v) && v !== endNodeId) continue;
       const key = u < v ? `${u}|${v}` : `${v}|${u}`;
       if (seenEdges.has(key)) continue;
       seenEdges.add(key);
