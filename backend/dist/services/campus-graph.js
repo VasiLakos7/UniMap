@@ -163,7 +163,7 @@ function buildMergedGraph() {
     splitEdgeWithChain(g, ALL, 'N0058', 'N0059', ['M_58_TO_59_1']);
     splitEdgeWithChain(g, ALL, 'N0036', 'N0067', ['M_36_TO_67_PRE_1', 'M_36_TO_67_1']);
     const baseIds = [...keptOSMIds, ...manualIds];
-    healCloseNodes(baseIds, ALL, g, 6);
+    healCloseNodes(baseIds, ALL, g, 1.5);
     const largest = getLargestComponent(baseIds, g);
     const snapCandidates = baseIds.filter((id) => largest.has(id));
     for (const [poiId, poiLL] of Object.entries(poi_nodes_1.POI_NODE_COORDS)) {
@@ -251,7 +251,7 @@ function countApproachCrossings(from, to, skipU, skipV, adj, coords) {
 }
 // Public API
 const MAX_SNAP_METERS = 90;
-const MAX_START_RADIUS = 150;
+const MAX_START_RADIUS = 80;
 function getNodeIdForName(destinationName) {
     return poi_nodes_1.POI_ALIAS.get(norm(destinationName)) ?? null;
 }
@@ -335,22 +335,39 @@ function calculateRouteFromPosition(lat, lng, endNodeId, opts) {
     const MAX_CONNECT_NODES = 4;
     const MAX_PROJ_DIST_M = 25; // max perpendicular distance to snap onto an edge
     const MAX_PROJ_NODES = 3; // top projection candidates to inject
+    // POI entrance nodes are only valid start-snap targets when the user is
+    // literally standing at the entrance.  Using them beyond this radius causes
+    // routes to appear to start from the wrong building's entrance.
+    const MAX_POI_START_RADIUS_M = 5;
+    const poiIdSet = new Set(Object.keys(poi_nodes_1.POI_NODE_COORDS));
     const candidates = [];
     for (const id of snapCands) {
         const nodeLL = MERGED.coords[id];
         if (!nodeLL)
             continue;
         const distM = (0, geo_1.distanceTo)(here, nodeLL);
-        if (distM > MAX_START_RADIUS)
+        const maxRadius = poiIdSet.has(id) ? MAX_POI_START_RADIUS_M : MAX_START_RADIUS;
+        if (distM > maxRadius)
             continue;
         const crossings = countApproachCrossings(here, nodeLL, '', '', baseAdj, MERGED.coords);
         const score = distM + crossings * CROSSING_PENALTY_M;
-        candidates.push({ id, distM, score });
+        candidates.push({ id, distM, score, crossings });
     }
-    if (candidates.length === 0)
-        return null;
-    candidates.sort((a, b) => a.score - b.score);
-    const top = candidates.slice(0, MAX_CONNECT_NODES);
+    // Prefer nodes reachable without crossing any graph edge (wall-free approach).
+    // If no clean candidates exist, use only the single nearest to limit wall crossings.
+    const cleanCandidates = candidates.filter(c => c.crossings === 0);
+    let top;
+    if (cleanCandidates.length > 0) {
+        cleanCandidates.sort((a, b) => a.score - b.score);
+        top = cleanCandidates.slice(0, MAX_CONNECT_NODES);
+    }
+    else if (candidates.length > 0) {
+        candidates.sort((a, b) => a.score - b.score);
+        top = [candidates[0]]; // single nearest fallback only
+    }
+    else {
+        top = [];
+    }
     const projCandidates = [];
     const seenEdges = new Set();
     for (const u of Object.keys(baseAdj)) {
@@ -382,10 +399,16 @@ function calculateRouteFromPosition(lat, lng, endNodeId, opts) {
     }
     projCandidates.sort((a, b) => a.perpM - b.perpM);
     const topProj = projCandidates.slice(0, MAX_PROJ_NODES);
+    // When projections exist, suppress only the risky fallback (single node with crossings>0).
+    // Clean node candidates (crossings===0) are wall-safe and can coexist with projections,
+    // letting Dijkstra pick the globally optimal entry point.
+    const activeTop = (topProj.length > 0 && cleanCandidates.length === 0) ? [] : top;
+    if (activeTop.length === 0 && topProj.length === 0)
+        return null;
     // --- 3. Build augmented adjacency ---
     const adj = { ...baseAdj, [VIRTUAL_START]: {} };
     const virtCoords = { [VIRTUAL_START]: here };
-    for (const c of top) {
+    for (const c of activeTop) {
         adj[VIRTUAL_START][c.id] = Math.round(c.distM) || 1;
     }
     for (const pc of topProj) {
@@ -398,10 +421,34 @@ function calculateRouteFromPosition(lat, lng, endNodeId, opts) {
     }
     try {
         const nodePath = (0, dijkstrajs_1.find_path)(adj, VIRTUAL_START, endNodeId);
+        // Skip VIRTUAL_START (user's raw GPS position): the frontend handles the
+        // approach segment separately as a grey dashed line, so the returned path
+        // must contain only real graph points.  Including the raw GPS position
+        // caused a straight blue line from the user through walls to the first node.
         const points = nodePath
-            .map(id => virtCoords[id] ?? MERGED.coords[id])
+            .slice(1)
+            .map(id => {
+            // Non-destination POI nodes (start-snap candidates within 5 m) and projection
+            // nodes that land on non-destination POI edges must not appear as path
+            // waypoints: their physical coordinates are at a wrong building entrance.
+            // Dijkstra still uses them internally (wall-safe routing is preserved);
+            // we just omit them from the returned coordinates so the frontend draws
+            // the approach line to the first real graph node instead.
+            if (poiIdSet.has(id) && id !== endNodeId)
+                return null;
+            if (id.startsWith('__PROJ_')) {
+                const pc = topProj.find(p => p.projId === id);
+                if (pc) {
+                    const uOther = poiIdSet.has(pc.nodeU) && pc.nodeU !== endNodeId;
+                    const vOther = poiIdSet.has(pc.nodeV) && pc.nodeV !== endNodeId;
+                    if (uOther || vOther)
+                        return null;
+                }
+            }
+            return virtCoords[id] ?? MERGED.coords[id];
+        })
             .filter((p) => !!p);
-        if (points.length < 2)
+        if (points.length < 1)
             return null;
         let len = 0;
         for (let i = 1; i < points.length; i++)

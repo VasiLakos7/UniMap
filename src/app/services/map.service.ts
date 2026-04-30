@@ -702,7 +702,7 @@ export class MapService {
         const b = d.bounds;
         return b && lat >= b.south && lat <= b.north && lng >= b.west && lng <= b.east;
       });
-      if (!found) found = this.routeSvc.findNearestDestinationWithin(lat, lng, 30, 'center');
+      if (!found) found = this.routeSvc.findNearestDestinationWithin(lat, lng, 30, 'entrance');
       this.mapClicked.emit({ lat, lng, name: found ? found.name : null });
     });
   }
