@@ -9,7 +9,7 @@ import {
 } from '@angular/core';
 
 import * as L from 'leaflet';
-import { IonicModule, ModalController } from '@ionic/angular';
+import { IonicModule, ModalController, NavController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription, firstValueFrom } from 'rxjs';
@@ -44,6 +44,7 @@ import { Network } from '@capacitor/network';
 export class HomePage implements OnInit, OnDestroy, AfterViewInit {
   protected mapService = inject(MapService);
   private modalCtrl = inject(ModalController);
+  private navCtrl = inject(NavController);
   private settingsSvc = inject(SettingsService);
   private translate = inject(TranslateService);
   private uiDialog = inject(UiDialogService);
@@ -127,6 +128,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
   private lastRouteIndex = 0;
 
   private readonly BUS_STOP = L.latLng(40.657688, 22.801665);
+  private readonly LAST_POS_KEY = 'unimap_last_position';
 
   private lastProgressAt = 0;
   private lastNavAt = 0;
@@ -178,7 +180,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
           this.skipNextResume = false;
           return;
         }
-        // Full webview reload on resume – all services, map, and GPS restart from scratch.
+        localStorage.setItem('unimap_resume_skip_splash', '1');
         window.location.reload();
       }
     }).then(h => (this.appStateListener = h));
@@ -306,20 +308,37 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
       this.userLng = st.lng;
     }
 
-    // Initialize map immediately so routeService.map is never null when the
-    // user taps "Directions" while GPS is still being fetched.
-    this.mapService.initializeMap('map', this.userLat, this.userLng);
+    // Start GPS fetch immediately (runs while overlay is showing).
+    // Race against a 2-second timer: if the device has a cached GPS position it
+    // returns almost instantly, letting us init the map directly at the user's
+    // real location without any visible jump.
+    const gpsPromise = this.mapService.getInitialPosition(15000);
+    const quickFix = await Promise.race<{ lat: number; lng: number } | null>([
+      gpsPromise,
+      new Promise<null>(r => setTimeout(() => r(null), 2000)),
+    ]);
+
+    // Fallback order: live GPS → last saved position → campus center
+    const savedPos = this.loadSavedPosition();
+    const initLat = quickFix?.lat ?? savedPos?.lat ?? this.userLat;
+    const initLng = quickFix?.lng ?? savedPos?.lng ?? this.userLng;
+    this.mapService.initializeMap('map', initLat, initLng);
     this.mapService.setNavigationMode(false);
     this.applyMapSettings();
 
-    const first = await this.mapService.getInitialPosition(15000);
+    // If the 2-second race timed out, keep waiting for the full GPS fix.
+    const first = quickFix ?? await gpsPromise;
     if (first) {
       this.userLat = first.lat;
       this.userLng = first.lng;
       this.hasUserFix = true;
-      this.mapService.focusOn(this.userLat, this.userLng, 18);
+      if (!quickFix) {
+        // Map was init'd at saved/campus position — pan to real location now.
+        this.mapService.focusOn(this.userLat, this.userLng, 18);
+      }
     } else {
-      this.hasUserFix = false;
+      this.navCtrl.navigateRoot('/splash', { animated: false });
+      return;
     }
 
     await this.mapService.startGpsWatch(!this.hasUserFix, 18);
@@ -541,8 +560,9 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
     const out: { i: number; type: 'left' | 'right' }[] = [];
     if (!points || points.length < 3) return out;
 
-    const TURN_ANGLE_DEG = 70;
-    const MIN_SEGMENT_M = 8;
+    const TURN_ANGLE_DEG = 30;
+    const MIN_SEGMENT_M = 3;
+    const MIN_MANEUVER_SPACING_M = 20;
 
     for (let i = 1; i < points.length - 1; i++) {
       const p0 = points[i - 1];
@@ -565,7 +585,9 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
       if (angle < TURN_ANGLE_DEG) continue;
 
       out.push({ i, type: cross > 0 ? 'left' : 'right' });
-      i += 1;
+      while (i < points.length - 2 && p1.distanceTo(points[i + 1]) < MIN_MANEUVER_SPACING_M) {
+        i++;
+      }
     }
 
     return out;
@@ -700,6 +722,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
       this.userLat = pos.lat;
       this.userLng = pos.lng;
       this.hasUserFix = true;
+      this.savePosition(pos.lat, pos.lng);
 
       const inside = (this.mapService as any).isPointInsideCampusLoose
         ? (this.mapService as any).isPointInsideCampusLoose(pos.lat, pos.lng, 45)
@@ -764,7 +787,9 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
       }
     });
 
-    const errSub = this.mapService.locationError.subscribe(() => {});
+    const errSub = this.mapService.locationError.subscribe(() => {
+      this.navCtrl.navigateRoot('/splash', { animated: false });
+    });
 
     const outSub = this.mapService.outsideCampusClick.subscribe(async () => {
       if (this.selectionLocked) return;
@@ -798,7 +823,10 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
     });
 
     const staleSub = this.mapService.gpsStale.subscribe((stale) => {
-      if (!this.navigationActive) return;
+      if (!this.navigationActive) {
+        if (stale) this.navCtrl.navigateRoot('/splash', { animated: false });
+        return;
+      }
       this.navCondGpsWeak = stale;
       this.refreshNavBanner();
     });
@@ -885,6 +913,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
     this.outsideCampus = !inside;
     if (this.outsideCampus) {
       await this.uiDialog.info('DIALOG.ROUTE_FROM_BUSSTOP_TITLE', 'DIALOG.ROUTE_FROM_BUSSTOP_MSG');
+      return;
     }
 
     const startLL = (inside && this.hasUserFix)
@@ -1247,6 +1276,22 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
     }
 
     return { passed, remaining, bestDistM: pr.distM };
+  }
+
+  private loadSavedPosition(): { lat: number; lng: number } | null {
+    try {
+      const raw = localStorage.getItem(this.LAST_POS_KEY);
+      if (!raw) return null;
+      const p = JSON.parse(raw);
+      if (typeof p.lat === 'number' && typeof p.lng === 'number') return p;
+    } catch {}
+    return null;
+  }
+
+  private savePosition(lat: number, lng: number): void {
+    try {
+      localStorage.setItem(this.LAST_POS_KEY, JSON.stringify({ lat, lng }));
+    } catch {}
   }
 
   get canFitRoute(): boolean {

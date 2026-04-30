@@ -195,10 +195,12 @@ export class GpsService {
 
     if (!(await this.ensureLocationPermission())) { this.locationError.emit(); return; }
 
-    // Eager first fix — gets marker on screen faster than waiting for watchPosition
+    // Eager first fix — gets marker on screen faster than waiting for watchPosition.
+    // maximumAge: 10000 reuses the cached fix from getInitialPosition so the dot
+    // appears instantly; the poll loop refreshes with a live fix within ~800ms.
     try {
       const first = await Geolocation.getCurrentPosition({
-        enableHighAccuracy: true, timeout: 10000, maximumAge: 0,
+        enableHighAccuracy: true, timeout: 10000, maximumAge: 10000,
       });
       this.handleFix(
         first.coords.latitude, first.coords.longitude, first.coords.accuracy,

@@ -33,13 +33,15 @@ export class RouteService {
   private lastRerouteAt = 0;
   private cumulativePassedM = 0;
   private lastOnRoutePassedM = 0;
-  private readonly REROUTE_COOLDOWN_MS = 12000;   // min 12s between reroutes
-  private readonly REROUTE_CONFIRM_FIXES = 8;      // 8 consecutive off-route fixes (~8s)
-  private readonly REROUTE_OFF_M = 35;             // must be >35m from route
-  private readonly REROUTE_ON_M = 15;              // back on route within 15m
-  private readonly REROUTE_MAX_ACC_M = 18;         // block reroute if GPS accuracy > 18m
+  private readonly REROUTE_COOLDOWN_MS = 8000;    // min 8s between reroutes
+  private readonly REROUTE_CONFIRM_FIXES = 5;     // 5 consecutive off-route fixes (~4s)
+  private readonly REROUTE_OFF_M = 25;            // must be >25m from route
+  private readonly REROUTE_ON_M = 12;             // back on route within 12m
+  private readonly REROUTE_MAX_ACC_M = 25;        // block reroute if GPS accuracy > 25m
   private readonly REROUTE_MIN_SPEED_MPS = 0.5;    // must be walking (> 0.5 m/s)
   private readonly REROUTE_SKIP_NEAR_DEST_M = 45;
+  private prevRerouteLL: L.LatLng | null = null;
+  private prevRerouteAt = 0;
 
   // Snap state
   private mapMatchEnabled = false;
@@ -105,6 +107,8 @@ export class RouteService {
       this.activeWheelchair = false;
       this.activeDestination = null;
       this.activeEndPoint = null;
+      this.prevRerouteLL = null;
+      this.prevRerouteAt = 0;
     }
   }
 
@@ -250,7 +254,14 @@ export class RouteService {
     if (now - this.lastRerouteAt < this.REROUTE_COOLDOWN_MS) return;
 
     if (!isFinite(accM) || accM > this.REROUTE_MAX_ACC_M) return;
-    if ((spdMps ?? 0) < this.REROUTE_MIN_SPEED_MPS) return;
+
+    const dtS = this.prevRerouteAt > 0 ? Math.max(0.1, (now - this.prevRerouteAt) / 1000) : 0;
+    const impliedSpd = dtS > 0 && this.prevRerouteLL
+      ? this.prevRerouteLL.distanceTo(rawNow) / dtS
+      : 0;
+    this.prevRerouteLL = rawNow;
+    this.prevRerouteAt = now;
+    if ((spdMps ?? 0) < this.REROUTE_MIN_SPEED_MPS && impliedSpd < this.REROUTE_MIN_SPEED_MPS) return;
 
     const dLat = this.activeDestination.entranceLat ?? this.activeDestination.lat;
     const dLng = this.activeDestination.entranceLng ?? this.activeDestination.lng;
@@ -627,6 +638,8 @@ export class RouteService {
     this.lastRerouteAt = 0;
     this.cumulativePassedM = 0;
     this.lastOnRoutePassedM = 0;
+    this.prevRerouteLL = null;
+    this.prevRerouteAt = 0;
 
     this.arrivedNearPinTriggered = false;
     this.arriveStreak = 0;
