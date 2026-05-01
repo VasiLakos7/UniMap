@@ -17,7 +17,7 @@ export const POI_NODE_COORDS: Record<string, LatLng> = {
   HOSPITAL_ENT: { lat: 40.657234, lng: 22.803218 },
   CANTEEN_ENT: { lat: 40.658105, lng: 22.802703 },
   CLASSROOMS_300_ENT: { lat: 40.656917, lng: 22.802483 },
-  AMPHITHEATER_ALEX_ENT: { lat: 40.658046, lng: 22.803017 },
+  AMPHITHEATER_ALEX_ENT: { lat: 40.658060, lng: 22.803020 },
   LIBRARY_ENT: { lat: 40.657960, lng: 22.802513 },
 };
 

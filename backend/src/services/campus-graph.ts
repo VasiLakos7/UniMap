@@ -188,6 +188,7 @@ function buildMergedGraph(): MergedGraph {
   splitEdgeWithChain(g, ALL, 'N0060', 'N0069', ['M_60_TO_69_1']);
   splitEdgeWithChain(g, ALL, 'N0108', 'N0052', ['M_0108_TO_0052_1']);
   splitEdgeWithChain(g, ALL, 'N0058', 'N0059', ['M_58_TO_59_1']);
+  splitEdgeWithChain(g, ALL, 'N0043', 'N0044', ['M_DIET_AXIS']);
   splitEdgeWithChain(g, ALL, 'N0036', 'N0067', ['M_36_TO_67_PRE_1', 'M_36_TO_67_1']);
 
   const baseIds = [...keptOSMIds, ...manualIds];
