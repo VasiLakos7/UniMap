@@ -389,21 +389,27 @@ export class RouteService {
     const graphTrimmed = this.trimEndBacktrack(graphPts, endPoint, { maxSnapM: 60, minSaveM: 5, window: 20 });
 
     // ── Snap startPoint onto the route to find the nearest approach endpoint ─
-    // This avoids always going to the first graph node — instead it snaps to
-    // whichever point on the route is geometrically closest (could be mid-segment).
+    // Reset stale snap state from the previous route before searching the new one.
+    this.lastSnapSegIndex = 0;
     this.currentRoutePoints = graphTrimmed; // temporary, for snapToRouteWithIndex
     const snapResult = this.snapToRouteWithIndex(startPoint);
 
     let approachEnd: L.LatLng;
     let routeTailStart: number; // index in graphTrimmed where remaining route begins
 
-    if (snapResult) {
+    // Only snap within the first few segments of the new route. Snapping further
+    // can land on a segment that is geometrically near the user but reachable only
+    // by crossing a building — bypassing the wall-safe start node the backend chose.
+    const MAX_APPROACH_SEG = 4;
+    if (snapResult && snapResult.segStartIndex <= MAX_APPROACH_SEG) {
       approachEnd = snapResult.snap;
       routeTailStart = snapResult.segStartIndex + 1;
     } else {
       approachEnd = graphTrimmed[0];
       routeTailStart = 1;
     }
+    // Fresh start for navigation progress tracking on the new route.
+    this.lastSnapSegIndex = 0;
 
     const approachDist = startPoint.distanceTo(approachEnd);
 
