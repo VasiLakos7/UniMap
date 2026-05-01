@@ -445,6 +445,19 @@ export function calculateRouteFromPosition(
 
   const poiIdSet = new Set(Object.keys(POI_NODE_COORDS));
 
+  // POI entrance edges (e.g. SDO_ENT↔M_36_TO_67_PRE_1) are short dead-end stubs,
+  // not building walls. Including them in crossing detection causes approach lines
+  // to nearby nodes to be falsely penalised, forcing the route onto a detour.
+  const nonPoiAdj: Adjacency = {};
+  for (const [u, nbrs] of Object.entries(baseAdj)) {
+    if (poiIdSet.has(u)) continue;
+    const filtered: Record<string, number> = {};
+    for (const [v, w] of Object.entries(nbrs)) {
+      if (!poiIdSet.has(v)) filtered[v] = w;
+    }
+    if (Object.keys(filtered).length > 0) nonPoiAdj[u] = filtered;
+  }
+
   // --- 1. Node candidates ---
   type Candidate = { id: string; distM: number; score: number; crossings: number };
   const candidates: Candidate[] = [];
@@ -455,7 +468,7 @@ export function calculateRouteFromPosition(
     const distM = distanceTo(here, nodeLL);
     const maxRadius = poiIdSet.has(id) ? MAX_POI_START_RADIUS_M : MAX_START_RADIUS;
     if (distM > maxRadius) continue;
-    const crossings = countApproachCrossings(here, nodeLL, '', '', baseAdj, MERGED.coords);
+    const crossings = countApproachCrossings(here, nodeLL, '', '', nonPoiAdj, MERGED.coords);
     const score = distM + crossings * CROSSING_PENALTY_M;
     candidates.push({ id, distM, score, crossings });
   }
