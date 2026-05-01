@@ -336,10 +336,9 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
         // Map was init'd at saved/campus position — pan to real location now.
         this.mapService.focusOn(this.userLat, this.userLng, 18);
       }
-    } else {
-      this.navCtrl.navigateRoot('/splash', { animated: false });
-      return;
     }
+    // If GPS failed, continue without a fix — the poll loop will place the dot
+    // when GPS becomes available. Do not redirect to splash here.
 
     await this.mapService.startGpsWatch(!this.hasUserFix, 18);
     void this.checkOutsideAfterTiles(9000);
@@ -788,7 +787,11 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
     });
 
     const errSub = this.mapService.locationError.subscribe(() => {
-      this.navCtrl.navigateRoot('/splash', { animated: false });
+      // Only go to splash if we have never gotten a fix — a transient error
+      // while the map is already showing should not kick the user out.
+      if (!this.hasUserFix) {
+        this.navCtrl.navigateRoot('/splash', { animated: false });
+      }
     });
 
     const outSub = this.mapService.outsideCampusClick.subscribe(async () => {
@@ -824,7 +827,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
 
     const staleSub = this.mapService.gpsStale.subscribe((stale) => {
       if (!this.navigationActive) {
-        if (stale) this.navCtrl.navigateRoot('/splash', { animated: false });
+        // GPS went stale while browsing — dot stops moving, no splash redirect.
         return;
       }
       this.navCondGpsWeak = stale;
@@ -913,7 +916,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
     this.outsideCampus = !inside;
     if (this.outsideCampus) {
       await this.uiDialog.info('DIALOG.ROUTE_FROM_BUSSTOP_TITLE', 'DIALOG.ROUTE_FROM_BUSSTOP_MSG');
-      return;
+      // Fall through — draw the route from the bus stop so the user can preview it.
     }
 
     const startLL = (inside && this.hasUserFix)
