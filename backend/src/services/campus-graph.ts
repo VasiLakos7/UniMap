@@ -1,4 +1,3 @@
-import { find_path } from 'dijkstrajs';
 import { Adjacency, LatLng, RouteResult } from '../types';
 import { OSM_NODE_COORDS, OSM_EDGES } from '../data/osm-nodes';
 import { MANUAL_NODE_COORDS, MANUAL_EDGES } from '../data/manual-nodes';
@@ -282,6 +281,57 @@ function countApproachCrossings(
 }
 
 
+function aStarPath(
+  adj: Adjacency,
+  coords: Record<string, LatLng>,
+  startId: string,
+  endId: string
+): string[] | null {
+  const destLL = coords[endId];
+  const h = (id: string): number => {
+    const c = coords[id];
+    return c && destLL ? distanceTo(c, destLL) : 0;
+  };
+
+  const gScore: Record<string, number> = { [startId]: 0 };
+  const fScore: Record<string, number> = { [startId]: h(startId) };
+  const prev: Record<string, string> = {};
+  const open = new Set<string>([startId]);
+  const closed = new Set<string>();
+
+  while (open.size > 0) {
+    let current = '';
+    let lowestF = Infinity;
+    for (const id of open) {
+      const f = fScore[id] ?? Infinity;
+      if (f < lowestF) { lowestF = f; current = id; }
+    }
+
+    if (current === endId) {
+      const path: string[] = [];
+      let c: string | undefined = endId;
+      while (c !== undefined) { path.unshift(c); c = prev[c]; }
+      return path;
+    }
+
+    open.delete(current);
+    closed.add(current);
+
+    for (const [neighbor, edgeCost] of Object.entries(adj[current] ?? {})) {
+      if (closed.has(neighbor)) continue;
+      const tentativeG = (gScore[current] ?? Infinity) + edgeCost;
+      if (tentativeG < (gScore[neighbor] ?? Infinity)) {
+        prev[neighbor] = current;
+        gScore[neighbor] = tentativeG;
+        fScore[neighbor] = tentativeG + h(neighbor);
+        open.add(neighbor);
+      }
+    }
+  }
+
+  return null;
+}
+
 // Public API
 const MAX_SNAP_METERS = 90;
 const MAX_START_RADIUS = 80;
@@ -319,13 +369,10 @@ export function calculatePath(
   endNodeId: string,
   opts?: { wheelchair?: boolean }
 ): LatLng[] | null {
-  try {
-    const g = getAdjacency(!!opts?.wheelchair);
-    const nodePath: string[] = find_path(g, startNodeId, endNodeId);
-    return nodePath.map((id) => MERGED.coords[id]).filter(Boolean);
-  } catch {
-    return null;
-  }
+  const g = getAdjacency(!!opts?.wheelchair);
+  const nodePath = aStarPath(g, MERGED.coords, startNodeId, endNodeId);
+  if (!nodePath) return null;
+  return nodePath.map((id) => MERGED.coords[id]).filter(Boolean);
 }
 
 export function calculatePathWithLength(
@@ -491,41 +538,34 @@ export function calculateRouteFromPosition(
     adj[VIRTUAL_START][pc.projId] = Math.round(pc.perpM) || 1;
   }
 
-  try {
-    const nodePath: string[] = find_path(adj, VIRTUAL_START, endNodeId);
-    // Skip VIRTUAL_START (user's raw GPS position): the frontend handles the
-    // approach segment separately as a grey dashed line, so the returned path
-    // must contain only real graph points.  Including the raw GPS position
-    // caused a straight blue line from the user through walls to the first node.
-    const points: LatLng[] = nodePath
-      .slice(1)
-      .map(id => {
-        // Non-destination POI nodes (start-snap candidates within 5 m) and projection
-        // nodes that land on non-destination POI edges must not appear as path
-        // waypoints: their physical coordinates are at a wrong building entrance.
-        // Dijkstra still uses them internally (wall-safe routing is preserved);
-        // we just omit them from the returned coordinates so the frontend draws
-        // the approach line to the first real graph node instead.
-        if (poiIdSet.has(id) && id !== endNodeId) return null;
-        if (id.startsWith('__PROJ_')) {
-          const pc = topProj.find(p => p.projId === id);
-          if (pc) {
-            const uOther = poiIdSet.has(pc.nodeU) && pc.nodeU !== endNodeId;
-            const vOther = poiIdSet.has(pc.nodeV) && pc.nodeV !== endNodeId;
-            if (uOther || vOther) return null;
-          }
+  const allCoords = { ...MERGED.coords, ...virtCoords };
+  const nodePath = aStarPath(adj, allCoords, VIRTUAL_START, endNodeId);
+  if (!nodePath) return null;
+
+  // Skip VIRTUAL_START: the frontend handles the approach segment separately
+  // as a grey dashed line. Non-destination POI nodes and projection nodes on
+  // POI edges are omitted so the frontend draws the approach to the first real
+  // graph node instead of to a wrong building entrance.
+  const points: LatLng[] = nodePath
+    .slice(1)
+    .map(id => {
+      if (poiIdSet.has(id) && id !== endNodeId) return null;
+      if (id.startsWith('__PROJ_')) {
+        const pc = topProj.find(p => p.projId === id);
+        if (pc) {
+          const uOther = poiIdSet.has(pc.nodeU) && pc.nodeU !== endNodeId;
+          const vOther = poiIdSet.has(pc.nodeV) && pc.nodeV !== endNodeId;
+          if (uOther || vOther) return null;
         }
-        return virtCoords[id] ?? MERGED.coords[id];
-      })
-      .filter((p): p is LatLng => !!p);
+      }
+      return allCoords[id];
+    })
+    .filter((p): p is LatLng => !!p);
 
-    if (points.length < 1) return null;
+  if (points.length < 1) return null;
 
-    let len = 0;
-    for (let i = 1; i < points.length; i++) len += distanceTo(points[i - 1], points[i]);
+  let len = 0;
+  for (let i = 1; i < points.length; i++) len += distanceTo(points[i - 1], points[i]);
 
-    return { path: points, lengthM: Math.round(len) };
-  } catch {
-    return null;
-  }
+  return { path: points, lengthM: Math.round(len) };
 }
