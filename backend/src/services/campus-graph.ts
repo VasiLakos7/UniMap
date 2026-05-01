@@ -434,7 +434,7 @@ export function calculateRouteFromPosition(
   const baseAdj = getAdjacency(!!opts?.wheelchair);
   const snapCands = getSnapCandidates(!!opts?.wheelchair);
 
-  const CROSSING_PENALTY_M = 150;
+  const CROSSING_PENALTY_M = 25;
   const MAX_CONNECT_NODES = 4;
   const MAX_PROJ_DIST_M = 25;   // max perpendicular distance to snap onto an edge
   const MAX_PROJ_NODES = 3;     // top projection candidates to inject
