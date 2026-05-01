@@ -51,6 +51,12 @@ export const MANUAL_NODE_COORDS: Record<string, LatLng> = {
   M_61_TO_31_2: { lat: 40.657118, lng: 22.803645 },
   M_36_TO_37_1: { lat: 40.657215, lng: 22.803647 },
   M_BUS_STOP: { lat: 40.657454, lng: 22.801670 },
+  M_MPD_APPROACH: { lat: 40.655622, lng: 22.803281 },
+  M_INF_P_APPROACH: { lat: 40.655829, lng: 22.804080 },
+  M_INF_H_APPROACH: { lat: 40.655692, lng: 22.805651 },
+  M_GEOPONIA_APPROACH: { lat: 40.658600, lng: 22.803704 },
+  M_DIET_APPROACH: { lat: 40.657931, lng: 22.803593 },
+  M_NURSING_APPROACH: { lat: 40.657396, lng: 22.804987 },
 };
 
 export const MANUAL_EDGES: Array<[string, string]> = [
@@ -82,6 +88,12 @@ export const MANUAL_EDGES: Array<[string, string]> = [
   ['M_SCHOOL_ENT_1', 'N0134'],
   ['M_TOP_3', 'N0147'],
   ['M_TOP_3_TO_SCHOOL_ENT_2_1', 'M_SCHOOL_ENT_1'],
+  ['M_MPD_APPROACH', 'M_BOTTOM_TO_60_1'],
+  ['M_INF_P_APPROACH', 'M_60_TO_69_1'],
+  ['M_INF_H_APPROACH', 'N0096'],
+  ['M_GEOPONIA_APPROACH', 'M_0108_TO_0052_1'],
+  ['M_DIET_APPROACH', 'N0043'],
+  ['M_NURSING_APPROACH', 'N0067'],
   ['N0061', 'M_61_TO_31_1'], ['M_61_TO_31_1', 'N0031'],
   ['N0036', 'M_36_TO_37_1'], ['M_36_TO_37_1', 'N0037'],
   ['M_61_TO_31_2', 'M_61_TO_31_1'], ['M_61_TO_31_2', 'M_36_TO_37_1'],
