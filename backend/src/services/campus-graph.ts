@@ -473,19 +473,13 @@ export function calculateRouteFromPosition(
     candidates.push({ id, distM, score, crossings });
   }
 
-  // Prefer nodes reachable without crossing any graph edge (wall-free approach).
-  // If no clean candidates exist, use only the single nearest to limit wall crossings.
+  // Sort all candidates by score (distM + crossings * penalty).
+  // Clean nodes (0 crossings) naturally rank first; crossed nodes are still
+  // included so A* can pick the optimal start rather than being forced onto a
+  // distant clean node that creates a detour.
   const cleanCandidates = candidates.filter(c => c.crossings === 0);
-  let top: Candidate[];
-  if (cleanCandidates.length > 0) {
-    cleanCandidates.sort((a, b) => a.score - b.score);
-    top = cleanCandidates.slice(0, MAX_CONNECT_NODES);
-  } else if (candidates.length > 0) {
-    candidates.sort((a, b) => a.score - b.score);
-    top = [candidates[0]]; // single nearest fallback only
-  } else {
-    top = [];
-  }
+  candidates.sort((a, b) => a.score - b.score);
+  const top: Candidate[] = candidates.length > 0 ? candidates.slice(0, MAX_CONNECT_NODES) : [];
 
   // --- 2. Edge projection candidates ---
   type ProjCandidate = {
