@@ -60,6 +60,7 @@ export class RouteService {
   private rerouteFailStreak = 0;
   private rerouteBlockedUntil = 0;
   private readonly REROUTE_BLOCK_MS = 30_000;
+  private latestRawNow: L.LatLng | null = null;
 
   // Arrival
   public arrivedNearPin = new EventEmitter<void>();
@@ -109,6 +110,7 @@ export class RouteService {
       this.activeEndPoint = null;
       this.prevRerouteLL = null;
       this.prevRerouteAt = 0;
+      this.latestRawNow = null;
     }
   }
 
@@ -244,6 +246,7 @@ export class RouteService {
   }
 
   async maybeReroute(rawNow: L.LatLng, accM: number, spdMps: number): Promise<void> {
+    this.latestRawNow = rawNow;
     if (!this.rerouteEnabled) return;
     if (!this.mapMatchEnabled) return;
     if (!this.activeDestination) return;
@@ -362,6 +365,12 @@ export class RouteService {
     this.clearRouteLayers();
     this.pinDestination(destLat, destLng, dest.name);
 
+    // During reroute the API call is async (~1-2s). Use the latest GPS fix received
+    // while waiting so the approach line starts from where the green dot actually is.
+    const drawFrom: L.LatLng = opts?.isReroute && this.latestRawNow
+      ? this.latestRawNow
+      : startPoint;
+
     const pathNodes: L.LatLng[] = routeResult.path.map(p => L.latLng(p.lat, p.lng));
 
     const mainRoutePoints: L.LatLng[] = [...pathNodes];
@@ -392,7 +401,7 @@ export class RouteService {
     // Reset stale snap state from the previous route before searching the new one.
     this.lastSnapSegIndex = 0;
     this.currentRoutePoints = graphTrimmed; // temporary, for snapToRouteWithIndex
-    const snapResult = this.snapToRouteWithIndex(startPoint);
+    const snapResult = this.snapToRouteWithIndex(drawFrom);
 
     let approachEnd: L.LatLng;
     let routeTailStart: number; // index in graphTrimmed where remaining route begins
@@ -411,14 +420,14 @@ export class RouteService {
     // Fresh start for navigation progress tracking on the new route.
     this.lastSnapSegIndex = 0;
 
-    const approachDist = startPoint.distanceTo(approachEnd);
+    const approachDist = drawFrom.distanceTo(approachEnd);
 
     // ── Build currentRoutePoints: [startPoint, approachEnd, …tail] ──────────
     // Including startPoint ensures progress tracking starts from user's position,
     // not from the (possibly already-passed) first graph node.
     const routeTail = graphTrimmed.slice(routeTailStart);
     if (approachDist > 1) {
-      this.currentRoutePoints = [startPoint, approachEnd, ...routeTail];
+      this.currentRoutePoints = [drawFrom, approachEnd, ...routeTail];
     } else {
       this.currentRoutePoints = graphTrimmed;
     }
@@ -428,7 +437,7 @@ export class RouteService {
 
     // ── Grey dashed approach: startPoint → snapEnd ───────────────────────────
     if (approachDist > 1 && approachDist <= START_APPROACH_MAX_M) {
-      this.approachPolyline = L.polyline([startPoint, approachEnd], {
+      this.approachPolyline = L.polyline([drawFrom, approachEnd], {
         color: '#666666',
         weight: 3,
         opacity: 0.75,
@@ -440,7 +449,7 @@ export class RouteService {
     // ── Solid blue route: from approachEnd onward (skip startPoint if prepended) ─
     const solidStart = approachDist > 1 ? 1 : 0;
     const NEAR_DEST_M = 38; // draw everything as dashed when very close to destination
-    const nearDest = startPoint.distanceTo(endPoint) <= NEAR_DEST_M;
+    const nearDest = drawFrom.distanceTo(endPoint) <= NEAR_DEST_M;
 
     if (nearDest) {
       // Entire path is the "end approach" — draw as dashed polyline following real path
@@ -646,6 +655,7 @@ export class RouteService {
     this.lastOnRoutePassedM = 0;
     this.prevRerouteLL = null;
     this.prevRerouteAt = 0;
+    this.latestRawNow = null;
 
     this.arrivedNearPinTriggered = false;
     this.arriveStreak = 0;
