@@ -282,6 +282,50 @@ function countApproachCrossings(
 }
 
 
+class MinHeap {
+  private heap: Array<[number, string]> = [];
+
+  push(f: number, id: string): void {
+    this.heap.push([f, id]);
+    this._bubbleUp(this.heap.length - 1);
+  }
+
+  pop(): [number, string] | undefined {
+    if (this.heap.length === 0) return undefined;
+    const top = this.heap[0];
+    const last = this.heap.pop()!;
+    if (this.heap.length > 0) {
+      this.heap[0] = last;
+      this._sinkDown(0);
+    }
+    return top;
+  }
+
+  get size(): number { return this.heap.length; }
+
+  private _bubbleUp(i: number): void {
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (this.heap[p][0] <= this.heap[i][0]) break;
+      [this.heap[p], this.heap[i]] = [this.heap[i], this.heap[p]];
+      i = p;
+    }
+  }
+
+  private _sinkDown(i: number): void {
+    const n = this.heap.length;
+    for (;;) {
+      let s = i;
+      const l = 2 * i + 1, r = l + 1;
+      if (l < n && this.heap[l][0] < this.heap[s][0]) s = l;
+      if (r < n && this.heap[r][0] < this.heap[s][0]) s = r;
+      if (s === i) break;
+      [this.heap[s], this.heap[i]] = [this.heap[i], this.heap[s]];
+      i = s;
+    }
+  }
+}
+
 function aStarPath(
   adj: Adjacency,
   coords: Record<string, LatLng>,
@@ -295,18 +339,15 @@ function aStarPath(
   };
 
   const gScore: Record<string, number> = { [startId]: 0 };
-  const fScore: Record<string, number> = { [startId]: h(startId) };
   const prev: Record<string, string> = {};
-  const open = new Set<string>([startId]);
   const closed = new Set<string>();
+  const open = new MinHeap();
+  open.push(h(startId), startId);
 
   while (open.size > 0) {
-    let current = '';
-    let lowestF = Infinity;
-    for (const id of open) {
-      const f = fScore[id] ?? Infinity;
-      if (f < lowestF) { lowestF = f; current = id; }
-    }
+    const [, current] = open.pop()!;
+    if (closed.has(current)) continue;
+    closed.add(current);
 
     if (current === endId) {
       const path: string[] = [];
@@ -315,17 +356,13 @@ function aStarPath(
       return path;
     }
 
-    open.delete(current);
-    closed.add(current);
-
     for (const [neighbor, edgeCost] of Object.entries(adj[current] ?? {})) {
       if (closed.has(neighbor)) continue;
       const tentativeG = (gScore[current] ?? Infinity) + edgeCost;
       if (tentativeG < (gScore[neighbor] ?? Infinity)) {
         prev[neighbor] = current;
         gScore[neighbor] = tentativeG;
-        fScore[neighbor] = tentativeG + h(neighbor);
-        open.add(neighbor);
+        open.push(tentativeG + h(neighbor), neighbor);
       }
     }
   }
