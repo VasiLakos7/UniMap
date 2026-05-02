@@ -109,6 +109,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
 
   routeTotalMeters = 0;
   routeRemainingMeters = 0;
+  walkedMeters = 0;
 
   popupMeters: number | null = null;
   popupEtaMin: number | null = null;
@@ -432,6 +433,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
 
     this.routeTotalMeters = 0;
     this.routeRemainingMeters = 0;
+    this.walkedMeters = 0;
     this.popupMeters = null;
     this.popupEtaMin = null;
 
@@ -755,6 +757,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
         if (!split || split.bestDistM > this.PREVIEW_REROUTE_DIST_M) {
           // User walked off the route in preview mode — clear the line
           if (!this.navigationActive) {
+            if (this.outsideCampus) return; // keep preview until user dismisses manually
             this.mapService.removeRouting(true);
             this.routeReady = false;
             this.hasRoutePreview = false;
@@ -773,6 +776,8 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
       }
 
       if (!this.navigationActive) return;
+
+      this.mapService.appendWalkedPoint(here);
 
       if (now - this.lastNavAt >= this.NAV_MIN_INTERVAL_MS) {
         this.updateNavInstruction(here, route);
@@ -815,6 +820,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
 
       this.routeTotalMeters = Math.max(0, Math.ceil(p.totalMeters));
       this.routeRemainingMeters = Math.max(0, Math.ceil(p.remainingMeters));
+      this.walkedMeters = Math.max(0, Math.floor(p.passedMeters));
 
       if (this.navigationActive) {
         this.popupMeters = this.routeRemainingMeters;

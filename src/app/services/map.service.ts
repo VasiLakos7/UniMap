@@ -856,6 +856,7 @@ export class MapService {
     this.setFollowUser(false);
     return this.routeSvc.fitRouteToView(opts);
   }
+  public appendWalkedPoint(ll: L.LatLng): void           { this.routeSvc.appendWalkedPoint(ll); }
   public getCurrentRoutePoints(): L.LatLng[]            { return this.routeSvc.getCurrentRoutePoints(); }
   public getCurrentRouteDistanceMeters(): number         { return this.routeSvc.getCurrentRouteDistanceMeters(); }
 

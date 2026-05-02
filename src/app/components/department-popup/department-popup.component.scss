@@ -315,6 +315,15 @@ ion-button.um-mini--overview ion-icon{ color: rgb(220,38,38) !important; }
 }
 .um-dot{ opacity: 0.35; font-size: 16px; line-height: 1; }
 
+.um-walked-metrics{
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px; font-weight: 600;
+  color: rgba(15,23,42,0.45);
+  ion-icon{ font-size: 13px; color: #888; }
+}
+
 /* Share + CTA row */
 .um-cta-row{
   display: flex;

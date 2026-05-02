@@ -135,6 +135,10 @@
             <ng-template #dashM3>—</ng-template>
           </span>
         </div>
+        <div class="um-walked-metrics" *ngIf="walkedMeters > 0">
+          <ion-icon name="trending-up-outline"></ion-icon>
+          <span>{{ formatDistance(walkedMeters) }}</span>
+        </div>
 
         <div class="um-cta-row">
           <ion-button class="um-mini um-mini--overview" fill="outline" (click)="onFitRoute()" [attr.aria-label]="'A11Y.FIT_ROUTE' | translate">

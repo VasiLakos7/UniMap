@@ -18,6 +18,11 @@ export class RouteService {
   private destinationMarker: L.Marker | null = null;
   private startMarker: L.CircleMarker | null = null;
 
+  // GPS breadcrumb trail (persists across reroutes, cleared only on navigation stop)
+  private walkedPolyline: L.Polyline | null = null;
+  private walkedPath: L.LatLng[] = [];
+  private readonly WALKED_MIN_DIST_M = 3;
+
   // Route data
   public currentRoutePoints: L.LatLng[] = [];
   private lastRouteBounds: L.LatLngBounds | null = null;
@@ -659,6 +664,29 @@ export class RouteService {
 
     this.arrivedNearPinTriggered = false;
     this.arriveStreak = 0;
+
+    if (this.walkedPolyline) {
+      this.map.removeLayer(this.walkedPolyline);
+      this.walkedPolyline = null;
+    }
+    this.walkedPath = [];
+  }
+
+  public appendWalkedPoint(ll: L.LatLng): void {
+    if (!this.map) return;
+    const last = this.walkedPath[this.walkedPath.length - 1];
+    if (last && last.distanceTo(ll) < this.WALKED_MIN_DIST_M) return;
+    this.walkedPath.push(ll);
+    if (this.walkedPath.length < 2) return;
+    if (!this.walkedPolyline) {
+      this.walkedPolyline = L.polyline(this.walkedPath, {
+        color: '#888888',
+        weight: 4,
+        opacity: 0.5,
+      }).addTo(this.map);
+    } else {
+      this.walkedPolyline.setLatLngs(this.walkedPath);
+    }
   }
 
   public getCurrentRoutePoints(): L.LatLng[] {

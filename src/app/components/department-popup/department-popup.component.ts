@@ -28,6 +28,7 @@ export class DepartmentPopupComponent implements AfterViewInit, OnDestroy {
   @Input() meters: number | null = null;
   @Input() etaMin: number | null = null;
   @Input() units: 'm' | 'km' = 'm';
+  @Input() walkedMeters = 0;
 
   @Output() directions = new EventEmitter<void>();
   @Output() navigate = new EventEmitter<void>();
