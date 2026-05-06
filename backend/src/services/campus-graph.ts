@@ -472,7 +472,7 @@ export function calculateRouteFromPosition(
   const baseAdj = getAdjacency(!!opts?.wheelchair);
   const snapCands = getSnapCandidates(!!opts?.wheelchair);
 
-  const CROSSING_PENALTY_M = 25;
+  const CROSSING_PENALTY_M = 9999;
   const MAX_CONNECT_NODES = 4;
   const MAX_PROJ_DIST_M = 25;   // max perpendicular distance to snap onto an edge
   const MAX_PROJ_NODES = 3;     // top projection candidates to inject
@@ -515,9 +515,9 @@ export function calculateRouteFromPosition(
   // Clean nodes (0 crossings) naturally rank first; crossed nodes are still
   // included so A* can pick the optimal start rather than being forced onto a
   // distant clean node that creates a detour.
-  const cleanCandidates = candidates.filter(c => c.crossings === 0);
   candidates.sort((a, b) => a.score - b.score);
   const top: Candidate[] = candidates.length > 0 ? candidates.slice(0, MAX_CONNECT_NODES) : [];
+  const cleanCandidates = candidates.filter(c => c.crossings === 0); // already sorted
 
   // --- 2. Edge projection candidates ---
   type ProjCandidate = {
@@ -559,10 +559,15 @@ export function calculateRouteFromPosition(
   projCandidates.sort((a, b) => a.perpM - b.perpM);
   const topProj = projCandidates.slice(0, MAX_PROJ_NODES);
 
-  // When projections exist, suppress only the risky fallback (single node with crossings>0).
-  // Clean node candidates (crossings===0) are wall-safe and can coexist with projections,
-  // letting Dijkstra pick the globally optimal entry point.
-  const activeTop = (topProj.length > 0 && cleanCandidates.length === 0) ? [] : top;
+  // When clean (wall-free) node candidates exist, use only them — never mix in
+  // crossed candidates. Crossed candidates are used only as a last resort when
+  // no clean approach exists at all.
+  const activeTop: Candidate[] = (() => {
+    if (topProj.length > 0 && cleanCandidates.length === 0) return [];
+    return cleanCandidates.length > 0
+      ? cleanCandidates.slice(0, MAX_CONNECT_NODES)
+      : top;
+  })();
 
   if (activeTop.length === 0 && topProj.length === 0) return null;
 
