@@ -368,6 +368,13 @@ export class RouteService {
 
     // Swap layers now that new route is ready
     this.clearRouteLayers();
+    if (opts?.isReroute) {
+      if (this.walkedPolyline) {
+        try { this.map.removeLayer(this.walkedPolyline); } catch {}
+        this.walkedPolyline = null;
+      }
+      this.walkedPath = [];
+    }
     this.pinDestination(destLat, destLng, dest.name);
 
     // During reroute the API call is async (~1-2s). Use the latest GPS fix received
@@ -438,18 +445,6 @@ export class RouteService {
     }
 
     const drawPts = this.currentRoutePoints;
-    const START_APPROACH_MAX_M = 50;
-
-    // ── Grey dashed approach: startPoint → snapEnd ───────────────────────────
-    if (approachDist > 1 && approachDist <= START_APPROACH_MAX_M) {
-      this.approachPolyline = L.polyline([drawFrom, approachEnd], {
-        color: '#666666',
-        weight: 3,
-        opacity: 0.75,
-        dashArray: '6 10',
-        lineCap: 'round',
-      }).addTo(this.map);
-    }
 
     // ── Solid blue route: from approachEnd onward (skip startPoint if prepended) ─
     const solidStart = approachDist > 1 ? 1 : 0;

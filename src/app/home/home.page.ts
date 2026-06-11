@@ -181,7 +181,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
           this.skipNextResume = false;
           return;
         }
-        localStorage.setItem('unimap_resume_skip_splash', '1');
+        sessionStorage.setItem('unimap_resume_skip_splash', '1');
         window.location.reload();
       }
     }).then(h => (this.appStateListener = h));
@@ -337,9 +337,11 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
         // Map was init'd at saved/campus position — pan to real location now.
         this.mapService.focusOn(this.userLat, this.userLng, 18);
       }
+    } else {
+      // GPS completely unavailable — splash handles permission/GPS-off messages.
+      this.navCtrl.navigateRoot('/splash', { animated: false });
+      return;
     }
-    // If GPS failed, continue without a fix — the poll loop will place the dot
-    // when GPS becomes available. Do not redirect to splash here.
 
     await this.mapService.startGpsWatch(!this.hasUserFix, 18);
     void this.checkOutsideAfterTiles(9000);

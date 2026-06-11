@@ -9,6 +9,7 @@ export const POI_NODE_COORDS: Record<string, LatLng> = {
   MPD_OXIMATA_ENT: { lat: 40.65552063447767, lng: 22.803255064657716 },
   INF_H_ENT: { lat: 40.6556801165255, lng: 22.8057602909593 },
   INF_P_ENT: { lat: 40.65587753014149, lng: 22.804064757176615 },
+  INF_P_ENT_W: { lat: 40.655971, lng: 22.803725 },   // δυτική είσοδος Κτ. Π (ράμπα) → N0161
   SDO_ENT: { lat: 40.65718391160669, lng: 22.803757375002238 },
   LIB_ENT: { lat: 40.6572426564661, lng: 22.803505173997745 },
   ENV_ENT: { lat: 40.656512671672225, lng: 22.802679487255652 },
@@ -42,3 +43,8 @@ export const POI_ALIAS = new Map<string, string>([
   ['ΑΜΦΙΘΕΑΤΡΟ ΑΛΕΞΑΝΔΡΟΣ', 'AMPHITHEATER_ALEX_ENT'],
   ['ΒΙΒΛΙΟΘΗΚΗ', 'LIBRARY_ENT'],
 ]);
+
+// Για κτίρια με δύο εισόδους: default node → accessible (ράμπα) node
+export const POI_ACCESSIBLE_ALT: Record<string, string> = {
+  INF_P_ENT: 'INF_P_ENT_W',
+};

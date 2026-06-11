@@ -30,6 +30,7 @@ export const MANUAL_NODE_COORDS: Record<string, LatLng> = {
   N0149: { lat: 40.657065, lng: 22.802111 },
   N0157: { lat: 40.656584, lng: 22.802107 },
   N0151: { lat: 40.656163, lng: 22.802105 },
+  N0162: { lat: 40.655847, lng: 22.802102 },
   M_DOWN_1: { lat: 40.656159, lng: 22.802563 },
   M_BOTTOM_MID: { lat: 40.655777, lng: 22.802560 },
   N0152: { lat: 40.655782, lng: 22.802102 },
@@ -38,6 +39,7 @@ export const MANUAL_NODE_COORDS: Record<string, LatLng> = {
   M_60_TO_69_1: { lat: 40.65576, lng: 22.804077 },
   M_0108_TO_0052_1: { lat: 40.65868, lng: 22.803712 },
   M_58_TO_59_1: { lat: 40.656474, lng: 22.803590 },
+  N0161: { lat: 40.655973, lng: 22.803587 },
   M_36_TO_67_1: { lat: 40.657202, lng: 22.804278 },
   M_36_TO_67_MID_1: { lat: 40.657202, lng: 22.804081 },
   M_36_TO_67_PRE_1: { lat: 40.657212, lng: 22.803769 },
@@ -82,6 +84,7 @@ export const MANUAL_EDGES: Array<[string, string]> = [
   ['M_TOP_4', 'N0156'], ['N0156', 'M_TOP_5'],
   ['M_TOP_5', 'N0154'], ['N0154', 'M_TOP_6'],
   ['M_TOP_6', 'M_TOP_7'],
+  ['N0021', 'M_TOP_6'],
   ['N0159', 'M_CENTRAL'], ['N0159', 'N0160'],
   ['M_CENTRAL', 'N0158'], ['N0158', 'M_CENTRAL_TO_DOWN_1'],
   ['M_CENTRAL_TO_DOWN_1', 'M_DOWN_1'],
@@ -101,8 +104,11 @@ export const MANUAL_EDGES: Array<[string, string]> = [
   ['M_NURSING_APPROACH', 'N0067'],
   ['M_MAIEUTIKI_APPROACH', 'N0010'],
   ['M_TROFIMON_APPROACH', 'M_68_TO_BOTTOM_1'],
+  ['N0162', 'M_TROFIMON_APPROACH'],
+  ['N0152', 'M_TROFIMON_APPROACH'],
   ['M_ENV_APPROACH', 'M_CENTRAL_TO_DOWN_1'],
   ['M_LOG_APPROACH', 'M_58_TO_59_1'],
+  ['M_LOG_APPROACH', 'N0058'],
   ['M_HOSPITAL_APPROACH', 'N0038'], ['M_HOSPITAL_APPROACH', 'N0154'],
   ['M_LIBRARY_APPROACH', 'M_TOP_1'], ['M_LIBRARY_APPROACH', 'M_TOP_2'],
   ['N0061', 'M_61_TO_31_1'], ['M_61_TO_31_1', 'N0031'],
@@ -112,13 +118,13 @@ export const MANUAL_EDGES: Array<[string, string]> = [
   ['M_BUS_STOP', 'M_TOP_3_TO_SCHOOL_ENT_2_1'], ['M_BUS_STOP', 'M_SCHOOL_ENT_1'],
   // Δυτικός κατακόρυφος άξονας (N0146→N0152)
   ['N0146', 'N0147'], ['N0147', 'N0155'], ['N0155', 'N0148'],
-  ['N0148', 'N0149'], ['N0149', 'N0160'], ['N0160', 'N0157'], ['N0157', 'N0151'], ['N0151', 'N0152'],
+  ['N0148', 'N0149'], ['N0149', 'N0160'], ['N0160', 'N0157'], ['N0157', 'N0151'], ['N0151', 'N0162'], ['N0162', 'N0152'],
   // Νότιος άξονας — midpoints που συνδέουν N0068/N0060/N0069 με τον κεντρικό κόμβο
   ['N0139', 'N0152'], ['N0068', 'N0152'], ['N0152', 'M_68_TO_BOTTOM_1'], ['M_68_TO_BOTTOM_1', 'M_BOTTOM_MID'],
   ['M_BOTTOM_MID', 'M_BOTTOM_TO_60_1'], ['M_BOTTOM_TO_60_1', 'N0060'],
   ['N0060', 'M_60_TO_69_1'], ['M_60_TO_69_1', 'N0069'],
-  // N0058↔N0059 midpoint
-  ['N0058', 'M_58_TO_59_1'], ['M_58_TO_59_1', 'N0059'],
+  // N0058↔N0059 midpoints
+  ['N0058', 'M_58_TO_59_1'], ['M_58_TO_59_1', 'N0161'], ['N0161', 'N0059'],
   // N0036↔N0067 midpoints
   ['N0036', 'M_36_TO_67_PRE_1'], ['M_36_TO_67_PRE_1', 'M_36_TO_67_MID_1'], ['M_36_TO_67_MID_1', 'M_36_TO_67_1'], ['M_36_TO_67_1', 'N0067'],
   // N0108↔N0052 midpoint

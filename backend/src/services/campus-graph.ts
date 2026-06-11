@@ -1,7 +1,7 @@
 import { Adjacency, LatLng, RouteResult } from '../types';
 import { OSM_NODE_COORDS, OSM_EDGES } from '../data/osm-nodes';
 import { MANUAL_NODE_COORDS, MANUAL_EDGES } from '../data/manual-nodes';
-import { POI_NODE_COORDS, POI_ALIAS } from '../data/poi-nodes';
+import { POI_NODE_COORDS, POI_ALIAS, POI_ACCESSIBLE_ALT } from '../data/poi-nodes';
 import { distanceTo } from './geo';
 import { getEdgeTag, edgeAllowedForWheelchair, registerAccessibilityEdges } from './accessibility';
 
@@ -187,7 +187,7 @@ function buildMergedGraph(): MergedGraph {
   splitEdgeWithChain(g, ALL, 'N0068', 'N0060', ['M_68_TO_BOTTOM_1', 'M_BOTTOM_MID', 'M_BOTTOM_TO_60_1']);
   splitEdgeWithChain(g, ALL, 'N0060', 'N0069', ['M_60_TO_69_1']);
   splitEdgeWithChain(g, ALL, 'N0108', 'N0052', ['M_0108_TO_0052_1']);
-  splitEdgeWithChain(g, ALL, 'N0058', 'N0059', ['M_58_TO_59_1']);
+  splitEdgeWithChain(g, ALL, 'N0058', 'N0059', ['M_58_TO_59_1', 'N0161']);
   splitEdgeWithChain(g, ALL, 'N0043', 'N0044', ['M_DIET_AXIS']);
   splitEdgeWithChain(g, ALL, 'N0036', 'N0067', ['M_36_TO_67_PRE_1', 'M_36_TO_67_1']);
 
@@ -377,6 +377,10 @@ const MAX_START_RADIUS = 80;
 
 export function getNodeIdForName(destinationName: string): string | null {
   return POI_ALIAS.get(norm(destinationName)) ?? null;
+}
+
+export function getAccessibleAlt(nodeId: string): string | null {
+  return POI_ACCESSIBLE_ALT[nodeId] ?? null;
 }
 
 export function getNodeCoords(nodeId: string): LatLng | undefined {

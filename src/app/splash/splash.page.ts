@@ -56,9 +56,9 @@ export class SplashPage implements OnInit, AfterViewInit, OnDestroy {
   ) {}
 
   async ngOnInit() {
-    const resumeSkip = localStorage.getItem('unimap_resume_skip_splash');
+    const resumeSkip = sessionStorage.getItem('unimap_resume_skip_splash');
     if (resumeSkip) {
-      localStorage.removeItem('unimap_resume_skip_splash');
+      sessionStorage.removeItem('unimap_resume_skip_splash');
       this.navCtrl.navigateRoot('/home', { animated: false });
       return;
     }
