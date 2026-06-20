@@ -662,6 +662,17 @@ export class RouteService {
 
   public appendWalkedPoint(ll: L.LatLng): void {
     if (!this.map) return;
+
+    // On-route (snap engaged): clear any off-route breadcrumb and skip drawing
+    if (this.snapEngaged) {
+      if (this.walkedPolyline) {
+        this.map.removeLayer(this.walkedPolyline);
+        this.walkedPolyline = null;
+        this.walkedPath = [];
+      }
+      return;
+    }
+
     const last = this.walkedPath[this.walkedPath.length - 1];
     if (last && last.distanceTo(ll) < this.WALKED_MIN_DIST_M) return;
     this.walkedPath.push(ll);
