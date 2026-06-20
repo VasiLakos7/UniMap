@@ -53,12 +53,12 @@ UniMap helps students, staff, and visitors navigate the IHU Sindos campus — bo
                  │ HTTP (localhost:3000)
 ┌────────────────▼────────────────────┐
 │        Node.js / Express Backend     │
-│  Campus graph · Dijkstra · OSRM proxy│
+│  Campus graph · A* pathfinding · OSRM proxy│
 └─────────────────────────────────────┘
 ```
 
 - The **frontend** handles all map rendering, GPS polling, marker management, route polylines, and user interaction.
-- The **backend** owns pathfinding. It builds a weighted undirected graph from three data sources (OSM nodes, manually-mapped campus nodes, POI nodes) and runs Dijkstra's algorithm to compute the shortest path.
+- The **backend** owns pathfinding. It builds a weighted undirected graph from three data sources (OSM nodes, manually-mapped campus nodes, POI nodes) and runs A* to compute the shortest path.
 - For outdoor routes (outside campus), the backend proxies the public [OSRM](https://project-osrm.org/) API.
 
 ---
@@ -130,7 +130,7 @@ UniMap/
 │       │   ├── outdoor.ts         # GET  /api/route/outdoor
 │       │   └── destinations.ts    # GET  /api/destinations
 │       └── services/
-│           ├── campus-graph.ts    # Graph builder + Dijkstra pathfinding
+│           ├── campus-graph.ts    # Graph builder + A* pathfinding
 │           ├── geo.ts             # Haversine distance, bearing utils
 │           └── accessibility.ts   # Edge tagging (STAIRS / RAMP / ALL)
 └── android/                       # Native Android project (Capacitor)
@@ -300,7 +300,7 @@ npx cap open android
 
 2. Edge weights are **Euclidean distances in metres** (Haversine formula).
 
-3. When a route is requested, the backend injects a **virtual start node** at the user's GPS position, connects it to the nearest graph nodes, runs **Dijkstra's algorithm**, then removes the virtual node and returns the `path` array.
+3. When a route is requested, the backend injects a **virtual start node** at the user's GPS position, connects it to the nearest graph nodes, runs **A\*** (with Haversine heuristic), then removes the virtual node and returns the `path` array.
 
 4. The frontend draws the path as a Leaflet polyline and begins tracking the user. As the user moves, GPS updates are **smoothed with EMA** when stationary and **jump-rejected** (positions implying > 7 m/s movement are discarded).
 
