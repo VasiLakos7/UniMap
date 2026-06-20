@@ -380,20 +380,21 @@ export class MapService {
 
     // GPS-to-GPS velocity — real walking speed regardless of where the
     // animated marker happens to be right now.
-    // Update velocity from GPS-to-GPS delta for dead-reckoning.
-    // Below 0.8m: GPS jitter — keep previous velocity so DR continues smoothly.
-    // Above 0.8m: real movement — recompute direction and speed.
     const dtSafe  = Math.max(400, dt);
-    if (distM >= 0.8) {
+    if (distM >= 0.5 && distM <= 8) {
+      // Normal movement: compute velocity for dead-reckoning
       this.velLat   = (next.lat - this.animTo.lat) / dtSafe;
       this.velLng   = (next.lng - this.animTo.lng) / dtSafe;
-      // Isotropic speed magnitude (deg/ms) used when compass redirects DR direction.
       const cosLat  = Math.cos(next.lat * Math.PI / 180);
       this.velSpeedDegMs = Math.sqrt(
         this.velLat * this.velLat + (this.velLng * cosLat) * (this.velLng * cosLat)
       );
+    } else {
+      // GPS jitter (<0.5m) or GPS jump (>8m): zero velocity to prevent wrong-direction DR
+      this.velLat        = 0;
+      this.velLng        = 0;
+      this.velSpeedDegMs = 0;
     }
-    // distM < 0.8: velocity unchanged — DR continues in same direction at same speed
 
     this.animTo        = next;
     this.animFrom      = from;

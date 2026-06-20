@@ -835,13 +835,10 @@ export class RouteService {
 
     // First try a tight window around the last known segment (prevent parallel-path jumps).
     const WINDOW = 4;
-    const local = searchWindow(this.lastSnapSegIndex - 1, this.lastSnapSegIndex + WINDOW);
+    const local = searchWindow(this.lastSnapSegIndex, this.lastSnapSegIndex + WINDOW);
 
     if (local && local.distM <= this.SNAP_EXIT_M) {
-      // Only allow advancing — prevent backwards jumps beyond 1 segment.
-      if (local.segStartIndex >= this.lastSnapSegIndex - 1) {
-        this.lastSnapSegIndex = Math.max(this.lastSnapSegIndex, local.segStartIndex);
-      }
+      this.lastSnapSegIndex = Math.max(this.lastSnapSegIndex, local.segStartIndex);
       return local;
     }
 
