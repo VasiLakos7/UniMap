@@ -459,7 +459,7 @@ function projectPointOntoSegment(
  * 2. Additionally, for every graph edge close to the user, projects the user's
  *    position onto that edge and injects a virtual projection node __PROJ_U_V__.
  *    __PROJ_U_V__ connects to both edge endpoints with the correct sub-edge
- *    distances, so Dijkstra can choose the correct direction along the edge
+ *    distances, so A* can choose the correct direction along the edge
  *    instead of blindly routing to the nearest endpoint.
  *
  * This fixes the "wrong initial direction" bug that occurred when the user was
