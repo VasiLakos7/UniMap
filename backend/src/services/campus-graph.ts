@@ -597,11 +597,9 @@ export function calculateRouteFromPosition(
   const nodePath = aStarPath(adj, allCoords, VIRTUAL_START, endNodeId);
   if (!nodePath) return null;
 
-  // Skip VIRTUAL_START: the frontend handles the approach segment separately
-  // as a grey dashed line. Non-destination POI nodes and projection nodes on
-  // POI edges are omitted so the frontend draws the approach to the first real
-  // graph node instead of to a wrong building entrance.
-  const points: LatLng[] = nodePath
+  // Non-destination POI nodes and projection nodes on POI edges are omitted
+  // so the route doesn't hop through a wrong building entrance.
+  const graphPoints: LatLng[] = nodePath
     .slice(1)
     .map(id => {
       if (poiIdSet.has(id) && id !== endNodeId) return null;
@@ -617,7 +615,11 @@ export function calculateRouteFromPosition(
     })
     .filter((p): p is LatLng => !!p);
 
-  if (points.length < 1) return null;
+  if (graphPoints.length < 1) return null;
+
+  // Prepend the user's exact GPS position so the route starts from there.
+  // The segment here→graphPoints[0] is already validated as wall-free above.
+  const points: LatLng[] = [here, ...graphPoints];
 
   let len = 0;
   for (let i = 1; i < points.length; i++) len += distanceTo(points[i - 1], points[i]);
