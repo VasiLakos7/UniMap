@@ -46,7 +46,7 @@ export class MapService {
   public dbgFixDtMs   = 0;   // ms between last two GPS fixes
   public dbgFixDistM  = 0;   // metres between last two GPS positions
   public dbgExtrap    = false; // true while dead-reckoning
-  private readonly EXTRAP_MAX_MS = 900;   // max dead-reckoning time (GPS ~800ms, park quickly if GPS lost)
+  private readonly EXTRAP_MAX_MS = 700;   // GPS ~400ms poll — park if no fix for 700ms
 
   // ── Map bearing & two-finger rotation ──────────────────────────────────────
   private mapBearingDeg     = 0;
@@ -380,14 +380,11 @@ export class MapService {
 
     // GPS-to-GPS velocity — real walking speed regardless of where the
     // animated marker happens to be right now.
-    // Zero out velocity when nearly stationary: GPS jitter (~1-4m) would otherwise
-    // cause dead-reckoning to extrapolate in a random direction, creating trembling.
-    const dtSafe  = Math.max(500, dt);
-    if (distM < 0.8) {
-      this.velLat        = 0;
-      this.velLng        = 0;
-      this.velSpeedDegMs = 0;
-    } else {
+    // Update velocity from GPS-to-GPS delta for dead-reckoning.
+    // Below 0.8m: GPS jitter — keep previous velocity so DR continues smoothly.
+    // Above 0.8m: real movement — recompute direction and speed.
+    const dtSafe  = Math.max(400, dt);
+    if (distM >= 0.8) {
       this.velLat   = (next.lat - this.animTo.lat) / dtSafe;
       this.velLng   = (next.lng - this.animTo.lng) / dtSafe;
       // Isotropic speed magnitude (deg/ms) used when compass redirects DR direction.
@@ -396,6 +393,7 @@ export class MapService {
         this.velLat * this.velLat + (this.velLng * cosLat) * (this.velLng * cosLat)
       );
     }
+    // distM < 0.8: velocity unchanged — DR continues in same direction at same speed
 
     this.animTo        = next;
     this.animFrom      = from;

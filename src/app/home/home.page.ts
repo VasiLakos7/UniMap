@@ -1235,11 +1235,8 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
 
     let seg = Math.max(0, Math.min(route.length - 2, this.lastRouteIndex || 0));
 
-    const MAX_OFFROUTE_M = 40;
-    const NODE_REACH_M = 6;
-
-    const SHORT_SEG_M = 12;
-    const SHORT_T_REACH = 0.85;
+    const MAX_OFFROUTE_M = 60;  // campus GPS can be 30m+ off near buildings
+    const T_REACH = 0.88;       // advance segment when 88% through (projection-based, GPS-noise-robust)
 
     const projectSeg = (s: number) => this.projectOnSegment(here, route[s], route[s + 1]);
 
@@ -1252,18 +1249,13 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
       seg = Math.max(seg, newSeg);
       pr = projectSeg(seg);
 
-      if (bestDistM > 80) return null;
+      if (bestDistM > 120) return null;
     }
 
     while (seg < route.length - 2) {
-      const a = route[seg];
-      const b = route[seg + 1];
-      const segLen = a.distanceTo(b);
-
-      const reached =
-        segLen <= SHORT_SEG_M ? pr.t >= SHORT_T_REACH : here.distanceTo(b) <= NODE_REACH_M;
-
-      if (!reached) break;
+      // Use projection parameter (t) to advance — robust when GPS is offset from route.
+      // t=1 means GPS projects past the end of this segment → move to next.
+      if (pr.t < T_REACH) break;
 
       seg += 1;
       pr = projectSeg(seg);

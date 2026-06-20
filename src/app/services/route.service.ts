@@ -57,11 +57,11 @@ export class RouteService {
   private snapJustEngaged = false;
   private lastSnapLL: L.LatLng | null = null;
   private lastOnRouteLL: L.LatLng | null = null; // last confirmed on-route position, survives snap exit
-  private readonly SNAP_ENTER_M = 12;   // engage snap only when close to route
-  private readonly SNAP_EXIT_M  = 18;   // disengage quickly when user leaves route
-  private readonly SNAP_FULL_M  = 4;    // full snap within 4m
-  private readonly SNAP_BLEND_M = 12;   // blend zone matches enter zone
-  private readonly SNAP_MIN_SPEED_MPS = 0.25;
+  private readonly SNAP_ENTER_M = 42;   // campus GPS drifts 30-35m near buildings — always engage
+  private readonly SNAP_EXIT_M  = 55;   // only exit when clearly rerouting
+  private readonly SNAP_FULL_M  = 5;    // full snap within 5m
+  private readonly SNAP_BLEND_M = 42;   // blend zone matches enter zone
+  private readonly SNAP_MIN_SPEED_MPS = 0.0;  // always allow snap — speed unreliable on Android
 
   // Reroute offline circuit-breaker
   public rerouteOffline = new EventEmitter<void>();

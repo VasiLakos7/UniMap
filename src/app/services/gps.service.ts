@@ -25,12 +25,12 @@ export class GpsService {
 
   // ── Fast polling (replaces watchPosition on native — bypasses Android 5s throttle) ──
   private pollActive = false;
-  private readonly POLL_INTERVAL_MS = 800;
+  private readonly POLL_INTERVAL_MS = 400;  // 2.5 Hz — smoother than 800ms for pedestrian nav
 
   // ── Jump detection — tracks last ACCEPTED fix only ─────────────────────────
   private prevAcceptedLL: L.LatLng | null = null;
   private prevAcceptedAt = 0;
-  private readonly JUMP_MAX_DIST_M    = 22;   // pedestrian: GPS multipath ≤ 20m near buildings
+  private readonly JUMP_MAX_DIST_M    = 38;   // campus multipath can push GPS 30m+ near buildings
   private readonly JUMP_MAX_WALK_MPS  = 3.0;   // pedestrian max ~10 km/h (brisk jog)
 
   // ── EMA smoothing state (used only when stationary) ───────────────────────
@@ -391,7 +391,7 @@ export class GpsService {
     const dtS   = Math.max(0.01, (nowMs - this.prevAcceptedAt) / 1000);
     const distM = this.prevAcceptedLL.distanceTo(rawNow);
 
-    if (dtS >= 6) return false;  // long gap — GPS regained after tunnel/building, accept
+    if (dtS >= 3) return false;  // 3s gap → GPS regained, accept regardless
     if (distM <= this.JUMP_MAX_DIST_M) return false;  // normal move, accept
 
     // Large jump: reject — pedestrian-only app, no vehicle speeds expected
