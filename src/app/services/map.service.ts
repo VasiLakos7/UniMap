@@ -366,8 +366,8 @@ export class MapService {
 
     if (this.animReq) { cancelAnimationFrame(this.animReq); this.animReq = null; }
 
-    // Teleport (GPS glitch / exit from building)
-    if (distM > 30) {
+    // Teleport (GPS glitch / exit from building) — threshold matches pedestrian jump filter
+    if (distM > 18) {
       this.userMarker.setLatLng(next);
       this.animFrom      = next;
       this.animTo        = next;
@@ -383,7 +383,7 @@ export class MapService {
     // Zero out velocity when nearly stationary: GPS jitter (~1-4m) would otherwise
     // cause dead-reckoning to extrapolate in a random direction, creating trembling.
     const dtSafe  = Math.max(500, dt);
-    if (distM < 3) {
+    if (distM < 0.8) {
       this.velLat        = 0;
       this.velLng        = 0;
       this.velSpeedDegMs = 0;

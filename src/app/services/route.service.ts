@@ -545,12 +545,14 @@ export class RouteService {
       if (!this.passedPolyline) {
         this.passedPolyline = L.polyline(passedPoints, {
           color: '#aaaaaa',
-          weight: 4,
-          opacity: 0.45,
+          weight: 6,
+          opacity: 0.75,
         }).addTo(this.map);
       } else {
         this.passedPolyline.setLatLngs(passedPoints);
       }
+      // Keep passed (gray) on top of the remaining blue line so it clearly covers walked portion
+      this.passedPolyline.bringToFront();
     } else if (this.passedPolyline) {
       this.map.removeLayer(this.passedPolyline);
       this.passedPolyline = null;

@@ -756,21 +756,23 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
 
       if (canProgress) {
         const split = this.buildProgressSplit(here, route);
-        if (!split || split.bestDistM > this.PREVIEW_REROUTE_DIST_M) {
-          // User walked off the route in preview mode — clear the line
-          if (!this.navigationActive) {
-            if (this.outsideCampus) return; // keep preview until user dismisses manually
-            this.mapService.removeRouting(true);
-            this.routeReady = false;
-            this.hasRoutePreview = false;
-            this.maneuvers = [];
-            this.lockIfHasDirections();
-            const dest = this.currentDestination!;
-            const destLL = L.latLng(dest.entranceLat ?? dest.lat, dest.entranceLng ?? dest.lng);
-            this.setDistanceUiFromDirect(here, destLL);
-            return;
-          }
+        if (!split) {
+          // completely off map — skip update
+        } else if (!this.navigationActive && split.bestDistM > this.PREVIEW_REROUTE_DIST_M) {
+          // Preview mode: user walked too far off route — clear the preview
+          if (this.outsideCampus) return; // keep preview until user dismisses manually
+          this.mapService.removeRouting(true);
+          this.routeReady = false;
+          this.hasRoutePreview = false;
+          this.maneuvers = [];
+          this.lockIfHasDirections();
+          const dest = this.currentDestination!;
+          const destLL = L.latLng(dest.entranceLat ?? dest.lat, dest.entranceLng ?? dest.lng);
+          this.setDistanceUiFromDirect(here, destLL);
+          return;
         } else {
+          // Navigation mode: always update (reroute handles off-route correction)
+          // Preview mode on-route: also update
           this.mapService.updateRouteProgress(split.passed, split.remaining);
           this.lastProgressAt = now;
           this.lastHereForProgress = here;

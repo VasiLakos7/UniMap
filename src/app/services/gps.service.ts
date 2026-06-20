@@ -30,8 +30,8 @@ export class GpsService {
   // ── Jump detection — tracks last ACCEPTED fix only ─────────────────────────
   private prevAcceptedLL: L.LatLng | null = null;
   private prevAcceptedAt = 0;
-  private readonly JUMP_MAX_DIST_M    = 40;
-  private readonly JUMP_MAX_WALK_MPS  = 7.0;   // above this → teleport (reject)
+  private readonly JUMP_MAX_DIST_M    = 22;   // pedestrian: GPS multipath ≤ 20m near buildings
+  private readonly JUMP_MAX_WALK_MPS  = 3.0;   // pedestrian max ~10 km/h (brisk jog)
 
   // ── EMA smoothing state (used only when stationary) ───────────────────────
   private smoothLL: L.LatLng | null = null;
@@ -47,7 +47,7 @@ export class GpsService {
   private readonly MAX_HEADING_JUMP_DEG      = 65;
 
   // ── Accuracy caps ──────────────────────────────────────────────────────────
-  private readonly ACC_MAX_NATIVE_M = 40;
+  private readonly ACC_MAX_NATIVE_M = 65;
   private readonly ACC_MAX_WEB_M    = 800;
   private readonly ACC_TRUST_BEARING_M = 40;
 
@@ -205,7 +205,8 @@ export class GpsService {
       this.handleFix(
         first.coords.latitude, first.coords.longitude, first.coords.accuracy,
         first.coords.heading ?? null, first.coords.speed ?? null,
-        centerOnFirstFix, zoomOnFirstFix
+        centerOnFirstFix, zoomOnFirstFix,
+        true  // provisional: show dot quickly but don't anchor jump filter to stale cache
       );
     } catch {}
 
@@ -271,7 +272,8 @@ export class GpsService {
   private handleFix(
     lat: number, lng: number,
     accuracy?: number | null, heading?: number | null, speed?: number | null,
-    centerOnFirstFix = true, zoomOnFirstFix = 18
+    centerOnFirstFix = true, zoomOnFirstFix = 18,
+    provisional = false
   ): void {
     const nowMs = Date.now();
     const acc = accuracy ?? 9999;
@@ -283,15 +285,20 @@ export class GpsService {
     const rawNow = L.latLng(lat, lng);
 
     // ── 1. Jump filter ──────────────────────────────────────────────────────
-    if (this.hasInitialFix && this.isLikelyJump(rawNow, nowMs, spd)) return;
+    if (this.hasInitialFix && this.isLikelyJump(rawNow, nowMs)) return;
 
     // ── 2. Accuracy cap ─────────────────────────────────────────────────────
     if (this.hasInitialFix && acc > (Capacitor.isNativePlatform() ? this.ACC_MAX_NATIVE_M : this.ACC_MAX_WEB_M)) return;
 
     // ── 3. Update accepted-fix history ──────────────────────────────────────
     const prevLL = this.prevAcceptedLL;           // save BEFORE overwriting
-    this.prevAcceptedLL = rawNow;
-    this.prevAcceptedAt = nowMs;
+    // Don't anchor the jump filter to a cached/provisional first fix — otherwise
+    // the first fresh poll-loop fix (which may be 40–100m away from a stale cache
+    // position) would be rejected by isLikelyJump until the 6s grace period expires.
+    if (!provisional) {
+      this.prevAcceptedLL = rawNow;
+      this.prevAcceptedAt = nowMs;
+    }
 
     // Set hasInitialFix on the very first accepted fix regardless of centerOnFirstFix.
     // (Ensures jump-filter and accuracy-cap are active even when centerOnFirstFix=false.)
@@ -313,7 +320,7 @@ export class GpsService {
     // Use GPS speed OR position delta to detect motion — many Android devices
     // report speed=0 or null even when walking, causing EMA to lag 3+ seconds.
     const posDeltaM = prevLL ? prevLL.distanceTo(rawNow) : 0;
-    const isMoving  = spd >= this.SPEED_MOVING_MPS || posDeltaM >= 0.5;
+    const isMoving  = spd >= this.SPEED_MOVING_MPS || posDeltaM >= 0.3;
 
     let position: L.LatLng;
     if (isMoving) {
@@ -340,14 +347,18 @@ export class GpsService {
     this.routeSvc.checkArrival(rawNow, acc);
 
     // ── 9. Heading ──────────────────────────────────────────────────────────
-    const hLL = this.routeSvc.isMapMatchEnabled() && this.routeSvc.isSnapEngaged()
-      ? chosen : rawNow;
-    const usedMovement = this.updateHeadingFromMovement(hLL);
-    if (!usedMovement) {
-      if (typeof heading === 'number' && isFinite(heading) && spd > this.SPEED_USE_GPS_HEADING_MPS) {
-        this.applyHeadingInternal(smoothAngle(this.lastHeadingDeg, heading, 0.4));
+    // Skip for provisional fixes — prevHeadingLL would be set to a stale position
+    // causing a wrong bearing on the very first real movement detection.
+    if (!provisional) {
+      const hLL = this.routeSvc.isMapMatchEnabled() && this.routeSvc.isSnapEngaged()
+        ? chosen : rawNow;
+      const usedMovement = this.updateHeadingFromMovement(hLL);
+      if (!usedMovement) {
+        if (typeof heading === 'number' && isFinite(heading) && spd > this.SPEED_USE_GPS_HEADING_MPS) {
+          this.applyHeadingInternal(smoothAngle(this.lastHeadingDeg, heading, 0.4));
+        }
+        // Compass fills in heading continuously via applyIfDot in startCompass().
       }
-      // Compass fills in heading continuously via applyIfDot in startCompass().
     }
 
     // ── 10. First-fix centering ─────────────────────────────────────────────
@@ -374,7 +385,7 @@ export class GpsService {
   // Only compares against the last ACCEPTED fix so a series of bad fixes
   // does not "walk" the reference point into bad territory.
 
-  private isLikelyJump(rawNow: L.LatLng, nowMs: number, speedMps: number): boolean {
+  private isLikelyJump(rawNow: L.LatLng, nowMs: number): boolean {
     if (!this.prevAcceptedLL) return false;   // no history yet
 
     const dtS   = Math.max(0.01, (nowMs - this.prevAcceptedAt) / 1000);
@@ -383,10 +394,9 @@ export class GpsService {
     if (dtS >= 6) return false;  // long gap — GPS regained after tunnel/building, accept
     if (distM <= this.JUMP_MAX_DIST_M) return false;  // normal move, accept
 
-    // Large jump: reject unless GPS speed or implied speed justifies it
-    if (speedMps >= 3.5) return false;                          // GPS says fast (vehicle), accept
-    if (distM / dtS <= this.JUMP_MAX_WALK_MPS) return false;   // implied speed is plausible, accept
-    return true;  // teleport — reject
+    // Large jump: reject — pedestrian-only app, no vehicle speeds expected
+    if (distM / dtS <= this.JUMP_MAX_WALK_MPS) return false;   // implied speed ≤ 3 m/s: plausible
+    return true;  // too fast for walking/jogging → GPS multipath, reject
   }
 
   // ── UI emit throttle ────────────────────────────────────────────────────────
