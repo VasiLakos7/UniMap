@@ -18,6 +18,9 @@ export class RouteService {
   private destinationMarker: L.Marker | null = null;
   private startMarker: L.CircleMarker | null = null;
 
+  // Historical passed polylines from previous route legs (preserved across reroutes)
+  private historicalPassedPolylines: L.Polyline[] = [];
+
   // GPS breadcrumb trail (persists across reroutes, cleared only on navigation stop)
   private walkedPolyline: L.Polyline | null = null;
   private walkedPath: L.LatLng[] = [];
@@ -53,6 +56,7 @@ export class RouteService {
   private snapEngaged = false;
   private snapJustEngaged = false;
   private lastSnapLL: L.LatLng | null = null;
+  private lastOnRouteLL: L.LatLng | null = null; // last confirmed on-route position, survives snap exit
   private readonly SNAP_ENTER_M = 12;   // engage snap only when close to route
   private readonly SNAP_EXIT_M  = 18;   // disengage quickly when user leaves route
   private readonly SNAP_FULL_M  = 4;    // full snap within 4m
@@ -131,6 +135,7 @@ export class RouteService {
     this.snapEngaged      = false;
     this.snapJustEngaged  = false;
     this.lastSnapLL       = null;
+    this.lastOnRouteLL    = null;
     this.lastSnapSegIndex = 0;
   }
 
@@ -206,6 +211,7 @@ export class RouteService {
         }
 
         this.lastSnapLL = target;
+        this.lastOnRouteLL = target;
 
         const w =
           d <= this.SNAP_FULL_M
@@ -367,7 +373,7 @@ export class RouteService {
     }
 
     // Swap layers now that new route is ready
-    this.clearRouteLayers();
+    this.clearRouteLayers(!!opts?.isReroute);
     this.pinDestination(destLat, destLng, dest.name);
 
     // During reroute the API call is async (~1-2s). Use the latest GPS fix received
@@ -616,6 +622,11 @@ export class RouteService {
       this.endApproachPolyline = null;
     }
 
+    for (const p of this.historicalPassedPolylines) {
+      try { this.map.removeLayer(p); } catch {}
+    }
+    this.historicalPassedPolylines = [];
+
     if (this.startMarker) {
       this.map.removeLayer(this.startMarker);
       this.startMarker = null;
@@ -634,6 +645,7 @@ export class RouteService {
     this.snapEngaged = false;
     this.snapJustEngaged = false;
     this.lastSnapLL = null;
+    this.lastOnRouteLL = null;
     this.lastSnapSegIndex = 0;
 
     this.routeProgress.emit({ passedMeters: 0, remainingMeters: 0, totalMeters: 0, progress: 0 });
@@ -663,18 +675,17 @@ export class RouteService {
   public appendWalkedPoint(ll: L.LatLng): void {
     if (!this.map) return;
 
-    // On-route (snap engaged): clear any off-route breadcrumb and skip drawing
+    // On-route (snap engaged): keep the off-route breadcrumb visible, just stop adding points
     if (this.snapEngaged) {
-      if (this.walkedPolyline) {
-        this.map.removeLayer(this.walkedPolyline);
-        this.walkedPolyline = null;
-        this.walkedPath = [];
-      }
       return;
     }
 
     const last = this.walkedPath[this.walkedPath.length - 1];
     if (last && last.distanceTo(ll) < this.WALKED_MIN_DIST_M) return;
+    // Bridge from the last on-route position so the walked line has no gap
+    if (this.walkedPath.length === 0 && this.lastOnRouteLL) {
+      this.walkedPath.push(this.lastOnRouteLL);
+    }
     this.walkedPath.push(ll);
     if (this.walkedPath.length < 2) return;
     if (!this.walkedPolyline) {
@@ -839,7 +850,7 @@ export class RouteService {
   }
 
   // Route layer helpers
-  private clearRouteLayers(): void {
+  private clearRouteLayers(isReroute = false): void {
     if (!this.map) return;
 
     if (this.currentPolyline) {
@@ -847,7 +858,12 @@ export class RouteService {
       this.currentPolyline = null;
     }
     if (this.passedPolyline) {
-      this.map.removeLayer(this.passedPolyline);
+      if (isReroute) {
+        // Keep the old passed segment visible as history; new route gets a fresh polyline
+        this.historicalPassedPolylines.push(this.passedPolyline);
+      } else {
+        this.map.removeLayer(this.passedPolyline);
+      }
       this.passedPolyline = null;
     }
     if (this.approachPolyline) {

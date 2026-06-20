@@ -810,6 +810,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
     const clickSub = this.mapService.mapClicked.subscribe((data) => {
       if (this.selectionLocked) return;
       if (this.mapLoadingVisible) return;
+      if (this.isSearchOpen) return;
 
       const fallbackName = this.translate.instant('DEST.CUSTOM.NAME');
       const name = data.name || fallbackName;
