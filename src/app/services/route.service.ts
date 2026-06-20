@@ -41,11 +41,11 @@ export class RouteService {
   private lastRerouteAt = 0;
   private cumulativePassedM = 0;
   private lastOnRoutePassedM = 0;
-  private readonly REROUTE_COOLDOWN_MS = 8000;    // min 8s between reroutes
-  private readonly REROUTE_CONFIRM_FIXES = 5;     // 5 consecutive off-route fixes (~4s)
-  private readonly REROUTE_OFF_M = 25;            // must be >25m from route
-  private readonly REROUTE_ON_M = 12;             // back on route within 12m
-  private readonly REROUTE_MAX_ACC_M = 25;        // block reroute if GPS accuracy > 25m
+  private readonly REROUTE_COOLDOWN_MS = 15000;   // min 15s between reroutes
+  private readonly REROUTE_CONFIRM_FIXES = 10;    // 10 consecutive off-route fixes (~4s at 400ms)
+  private readonly REROUTE_OFF_M = 50;            // campus GPS noise up to 35m — need real deviation
+  private readonly REROUTE_ON_M = 20;             // back on route within 20m
+  private readonly REROUTE_MAX_ACC_M = 18;        // only reroute when GPS is very accurate
   private readonly REROUTE_MIN_SPEED_MPS = 0.5;    // must be walking (> 0.5 m/s)
   private readonly REROUTE_SKIP_NEAR_DEST_M = 45;
   private prevRerouteLL: L.LatLng | null = null;
