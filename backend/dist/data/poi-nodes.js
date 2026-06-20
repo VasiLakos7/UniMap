@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.POI_ALIAS = exports.POI_NODE_COORDS = void 0;
+exports.POI_ACCESSIBLE_ALT = exports.POI_ALIAS = exports.POI_NODE_COORDS = void 0;
 exports.POI_NODE_COORDS = {
     MAIEUTIKI_ENT: { lat: 40.657423, lng: 22.805801 },
     NURSING_ENT: { lat: 40.65744, lng: 22.805002 },
@@ -10,15 +10,17 @@ exports.POI_NODE_COORDS = {
     MPD_OXIMATA_ENT: { lat: 40.65552063447767, lng: 22.803255064657716 },
     INF_H_ENT: { lat: 40.6556801165255, lng: 22.8057602909593 },
     INF_P_ENT: { lat: 40.65587753014149, lng: 22.804064757176615 },
+    INF_P_ENT_W: { lat: 40.655971, lng: 22.803725 }, // δυτική είσοδος Κτ. Π (ράμπα) → N0161
     SDO_ENT: { lat: 40.65718391160669, lng: 22.803757375002238 },
     LIB_ENT: { lat: 40.6572426564661, lng: 22.803505173997745 },
     ENV_ENT: { lat: 40.656512671672225, lng: 22.802679487255652 },
     LOG_ENT: { lat: 40.656488, lng: 22.803707 },
+    LOG_ENT_W: { lat: 40.656448, lng: 22.803696 }, // accessible είσοδος Λογιστικής (ράμπα) → M_58_TO_59_1
     GEOPONIA_ENT: { lat: 40.658552, lng: 22.803704 },
     HOSPITAL_ENT: { lat: 40.657234, lng: 22.803218 },
     CANTEEN_ENT: { lat: 40.658105, lng: 22.802703 },
     CLASSROOMS_300_ENT: { lat: 40.656917, lng: 22.802483 },
-    AMPHITHEATER_ALEX_ENT: { lat: 40.658046, lng: 22.803017 },
+    AMPHITHEATER_ALEX_ENT: { lat: 40.658060, lng: 22.803020 },
     LIBRARY_ENT: { lat: 40.657960, lng: 22.802513 },
 };
 exports.POI_ALIAS = new Map([
@@ -42,3 +44,8 @@ exports.POI_ALIAS = new Map([
     ['ΑΜΦΙΘΕΑΤΡΟ ΑΛΕΞΑΝΔΡΟΣ', 'AMPHITHEATER_ALEX_ENT'],
     ['ΒΙΒΛΙΟΘΗΚΗ', 'LIBRARY_ENT'],
 ]);
+// Για κτίρια με δύο εισόδους: default node → accessible (ράμπα) node
+exports.POI_ACCESSIBLE_ALT = {
+    INF_P_ENT: 'INF_P_ENT_W',
+    LOG_ENT: 'LOG_ENT_W',
+};

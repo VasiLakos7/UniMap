@@ -29,12 +29,25 @@ router.post('/', (req, res) => {
         res.status(404).json({ error: 'Δεν βρέθηκε node για τον προορισμό.' });
         return;
     }
-    // 2. Υπολόγισε διαδρομή με virtual start node στη θέση του χρήστη
+    // 2. Για wheelchair: αντικατέστησε με accessible είσοδο αν υπάρχει
+    //    Για non-wheelchair: δοκίμασε και τις δύο εισόδους, επέστρεψε την κοντύτερη
+    const accAlt = (0, campus_graph_1.getAccessibleAlt)(endNodeId);
+    if (wheelchair && accAlt) {
+        endNodeId = accAlt;
+    }
+    // 3. Υπολόγισε διαδρομή με virtual start node στη θέση του χρήστη
     const result = (0, campus_graph_1.calculateRouteFromPosition)(fromLat, fromLng, endNodeId, opts);
-    if (!result) {
+    let finalResult = result;
+    if (!wheelchair && accAlt) {
+        const altResult = (0, campus_graph_1.calculateRouteFromPosition)(fromLat, fromLng, accAlt, opts);
+        if (altResult && (!finalResult || altResult.lengthM < finalResult.lengthM)) {
+            finalResult = altResult;
+        }
+    }
+    if (!finalResult) {
         res.status(422).json({ error: 'Δεν βρέθηκε διαδρομή. Βρίσκεσαι εντός campus;' });
         return;
     }
-    res.json(result);
+    res.json(finalResult);
 });
 exports.default = router;
