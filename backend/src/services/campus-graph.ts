@@ -547,6 +547,7 @@ export function calculateRouteFromPosition(
       if (!b) continue;
       const res = projectPointOntoSegment(here, a, b);
       if (!res || res.perpM > MAX_PROJ_DIST_M) continue;
+      if (countApproachCrossings(here, res.proj, u, v, nonPoiAdj, MERGED.coords) > 0) continue;
       const edgeLen = distanceTo(a, b);
       projCandidates.push({
         projId: `__PROJ_${u}_${v}__`,
