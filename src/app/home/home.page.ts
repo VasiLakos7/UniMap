@@ -128,7 +128,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
   private prevFix: L.LatLng | null = null;
   private lastRouteIndex = 0;
 
-  private readonly BUS_STOP = L.latLng(40.657688, 22.801665);
+  private readonly BUS_STOP = L.latLng(40.657454, 22.801670);
   private readonly LAST_POS_KEY = 'unimap_last_position';
 
   private lastProgressAt = 0;

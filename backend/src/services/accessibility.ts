@@ -19,9 +19,7 @@ export function edgeAllowedForWheelchair(tag: EdgeTag): boolean {
 }
 
 export function registerAccessibilityEdges(): void {
-  setEdgeTag('M_DOWN_1', 'M_CENTRAL_TO_DOWN_1', 'STAIRS');
-  setEdgeTag('M_DOWN_1', 'M_BOTTOM_MID', 'STAIRS');
-  setEdgeTag('M_HOSPITAL_APPROACH', 'N0154', 'STAIRS');
+  setEdgeTag('M_DOWN_1', 'M_BOTTOM_MID', 'RAMP');
   setEdgeTag('N0129', 'N0130', 'STAIRS');
   setEdgeTag('N0130', 'N0131', 'STAIRS');
   setEdgeTag('N0131', 'N0132', 'STAIRS');
@@ -51,4 +49,18 @@ export function registerAccessibilityEdges(): void {
   setEdgeTag('N0105', 'N0106', 'STAIRS');
   setEdgeTag('N0079', 'N0078', 'STAIRS');
   setEdgeTag('N0146', 'N0071', 'STAIRS');
+  setEdgeTag('N0134', 'N0150', 'STAIRS');
+  setEdgeTag('N0070', 'N0153', 'RAMP');
+  setEdgeTag('M_53_109_1', 'M_TOP1_TO_53_1', 'RAMP');
+  setEdgeTag('N0053', 'N0042', 'RAMP');
+  setEdgeTag('M_CENTRAL', 'M_CENT_PRE_1', 'STAIRS');
+  setEdgeTag('M_68_TO_BOTTOM_1', 'M_TROFIMON_APPROACH', 'RAMP');
+  setEdgeTag('N0160', 'N0149', 'RAMP');
+  setEdgeTag('N0021', 'M_TOP_6', 'RAMP');
+  setEdgeTag('N0033', 'M_61_TO_31_1', 'RAMP');
+  setEdgeTag('N0160', 'N0157', 'STAIRS');
+  setEdgeTag('N0069', 'N0129', 'STAIRS');
+  setEdgeTag('N0045', 'N0108', 'STAIRS');
+  setEdgeTag('N0038', 'M_HOSPITAL_APPROACH', 'RAMP');
+  setEdgeTag('M_TOP1_TO_75_1', 'N0071', 'RAMP');
 }

@@ -14,6 +14,7 @@ export const POI_NODE_COORDS: Record<string, LatLng> = {
   LIB_ENT: { lat: 40.6572426564661, lng: 22.803505173997745 },
   ENV_ENT: { lat: 40.656512671672225, lng: 22.802679487255652 },
   LOG_ENT: { lat: 40.656488, lng: 22.803707 },
+  LOG_ENT_W: { lat: 40.656448, lng: 22.803696 },   // accessible είσοδος Λογιστικής (ράμπα) → M_58_TO_59_1
   GEOPONIA_ENT: { lat: 40.658552, lng: 22.803704 },
   HOSPITAL_ENT: { lat: 40.657234, lng: 22.803218 },
   CANTEEN_ENT: { lat: 40.658105, lng: 22.802703 },
@@ -47,4 +48,5 @@ export const POI_ALIAS = new Map<string, string>([
 // Για κτίρια με δύο εισόδους: default node → accessible (ράμπα) node
 export const POI_ACCESSIBLE_ALT: Record<string, string> = {
   INF_P_ENT: 'INF_P_ENT_W',
+  LOG_ENT: 'LOG_ENT_W',
 };
