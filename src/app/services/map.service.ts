@@ -52,6 +52,9 @@ export class MapService {
   private mapBearingDeg     = 0;
   private rotTouchPrevAngle: number | null = null;
   private rotAnimReq:        number | null = null;
+  private lastManualRotateAt = 0;
+  private readonly MANUAL_LOCK_MS  = 5000;
+  private readonly AUTO_ROTATE_DEG = 40;
 
   // ── User marker icons ──────────────────────────────────────────────────────
   private readonly userArrowIcon = L.divIcon({
@@ -489,6 +492,15 @@ export class MapService {
       img.style.transformOrigin = '50% 50%';
       img.style.transform = `rotate(${deg}deg)`;
     }
+    // Auto heading-up: rotate map so travel direction is always "up" during navigation.
+    // Skipped for MANUAL_LOCK_MS after the user manually rotates with two fingers.
+    if (this.navCameraActive && Date.now() - this.lastManualRotateAt >= this.MANUAL_LOCK_MS) {
+      const diff = Math.abs(this.normalizeAngleDeg(deg - this.mapBearingDeg));
+      if (diff >= this.AUTO_ROTATE_DEG) {
+        this.mapBearingDeg = deg;
+        this.applyMapRotationNow();
+      }
+    }
   }
 
   /** Counter-rotate destination pins so they stay upright when the map container
@@ -735,6 +747,7 @@ export class MapService {
       const angle = this.getTwoFingerAngle(e.touches);
       this.mapBearingDeg    = this.normalizeAngleDeg(this.mapBearingDeg - (angle - this.rotTouchPrevAngle));
       this.rotTouchPrevAngle = angle;
+      this.lastManualRotateAt = Date.now();
       this.applyMapRotationNow();
     }, { passive: true });
 

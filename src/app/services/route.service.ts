@@ -57,10 +57,10 @@ export class RouteService {
   private snapJustEngaged = false;
   private lastSnapLL: L.LatLng | null = null;
   private lastOnRouteLL: L.LatLng | null = null; // last confirmed on-route position, survives snap exit
-  private readonly SNAP_ENTER_M = 42;   // campus GPS drifts 30-35m near buildings — always engage
-  private readonly SNAP_EXIT_M  = 55;   // only exit when clearly rerouting
+  private readonly SNAP_ENTER_M = 30;   // campus GPS drifts ~25m near buildings
+  private readonly SNAP_EXIT_M  = 40;   // exit only when clearly off-route
   private readonly SNAP_FULL_M  = 5;    // full snap within 5m
-  private readonly SNAP_BLEND_M = 42;   // blend zone matches enter zone
+  private readonly SNAP_BLEND_M = 30;   // blend zone matches enter zone
   private readonly SNAP_MIN_SPEED_MPS = 0.0;  // always allow snap — speed unreliable on Android
 
   // Reroute offline circuit-breaker
@@ -833,8 +833,8 @@ export class RouteService {
         : null;
     };
 
-    // First try a tight window around the last known segment (prevent parallel-path jumps).
-    const WINDOW = 4;
+    // Window of 2: covers current + next 2 segments without big intersection jumps.
+    const WINDOW = 2;
     const local = searchWindow(this.lastSnapSegIndex, this.lastSnapSegIndex + WINDOW);
 
     if (local && local.distM <= this.SNAP_EXIT_M) {

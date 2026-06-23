@@ -31,12 +31,9 @@
                 "output": "./svg"
               }
             ],
-            "styles": ["src/global.scss", "src/theme/variables.scss", "node_modules/leaflet/dist/leaflet.css", "node_modules/leaflet-routing-machine/dist/leaflet-routing-machine.css"
-],
+            "styles": ["src/global.scss", "src/theme/variables.scss", "node_modules/leaflet/dist/leaflet.css"],
             "scripts": [
-    "node_modules/leaflet/dist/leaflet.js",
-    "node_modules/leaflet-routing-machine/dist/leaflet-routing-machine.min.js",
-    "node_modules/leaflet-control-geocoder/dist/Control.Geocoder.js"
+    "node_modules/leaflet/dist/leaflet.js"
 ]
           },
           "configurations": {
@@ -116,10 +113,8 @@
                 "output": "./svg"
               }
             ],
-            "styles": ["src/global.scss", "src/theme/variables.scss", "node_modules/leaflet/dist/leaflet.css", "node_modules/leaflet-routing-machine/dist/leaflet-routing-machine.css",
-            "node_modules/leaflet-control-geocoder/dist/Control.Geocoder.css"],
-            "scripts": [ "node_modules/leaflet-routing-machine/dist/leaflet-routing-machine.min.js",
-  "node_modules/leaflet-control-geocoder/dist/Control.Geocoder.js"]
+            "styles": ["src/global.scss", "src/theme/variables.scss", "node_modules/leaflet/dist/leaflet.css"],
+            "scripts": ["node_modules/leaflet/dist/leaflet.js"]
           },
           "configurations": {
             "ci": {

@@ -1236,7 +1236,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
     let seg = Math.max(0, Math.min(route.length - 2, this.lastRouteIndex || 0));
 
     const MAX_OFFROUTE_M = 60;  // campus GPS can be 30m+ off near buildings
-    const T_REACH = 0.88;       // advance segment when 88% through (projection-based, GPS-noise-robust)
+    const T_REACH = 0.50;       // advance segment past midpoint — GPS longitudinal noise needs lower threshold
 
     const projectSeg = (s: number) => this.projectOnSegment(here, route[s], route[s + 1]);
 

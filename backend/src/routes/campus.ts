@@ -44,22 +44,13 @@ router.post('/', (req: Request, res: Response) => {
   }
 
   // 2. Για wheelchair: αντικατέστησε με accessible είσοδο αν υπάρχει
-  //    Για non-wheelchair: δοκίμασε και τις δύο εισόδους, επέστρεψε την κοντύτερη
   const accAlt = getAccessibleAlt(endNodeId);
   if (wheelchair && accAlt) {
     endNodeId = accAlt;
   }
 
   // 3. Υπολόγισε διαδρομή με virtual start node στη θέση του χρήστη
-  const result = calculateRouteFromPosition(fromLat, fromLng, endNodeId, opts);
-
-  let finalResult = result;
-  if (!wheelchair && accAlt) {
-    const altResult = calculateRouteFromPosition(fromLat, fromLng, accAlt, opts);
-    if (altResult && (!finalResult || altResult.lengthM < finalResult.lengthM)) {
-      finalResult = altResult;
-    }
-  }
+  const finalResult = calculateRouteFromPosition(fromLat, fromLng, endNodeId, opts);
 
   if (!finalResult) {
     res.status(422).json({ error: 'Δεν βρέθηκε διαδρομή. Βρίσκεσαι εντός campus;' });

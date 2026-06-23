@@ -37,27 +37,34 @@ export class ApiService {
   }
 
   getCampusRoute(params: CampusRouteParams): Promise<CampusRouteResponse> {
-    const TIMEOUT_MS = 10000;
+    const TIMEOUT_MS = 28000;  // Render.com cold start can take ~25s
 
-    const req: Promise<CampusRouteResponse> = Capacitor.isNativePlatform()
-      ? CapacitorHttp.post({
-          url: `${this.baseUrl}/api/route/campus`,
-          headers: { 'Content-Type': 'application/json' },
-          data: params,
-        }).then(r => {
-          if (r.status < 200 || r.status >= 300) {
-            throw Object.assign(new Error(`HTTP ${r.status}`), { status: r.status });
-          }
-          return r.data as CampusRouteResponse;
-        })
-      : firstValueFrom(
-          this.http.post<CampusRouteResponse>(`${this.baseUrl}/api/route/campus`, params)
-        );
+    const attempt = (): Promise<CampusRouteResponse> => {
+      const req: Promise<CampusRouteResponse> = Capacitor.isNativePlatform()
+        ? CapacitorHttp.post({
+            url: `${this.baseUrl}/api/route/campus`,
+            headers: { 'Content-Type': 'application/json' },
+            data: params,
+          }).then(r => {
+            if (r.status < 200 || r.status >= 300) {
+              throw Object.assign(new Error(`HTTP ${r.status}`), { status: r.status });
+            }
+            return r.data as CampusRouteResponse;
+          })
+        : firstValueFrom(
+            this.http.post<CampusRouteResponse>(`${this.baseUrl}/api/route/campus`, params)
+          );
 
-    const timeoutP = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('Route request timed out')), TIMEOUT_MS)
+      const timeoutP = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Route request timed out')), TIMEOUT_MS)
+      );
+
+      return Promise.race([req, timeoutP]);
+    };
+
+    // Retry once after 4s if first attempt fails (covers Render.com cold-start wake-up)
+    return attempt().catch(() =>
+      new Promise<void>(r => setTimeout(r, 4000)).then(() => attempt())
     );
-
-    return Promise.race([req, timeoutP]);
   }
 }

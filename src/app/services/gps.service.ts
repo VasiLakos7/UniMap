@@ -284,6 +284,10 @@ export class GpsService {
 
     const rawNow = L.latLng(lat, lng);
 
+    // GPS is alive — reset stale watchdog even if this fix gets filtered below.
+    // "Stale" = no GPS signal at all, not "GPS noisy."
+    this.resetStaleTimer();
+
     // ── 1. Jump filter ──────────────────────────────────────────────────────
     if (this.hasInitialFix && this.isLikelyJump(rawNow, nowMs)) return;
 
