@@ -628,7 +628,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    const next = this.maneuvers.find((m) => m.i > closest);
+    const next = this.maneuvers.find((m) => m.i >= closest);
     const round10 = (m: number) => Math.max(10, Math.round(m / 10) * 10);
 
     if (!next) {
@@ -640,7 +640,11 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    const distToTurn = currentPoint.distanceTo(points[next.i]);
+    // Along-route distance from current position to the turn vertex
+    let distToTurn = currentPoint.distanceTo(points[closest]);
+    for (let k = closest; k < next.i && k < points.length - 1; k++) {
+      distToTurn += points[k].distanceTo(points[k + 1]);
+    }
     const d = round10(distToTurn);
 
     this.navInstructionKey = next.type === 'left' ? 'NAV.TURN_LEFT_IN' : 'NAV.TURN_RIGHT_IN';
@@ -759,17 +763,7 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
         if (!split) {
           // completely off map — skip update
         } else if (!this.navigationActive && split.bestDistM > this.PREVIEW_REROUTE_DIST_M) {
-          // Preview mode: user walked too far off route — clear the preview
-          if (this.outsideCampus) return; // keep preview until user dismisses manually
-          this.mapService.removeRouting(true);
-          this.routeReady = false;
-          this.hasRoutePreview = false;
-          this.maneuvers = [];
-          this.lockIfHasDirections();
-          const dest = this.currentDestination!;
-          const destLL = L.latLng(dest.entranceLat ?? dest.lat, dest.entranceLng ?? dest.lng);
-          this.setDistanceUiFromDirect(here, destLL);
-          return;
+          // Campus GPS noise can easily be 30-50 m off — keep the line visible, skip update
         } else {
           // Navigation mode: always update (reroute handles off-route correction)
           // Preview mode on-route: also update
@@ -1235,8 +1229,10 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
 
     let seg = Math.max(0, Math.min(route.length - 2, this.lastRouteIndex || 0));
 
-    const MAX_OFFROUTE_M = 60;  // campus GPS can be 30m+ off near buildings
-    const T_REACH = 0.50;       // advance segment past midpoint — GPS longitudinal noise needs lower threshold
+    const MAX_OFFROUTE_M = 60;
+    const SHORT_SEG_M   = 10;   // segments shorter than this use a lower t threshold
+    const T_SHORT       = 0.80; // short segment: advance when 80% through
+    const T_LONG        = 0.88; // long segment: advance when 88% through
 
     const projectSeg = (s: number) => this.projectOnSegment(here, route[s], route[s + 1]);
 
@@ -1253,10 +1249,9 @@ export class HomePage implements OnInit, OnDestroy, AfterViewInit {
     }
 
     while (seg < route.length - 2) {
-      // Use projection parameter (t) to advance — robust when GPS is offset from route.
-      // t=1 means GPS projects past the end of this segment → move to next.
-      if (pr.t < T_REACH) break;
-
+      const segLen = route[seg].distanceTo(route[seg + 1]);
+      const tReach = segLen <= SHORT_SEG_M ? T_SHORT : T_LONG;
+      if (pr.t < tReach) break;
       seg += 1;
       pr = projectSeg(seg);
     }
